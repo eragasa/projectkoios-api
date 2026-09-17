@@ -1,10 +1,23 @@
+from __future__ import annotations
+
+from typing import Protocol
+
 from fastapi import APIRouter
 from projectkoios.api.models import SearchRequest, SearchResult
-from projectkoios.search.service import SearchService
+from projectkoios.search.models import ChunkSearchResult
+
+
+class SearchProvider(Protocol):
+    def search(
+        self,
+        query: str,
+        *,
+        limit: int = 10,
+    ) -> list[ChunkSearchResult]: ...
 
 
 def create_search_router(
-    search_service: SearchService,
+    search_service: SearchProvider,
 ) -> APIRouter:
     router = APIRouter(prefix="/search", tags=["search"])
 

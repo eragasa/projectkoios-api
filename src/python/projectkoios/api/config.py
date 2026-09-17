@@ -13,9 +13,9 @@ class DatabaseConfiguration:
 class ProjectKoiosAppConfiguration:
     title: str = "Project Koios"
     version: str = "0.0.0"
-    debug: bool = True
+    debug: bool = False
 
-    vault: VaultConfiguration \
-        = field(default_factory=VaultConfiguration)
-    database: DatabaseConfiguration \
-        = field(default_factory=DatabaseConfiguration)
+    vault: VaultConfiguration = field(default_factory=VaultConfiguration)
+    database: DatabaseConfiguration = field(
+        default_factory=DatabaseConfiguration
+    )

@@ -7,32 +7,40 @@ These tests verify that create_core_router() produces a router with the
 expected root and health-check endpoints.
 """
 
+import asyncio
+
+import httpx2
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from projectkoios.api.routers.core import create_core_router
 
 
 @pytest.fixture
-def client() -> TestClient:
-    """
-    Create a TestClient containing only the core router.
-
-    This isolates CoreRouter behavior from ProjectKoiosApp composition.
-    """
-
-    app = FastAPI()
-    app.include_router(create_core_router())
-
-    return TestClient(app)
+def app() -> FastAPI:
+    """Create an application containing only the core router."""
+    application = FastAPI()
+    application.include_router(create_core_router())
+    return application
 
 
-def test__root_endpoint__returns_project_message(client: TestClient) -> None:
+def _get(app: FastAPI, path: str) -> httpx2.Response:
+    async def send() -> httpx2.Response:
+        transport = httpx2.ASGITransport(app=app)
+        async with httpx2.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            return await client.get(path)
+
+    return asyncio.run(send())
+
+
+def test__root_endpoint__returns_project_message(app: FastAPI) -> None:
     """
     GET / should return the root Project Koios message.
     """
 
-    response = client.get("/")
+    response = _get(app, "/")
 
     assert response.status_code == 200
     assert response.json() == {
@@ -40,12 +48,12 @@ def test__root_endpoint__returns_project_message(client: TestClient) -> None:
     }
 
 
-def test__health_endpoint__returns_ok(client: TestClient) -> None:
+def test__health_endpoint__returns_ok(app: FastAPI) -> None:
     """
     GET /health should return a simple health-check response.
     """
 
-    response = client.get("/health")
+    response = _get(app, "/health")
 
     assert response.status_code == 200
     assert response.json() == {

@@ -1,10 +1,11 @@
 # tests/projectkoios/api/routers/search/test__create_search_router.py
 
+import asyncio
 from pathlib import Path
 
+import httpx2
 import pytest
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from projectkoios.api.routers.search import create_search_router
 from projectkoios.chunking import TextChunk
 from projectkoios.search.models import ChunkSearchResult
@@ -41,24 +42,34 @@ class FakeSearchService:
 
 
 @pytest.fixture
-def client() -> TestClient:
-    """
-    Create a TestClient containing only the search router.
-
-    This isolates search router behavior from full ProjectKoiosApp
-    composition.
-    """
-
-    app = FastAPI()
-    app.include_router(create_search_router(FakeSearchService()))
-
-    return TestClient(app)
+def app() -> FastAPI:
+    """Create an application containing only the search router."""
+    application = FastAPI()
+    application.include_router(create_search_router(FakeSearchService()))
+    return application
 
 
-def test__search_endpoint__returns_results(client: TestClient) -> None:
-    response = client.post(
+def _post(
+    app: FastAPI,
+    path: str,
+    payload: dict[str, object],
+) -> httpx2.Response:
+    async def send() -> httpx2.Response:
+        transport = httpx2.ASGITransport(app=app)
+        async with httpx2.AsyncClient(
+            transport=transport,
+            base_url="http://test",
+        ) as client:
+            return await client.post(path, json=payload)
+
+    return asyncio.run(send())
+
+
+def test__search_endpoint__returns_results(app: FastAPI) -> None:
+    response = _post(
+        app,
         "/search",
-        json={
+        {
             "query": "particle",
             "limit": 10,
         },
@@ -83,10 +94,11 @@ def test__search_endpoint__returns_results(client: TestClient) -> None:
     assert result["object_type"] == "note"
 
 
-def test__search_endpoint__rejects_empty_query(client: TestClient) -> None:
-    response = client.post(
+def test__search_endpoint__rejects_empty_query(app: FastAPI) -> None:
+    response = _post(
+        app,
         "/search",
-        json={
+        {
             "query": "",
             "limit": 10,
         },
@@ -96,13 +108,29 @@ def test__search_endpoint__rejects_empty_query(client: TestClient) -> None:
 
 
 def test__search_endpoint__rejects_limit_above_maximum(
-    client: TestClient,
+    app: FastAPI,
 ) -> None:
-    response = client.post(
+    response = _post(
+        app,
         "/search",
-        json={
+        {
             "query": "particle",
             "limit": 100,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test__search_endpoint__rejects_unsupported_filters(
+    app: FastAPI,
+) -> None:
+    response = _post(
+        app,
+        "/search",
+        {
+            "query": "particle",
+            "object_types": ["note"],
         },
     )
 

@@ -11,7 +11,7 @@ import multiprocessing
 import time
 from collections.abc import Iterator
 
-import httpx
+import httpx2
 import pytest
 import uvicorn
 
@@ -59,7 +59,7 @@ def uvicorn_process() -> Iterator[multiprocessing.Process]:
         process.join(timeout=5.0)
 
 
-def wait_for_health_endpoint() -> httpx.Response | None:
+def wait_for_health_endpoint() -> httpx2.Response | None:
     """
     Poll the health endpoint until the server is ready or the deadline expires.
     """
@@ -68,7 +68,7 @@ def wait_for_health_endpoint() -> httpx.Response | None:
 
     while time.time() < deadline:
         try:
-            response = httpx.get(
+            response = httpx2.get(
                 f"{BASE_URL}/health",
                 timeout=1.0,
             )
@@ -76,7 +76,7 @@ def wait_for_health_endpoint() -> httpx.Response | None:
             if response.status_code == 200:
                 return response
 
-        except httpx.ConnectError:
+        except httpx2.ConnectError:
             time.sleep(0.1)
 
     return None
@@ -111,7 +111,7 @@ def test__uvicorn_process__serves_health_endpoint(
 
     # Do not test every API endpoint here.
     #
-    # Endpoint behavior belongs in TestClient-based router/API tests, such as:
+    # Endpoint behavior belongs in in-process ASGI transport tests, such as:
     #
     #     tests/api/routers/core/test__create_core_router.py
     #         GET /
