@@ -21,9 +21,7 @@ class FakeSearchService:
         results = [
             ChunkSearchResult(
                 chunk=TextChunk(
-                    source_path=Path(
-                        "knowledge/quantum/particle_in_a_box.md"
-                    ),
+                    source_path=Path("knowledge/quantum/particle_in_a_box.md"),
                     source_kind="note",
                     language="markdown",
                     chunk_index=0,
