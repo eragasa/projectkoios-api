@@ -78,3 +78,9 @@ Default local paths are:
 
 The decision database is created with `0600` permissions. Source requests are
 restricted to filenames already present in the review bundle.
+
+## Continuous integration
+
+Hosted verification is an ordered, read-only GitHubTask sequence documented in
+[`docs/ci.md`](docs/ci.md). It uses the committed Python lock and exact sibling
+Project Koios revisions; it does not perform repository or release mutations.

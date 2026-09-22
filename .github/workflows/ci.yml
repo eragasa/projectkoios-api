@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  github-tasks:
+    name: Python 3.14 task sequence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: GitHubTask 01 · Check out API candidate
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          path: projectkoios-api
+          persist-credentials: false
+
+      - name: GitHubTask 02 · Check out locked Project Koios core
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios
+          ref: 0b0988d9c9e8bc778b3e90eb20c406e3c6a4a90e
+          path: projectkoios
+          persist-credentials: false
+
+      - name: GitHubTask 03 · Check out locked search component
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios-search
+          ref: 686d832acae9abeb72f4575738241e0ed858394f
+          path: projectkoios-search
+          persist-credentials: false
+
+      - name: GitHubTask 04 · Check out locked Obsidian component
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios-obsidian
+          ref: 21820e9fb06306960187cd5853c8b5da45bdcd55
+          path: projectkoios-obsidian
+          persist-credentials: false
+
+      - name: GitHubTask 05 · Check out locked references component
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios-references
+          ref: 172ab66af5e1677a16a6d98dc9073b970a21fdc3
+          path: projectkoios-references
+          persist-credentials: false
+
+      - name: GitHubTask 06 · Install locked Python toolchain
+        uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+        with:
+          version: "0.11.25"
+          python-version: "3.14"
+          working-directory: projectkoios-api
+          enable-cache: false
+
+      - name: GitHubTask 07 · Synchronize locked environment
+        working-directory: projectkoios-api
+        run: uv sync --locked --all-extras
+
+      - name: GitHubTask 08 · Check formatting
+        working-directory: projectkoios-api
+        run: .venv/bin/python -m ruff format --check src/python tests
+
+      - name: GitHubTask 09 · Lint
+        working-directory: projectkoios-api
+        run: .venv/bin/python -m ruff check src/python tests
+
+      - name: GitHubTask 10 · Type-check API source
+        working-directory: projectkoios-api
+        run: .venv/bin/python -m mypy src/python/projectkoios/api
+
+      - name: GitHubTask 11 · Run tests
+        working-directory: projectkoios-api
+        run: .venv/bin/python -m pytest -q
