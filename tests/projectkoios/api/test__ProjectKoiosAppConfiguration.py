@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from projectkoios.api.config import (
     DeploymentProfile,
@@ -35,6 +37,19 @@ def test__deployment_profile__rejects_unknown_value(
         match="KOIOS_DEPLOYMENT_PROFILE must be one of: public, control",
     ):
         ProjectKoiosAppConfiguration()
+
+
+def test__project_catalog__reads_explicit_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KOIOS_PROJECT_CATALOG", "~/koios/projects.json")
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert (
+        configuration.projects.catalog_path
+        == Path("~/koios/projects.json").expanduser()
+    )
 
 
 def test__github_repositories__parse_explicit_allowlist(

@@ -58,6 +58,13 @@ class PublicationConfiguration:
 
 
 @dataclass(frozen=True)
+class ProjectConfiguration:
+    catalog_path: Path | None = field(
+        default_factory=lambda: _configured_project_catalog()
+    )
+
+
+@dataclass(frozen=True)
 class GitHubConfiguration:
     repositories: tuple[str, ...] = field(
         default_factory=lambda: _configured_github_repositories()
@@ -87,6 +94,7 @@ class ProjectKoiosAppConfiguration:
     publications: PublicationConfiguration = field(
         default_factory=PublicationConfiguration
     )
+    projects: ProjectConfiguration = field(default_factory=ProjectConfiguration)
     github: GitHubConfiguration = field(default_factory=GitHubConfiguration)
 
 
@@ -103,6 +111,13 @@ def _configured_deployment_profile() -> DeploymentProfile:
 
 def _configured_publication_catalog() -> Path | None:
     catalog_path = os.environ.get("KOIOS_PUBLICATION_CATALOG")
+    if catalog_path is None:
+        return None
+    return Path(catalog_path).expanduser()
+
+
+def _configured_project_catalog() -> Path | None:
+    catalog_path = os.environ.get("KOIOS_PROJECT_CATALOG")
     if catalog_path is None:
         return None
     return Path(catalog_path).expanduser()
