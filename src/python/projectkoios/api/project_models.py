@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from enum import StrEnum
 from typing import Literal
 
@@ -31,6 +32,18 @@ class PublicProjectLink(BaseModel):
     url: HttpUrl
 
 
+class PublicProjectReview(BaseModel):
+    record_version: str = Field(pattern=r"^[0-9]+\.[0-9]+\.[0-9]+$")
+    reviewed_on: date
+    review_url: HttpUrl
+
+
+class PublicProjectSourceRevision(BaseModel):
+    repository: str = Field(pattern=r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+    revision: str = Field(pattern=r"^[0-9a-f]{40}$")
+    url: HttpUrl
+
+
 class PublicProjectRecord(BaseModel):
     id: str = Field(pattern=_IDENTIFIER)
     slug: str = Field(pattern=_IDENTIFIER)
@@ -38,6 +51,11 @@ class PublicProjectRecord(BaseModel):
     tagline: str = Field(min_length=1, max_length=300)
     summary: str = Field(min_length=1, max_length=3000)
     status: PublicProjectStatus
+    review: PublicProjectReview
+    source_revisions: tuple[PublicProjectSourceRevision, ...] = Field(
+        min_length=1, max_length=20
+    )
+    evidence: tuple[PublicProjectLink, ...] = Field(min_length=1, max_length=30)
     topics: tuple[str, ...] = Field(default=(), max_length=20)
     purposes: tuple[str, ...] = Field(default=(), min_length=1, max_length=20)
     principles: tuple[str, ...] = Field(default=(), max_length=20)
@@ -46,6 +64,13 @@ class PublicProjectRecord(BaseModel):
     )
     limitations: tuple[str, ...] = Field(default=(), max_length=20)
     links: tuple[PublicProjectLink, ...] = Field(default=(), max_length=20)
+
+    @model_validator(mode="after")
+    def source_repositories_are_unique(self) -> PublicProjectRecord:
+        repositories = [source.repository for source in self.source_revisions]
+        if len(repositories) != len(set(repositories)):
+            raise ValueError("source revision repositories must be unique")
+        return self
 
 
 class PublicProjectCatalog(BaseModel):

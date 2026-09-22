@@ -51,6 +51,13 @@ class LiteratureReviewConfiguration:
 
 
 @dataclass(frozen=True)
+class CourseConfiguration:
+    catalog_path: Path | None = field(
+        default_factory=lambda: _configured_course_catalog()
+    )
+
+
+@dataclass(frozen=True)
 class PublicationConfiguration:
     catalog_path: Path | None = field(
         default_factory=lambda: _configured_publication_catalog()
@@ -91,6 +98,7 @@ class ProjectKoiosAppConfiguration:
     literature_review: LiteratureReviewConfiguration = field(
         default_factory=LiteratureReviewConfiguration
     )
+    courses: CourseConfiguration = field(default_factory=CourseConfiguration)
     publications: PublicationConfiguration = field(
         default_factory=PublicationConfiguration
     )
@@ -107,6 +115,13 @@ def _configured_deployment_profile() -> DeploymentProfile:
         raise ValueError(
             f"KOIOS_DEPLOYMENT_PROFILE must be one of: {choices}"
         ) from error
+
+
+def _configured_course_catalog() -> Path | None:
+    catalog_path = os.environ.get("KOIOS_COURSE_CATALOG")
+    if catalog_path is None:
+        return None
+    return Path(catalog_path).expanduser()
 
 
 def _configured_publication_catalog() -> Path | None:

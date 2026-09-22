@@ -16,6 +16,27 @@ def _project_record() -> dict[str, object]:
         "tagline": "Evidence-connected scientific work.",
         "summary": "A bounded public project overview.",
         "status": "active-development",
+        "review": {
+            "record_version": "1.0.0",
+            "reviewed_on": "2026-09-22",
+            "review_url": "https://github.com/eragasa/projectkoios/pull/6",
+        },
+        "source_revisions": [
+            {
+                "repository": "eragasa/projectkoios",
+                "revision": "fc551cf841199c219df76f672e37f2c5e494b282",
+                "url": (
+                    "https://github.com/eragasa/projectkoios/commit/"
+                    "fc551cf841199c219df76f672e37f2c5e494b282"
+                ),
+            }
+        ],
+        "evidence": [
+            {
+                "label": "Public overview review",
+                "url": "https://github.com/eragasa/projectkoios/pull/6",
+            }
+        ],
         "topics": ["research software"],
         "purposes": ["Connect technical work to its evidence."],
         "principles": ["Preserve explicit provenance."],
@@ -60,6 +81,31 @@ def test__list_projects__loads_bounded_public_project(tmp_path: Path) -> None:
     assert len(catalog.projects) == 1
     assert catalog.projects[0].id == "projectkoios"
     assert catalog.projects[0].capabilities[0].status == "available"
+    assert catalog.projects[0].review.record_version == "1.0.0"
+    assert (
+        catalog.projects[0].source_revisions[0].revision.startswith("fc551cf8")
+    )
+
+
+def test__initialization__rejects_duplicate_source_repository(
+    tmp_path: Path,
+) -> None:
+    project = _project_record()
+    source_revisions = list(project["source_revisions"])
+    project["source_revisions"] = [source_revisions[0], source_revisions[0]]
+    catalog_path = tmp_path / "projects.json"
+    catalog_path.write_text(
+        json.dumps(
+            {
+                "schema_version": "1",
+                "projects": [project],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(PublicProjectCatalogError):
+        PublicProjectRepository(catalog_path)
 
 
 @pytest.mark.parametrize(

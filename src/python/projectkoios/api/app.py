@@ -6,6 +6,7 @@ from projectkoios.api.config import (
     DeploymentProfile,
     ProjectKoiosAppConfiguration,
 )
+from projectkoios.api.courses import PublicCourseRepository
 from projectkoios.api.github_tasks import GitHubTaskReader
 from projectkoios.api.literature_review import LiteratureReviewRepository
 from projectkoios.api.projects import PublicProjectRepository
@@ -14,6 +15,7 @@ from projectkoios.api.routers.citation_review import (
     create_citation_review_router,
 )
 from projectkoios.api.routers.core import create_core_router
+from projectkoios.api.routers.courses import create_courses_router
 from projectkoios.api.routers.github_tasks import (
     GitHubTaskProvider,
     create_github_tasks_router,
@@ -35,6 +37,9 @@ class ProjectKoiosApp:
         github_tasks: GitHubTaskProvider | None = None,
     ) -> None:
         self.configuration = configuration or ProjectKoiosAppConfiguration()
+        self.courses = PublicCourseRepository(
+            self.configuration.courses.catalog_path
+        )
         self.publications = PublicationRepository(
             self.configuration.publications.catalog_path
         )
@@ -52,6 +57,7 @@ class ProjectKoiosApp:
         )
 
         self.app.include_router(create_core_router())
+        self.app.include_router(create_courses_router(self.courses))
         self.app.include_router(create_projects_router(self.projects))
         self.app.include_router(create_publications_router(self.publications))
 

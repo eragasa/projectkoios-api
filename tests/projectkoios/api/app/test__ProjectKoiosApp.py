@@ -99,6 +99,7 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     )
     paths = set(app.openapi()["paths"])
 
+    assert "/api/courses" in paths
     assert "/api/projects" in paths
     assert "/api/publications" in paths
     assert "/search" not in paths
@@ -116,6 +117,7 @@ def test__create_app__control_profile_includes_control_routes() -> None:
     )
     paths = set(app.openapi()["paths"])
 
+    assert "/api/courses" in paths
     assert "/api/projects" in paths
     assert "/api/publications" in paths
     assert "/search" in paths
