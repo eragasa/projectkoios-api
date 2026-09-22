@@ -1,12 +1,14 @@
 # dev/spike_fastapi_app_boundary/tests/app/test__ProjectKoiosApp.py
 
 from dataclasses import dataclass
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI
 from projectkoios.api.app import ProjectKoiosApp  # noqa: E402
 from projectkoios.api.config import (  # noqa: E402
     DeploymentProfile,
+    OrganizerConfiguration,
     ProjectKoiosAppConfiguration,
 )
 
@@ -106,13 +108,20 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     assert "/github/tasks" not in paths
     assert "/citation-reviews" not in paths
     assert "/literature-review/progress" not in paths
+    assert "/organizer/status" not in paths
+    assert "/organizer/proposals" not in paths
     assert app.state.deployment_profile == "public"
 
 
-def test__create_app__control_profile_includes_control_routes() -> None:
+def test__create_app__control_profile_includes_control_routes(
+    tmp_path: Path,
+) -> None:
     app = ProjectKoiosApp.create_app(
         configuration=ProjectKoiosAppConfiguration(
-            deployment_profile=DeploymentProfile.CONTROL
+            deployment_profile=DeploymentProfile.CONTROL,
+            organizer=OrganizerConfiguration(
+                catalog_path=tmp_path / "organizer.sqlite3"
+            ),
         )
     )
     paths = set(app.openapi()["paths"])
@@ -124,4 +133,6 @@ def test__create_app__control_profile_includes_control_routes() -> None:
     assert "/github/tasks" in paths
     assert "/citation-reviews" in paths
     assert "/literature-review/progress" in paths
+    assert "/organizer/status" in paths
+    assert "/organizer/proposals" in paths
     assert app.state.deployment_profile == "control"

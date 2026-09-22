@@ -8,7 +8,8 @@ record.
 The sequence:
 
 1. checks out the API candidate;
-2. checks out exact reviewed revisions of its four Project Koios source dependencies;
+2. checks out exact reviewed revisions of its five Project Koios source dependencies,
+   including the metadata-only organization agent;
 3. installs the exact `uv` and Python versions;
 4. synchronizes `uv.lock` without updating it;
 5. validates the exact product-owned public course and project catalogs through the

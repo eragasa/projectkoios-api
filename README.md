@@ -10,7 +10,7 @@ The API has two explicit profiles selected with `KOIOS_DEPLOYMENT_PROFILE`:
 
 - `public` is the fail-closed default. It exposes core health and the public
   course, project, and publication catalogs, but does not construct or register search,
-  citation-review, or literature-review services.
+  organizer, citation-review, or literature-review services.
 - `control` exposes the public endpoints plus private operational endpoints. It is
   intended for one operator on loopback or a separately protected private network.
 
@@ -87,6 +87,22 @@ The catalog uses schema version `1`:
 
 Catalog order is editorial order. Only records in this file are public; private tasks,
 drafts, source paths, and review queues are not inferred or projected into it.
+
+## Local organization and course-review projection
+
+The control profile exposes a private organization-agent boundary:
+
+- `GET /organizer/status` returns current read-only counts and activity.
+- `PUT /organizer/control` records the requested `on`, `pause`, or `off` mode.
+- `GET /organizer/events` and `/organizer/events/stream` return bounded event metadata.
+- `GET /organizer/proposals` returns at most 500 metadata-only categorization
+  proposals and defaults to `life_domain=teaching` for course review.
+
+Configure its SQLite catalog with `KOIOS_ORGANIZER_CATALOG`. The API does not start or
+supervise the worker, access file payload bytes, mutate source files, or publish course
+materials. Proposal filtering and course-code matching are review aids, not identity,
+rights, privacy, or publication decisions. The public profile does not construct the
+catalog or expose these routes.
 
 ## Local citation review
 
