@@ -5,7 +5,10 @@ from dataclasses import dataclass
 import pytest
 from fastapi import FastAPI
 from projectkoios.api.app import ProjectKoiosApp  # noqa: E402
-from projectkoios.api.config import ProjectKoiosAppConfiguration  # noqa: E402
+from projectkoios.api.config import (  # noqa: E402
+    DeploymentProfile,
+    ProjectKoiosAppConfiguration,
+)
 
 
 @dataclass(frozen=True)
@@ -86,3 +89,33 @@ def test__create_app__uses_configuration(
     assert app.title == case.expected.title
     assert app.version == case.expected.version
     assert app.debug is case.expected.debug
+
+
+def test__create_app__public_profile_excludes_control_routes() -> None:
+    app = ProjectKoiosApp.create_app(
+        configuration=ProjectKoiosAppConfiguration(
+            deployment_profile=DeploymentProfile.PUBLIC
+        )
+    )
+    paths = set(app.openapi()["paths"])
+
+    assert "/api/publications" in paths
+    assert "/search" not in paths
+    assert "/citation-reviews" not in paths
+    assert "/literature-review/progress" not in paths
+    assert app.state.deployment_profile == "public"
+
+
+def test__create_app__control_profile_includes_control_routes() -> None:
+    app = ProjectKoiosApp.create_app(
+        configuration=ProjectKoiosAppConfiguration(
+            deployment_profile=DeploymentProfile.CONTROL
+        )
+    )
+    paths = set(app.openapi()["paths"])
+
+    assert "/api/publications" in paths
+    assert "/search" in paths
+    assert "/citation-reviews" in paths
+    assert "/literature-review/progress" in paths
+    assert app.state.deployment_profile == "control"
