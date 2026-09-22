@@ -58,6 +58,14 @@ class PublicationConfiguration:
 
 
 @dataclass(frozen=True)
+class GitHubConfiguration:
+    repositories: tuple[str, ...] = field(
+        default_factory=lambda: _configured_github_repositories()
+    )
+    executable: str = field(default_factory=lambda: _configured_github_cli())
+
+
+@dataclass(frozen=True)
 class ProjectKoiosAppConfiguration:
     title: str = "Project Koios"
     version: str = "0.0.0"
@@ -79,6 +87,7 @@ class ProjectKoiosAppConfiguration:
     publications: PublicationConfiguration = field(
         default_factory=PublicationConfiguration
     )
+    github: GitHubConfiguration = field(default_factory=GitHubConfiguration)
 
 
 def _configured_deployment_profile() -> DeploymentProfile:
@@ -97,6 +106,31 @@ def _configured_publication_catalog() -> Path | None:
     if catalog_path is None:
         return None
     return Path(catalog_path).expanduser()
+
+
+def _configured_github_repositories() -> tuple[str, ...]:
+    raw_repositories = os.environ.get("KOIOS_GITHUB_REPOSITORIES", "")
+    if not raw_repositories:
+        return ()
+    repositories = tuple(
+        repository.strip() for repository in raw_repositories.split(",")
+    )
+    if any(not repository for repository in repositories):
+        raise ValueError("KOIOS_GITHUB_REPOSITORIES contains an empty identity")
+    if len(repositories) > 20:
+        raise ValueError(
+            "KOIOS_GITHUB_REPOSITORIES is limited to 20 identities"
+        )
+    if len(repositories) != len(set(repositories)):
+        raise ValueError("KOIOS_GITHUB_REPOSITORIES contains a duplicate")
+    return repositories
+
+
+def _configured_github_cli() -> str:
+    executable = os.environ.get("KOIOS_GITHUB_CLI", "gh").strip()
+    if not executable or len(executable) > 4096:
+        raise ValueError("KOIOS_GITHUB_CLI must name one executable")
+    return executable
 
 
 def _configured_literature_review_run() -> Path | None:

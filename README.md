@@ -79,6 +79,25 @@ Default local paths are:
 The decision database is created with `0600` permissions. Source requests are
 restricted to filenames already present in the review bundle.
 
+## Live GitHubTask projection
+
+The control profile exposes `GET /github/tasks`. Configure its explicit repository
+allowlist with comma-separated canonical identities:
+
+```bash
+KOIOS_GITHUB_REPOSITORIES=eragasa/projectkoios-api,eragasa/projectkoios-web
+```
+
+The server invokes the authenticated `gh api` client without a shell and reads bounded
+repository metadata, at most 20 open pull requests, the latest workflow run, and its
+first 20 jobs. Only workflow steps whose names begin with `GitHubTask ` become ordered
+tasks. GitHub URLs are reconstructed from validated repository and numeric identities.
+
+The endpoint stores no cache or task state and exposes no mutation operation. Each
+repository reports a bounded error kind instead of raw CLI output, credentials, or
+private paths. An empty allowlist produces an empty projection. The public profile does
+not construct the reader or expose the route.
+
 ## Continuous integration
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in

@@ -101,6 +101,7 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
 
     assert "/api/publications" in paths
     assert "/search" not in paths
+    assert "/github/tasks" not in paths
     assert "/citation-reviews" not in paths
     assert "/literature-review/progress" not in paths
     assert app.state.deployment_profile == "public"
@@ -116,6 +117,7 @@ def test__create_app__control_profile_includes_control_routes() -> None:
 
     assert "/api/publications" in paths
     assert "/search" in paths
+    assert "/github/tasks" in paths
     assert "/citation-reviews" in paths
     assert "/literature-review/progress" in paths
     assert app.state.deployment_profile == "control"
