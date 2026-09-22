@@ -35,3 +35,34 @@ def test__deployment_profile__rejects_unknown_value(
         match="KOIOS_DEPLOYMENT_PROFILE must be one of: public, control",
     ):
         ProjectKoiosAppConfiguration()
+
+
+def test__github_repositories__parse_explicit_allowlist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOIOS_GITHUB_REPOSITORIES",
+        "eragasa/projectkoios-api, eragasa/projectkoios-web",
+    )
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert configuration.github.repositories == (
+        "eragasa/projectkoios-api",
+        "eragasa/projectkoios-web",
+    )
+
+
+def test__github_repositories__reject_duplicate_identity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOIOS_GITHUB_REPOSITORIES",
+        "eragasa/projectkoios-api,eragasa/projectkoios-api",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="KOIOS_GITHUB_REPOSITORIES contains a duplicate",
+    ):
+        ProjectKoiosAppConfiguration()
