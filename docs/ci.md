@@ -11,7 +11,8 @@ The sequence:
 2. checks out exact reviewed revisions of its four Project Koios source dependencies;
 3. installs the exact `uv` and Python versions;
 4. synchronizes `uv.lock` without updating it;
-5. validates the exact product-owned public project catalog through the API contract;
+5. validates the exact product-owned public course and project catalogs through the
+   API contracts;
 6. checks formatting;
 7. runs Ruff;
 8. runs mypy; and

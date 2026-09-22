@@ -39,6 +39,19 @@ def test__deployment_profile__rejects_unknown_value(
         ProjectKoiosAppConfiguration()
 
 
+def test__course_catalog__reads_explicit_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KOIOS_COURSE_CATALOG", "~/koios/courses.json")
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert (
+        configuration.courses.catalog_path
+        == Path("~/koios/courses.json").expanduser()
+    )
+
+
 def test__project_catalog__reads_explicit_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
