@@ -387,6 +387,20 @@ source = { editable = "../projectkoios" }
 [package.metadata]
 requires-dist = [
     { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
+    { name = "jsonschema", marker = "extra == 'dev'", specifier = ">=4.23" },
+    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
+    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
+    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
+]
+provides-extras = ["dev"]
+
+[[package]]
+name = "projectkoios-agent"
+version = "0.0.0"
+source = { editable = "../projectkoios-agent" }
+
+[package.metadata]
+requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
@@ -400,6 +414,7 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "projectkoios" },
+    { name = "projectkoios-agent" },
     { name = "projectkoios-obsidian" },
     { name = "projectkoios-references" },
     { name = "projectkoios-search" },
@@ -422,6 +437,7 @@ requires-dist = [
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
     { name = "projectkoios", editable = "../projectkoios" },
+    { name = "projectkoios-agent", editable = "../projectkoios-agent" },
     { name = "projectkoios-obsidian", editable = "../projectkoios-obsidian" },
     { name = "projectkoios-references", editable = "../projectkoios-references" },
     { name = "projectkoios-search", editable = "../projectkoios-search" },

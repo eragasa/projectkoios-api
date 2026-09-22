@@ -39,6 +39,19 @@ def test__deployment_profile__rejects_unknown_value(
         ProjectKoiosAppConfiguration()
 
 
+def test__organizer_catalog__reads_explicit_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KOIOS_ORGANIZER_CATALOG", "~/koios/organizer.sqlite3")
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert (
+        configuration.organizer.catalog_path
+        == Path("~/koios/organizer.sqlite3").expanduser()
+    )
+
+
 def test__course_catalog__reads_explicit_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

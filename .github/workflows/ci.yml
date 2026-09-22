@@ -37,7 +37,15 @@ jobs:
           path: projectkoios
           persist-credentials: false
 
-      - name: GitHubTask 03 · Check out locked search component
+      - name: GitHubTask 03 · Check out locked organization agent
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios-agent
+          ref: c2ee8fa3054998daf6b486817042836158bdd601
+          path: projectkoios-agent
+          persist-credentials: false
+
+      - name: GitHubTask 04 · Check out locked search component
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-search
@@ -45,7 +53,7 @@ jobs:
           path: projectkoios-search
           persist-credentials: false
 
-      - name: GitHubTask 04 · Check out locked Obsidian component
+      - name: GitHubTask 05 · Check out locked Obsidian component
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-obsidian
@@ -53,7 +61,7 @@ jobs:
           path: projectkoios-obsidian
           persist-credentials: false
 
-      - name: GitHubTask 05 · Check out locked references component
+      - name: GitHubTask 06 · Check out locked references component
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-references
@@ -61,7 +69,7 @@ jobs:
           path: projectkoios-references
           persist-credentials: false
 
-      - name: GitHubTask 06 · Install locked Python toolchain
+      - name: GitHubTask 07 · Install locked Python toolchain
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.11.25"
@@ -69,11 +77,11 @@ jobs:
           working-directory: projectkoios-api
           enable-cache: false
 
-      - name: GitHubTask 07 · Synchronize locked environment
+      - name: GitHubTask 08 · Synchronize locked environment
         working-directory: projectkoios-api
         run: uv sync --locked --all-extras
 
-      - name: GitHubTask 08 · Validate public catalogs
+      - name: GitHubTask 09 · Validate public catalogs
         working-directory: projectkoios-api
         run: |
           .venv/bin/python - <<'PY'
@@ -92,18 +100,18 @@ jobs:
           assert any(project.id == "projectkoios" for project in projects.projects)
           PY
 
-      - name: GitHubTask 09 · Check formatting
+      - name: GitHubTask 10 · Check formatting
         working-directory: projectkoios-api
         run: .venv/bin/python -m ruff format --check src/python tests
 
-      - name: GitHubTask 10 · Lint
+      - name: GitHubTask 11 · Lint
         working-directory: projectkoios-api
         run: .venv/bin/python -m ruff check src/python tests
 
-      - name: GitHubTask 11 · Type-check API source
+      - name: GitHubTask 12 · Type-check API source
         working-directory: projectkoios-api
         run: .venv/bin/python -m mypy src/python/projectkoios/api
 
-      - name: GitHubTask 12 · Run tests
+      - name: GitHubTask 13 · Run tests
         working-directory: projectkoios-api
         run: .venv/bin/python -m pytest -q
