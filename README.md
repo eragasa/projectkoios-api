@@ -9,7 +9,7 @@ Repository routing is documented in `projectkoios-bootstrap/maps/repositories.md
 The API has two explicit profiles selected with `KOIOS_DEPLOYMENT_PROFILE`:
 
 - `public` is the fail-closed default. It exposes core health and the public
-  publication catalog, but does not construct or register search, citation-review,
+  project and publication catalogs, but does not construct or register search, citation-review,
   or literature-review services.
 - `control` exposes the public endpoints plus private operational endpoints. It is
   intended for one operator on loopback or a separately protected private network.
@@ -23,6 +23,18 @@ The profile boundary is an API capability boundary, not browser-side hiding. A p
 runtime does not have control routes in its OpenAPI document. The initial control
 profile has no remote-user authentication layer and must not be exposed directly to
 the public internet.
+
+## Public project catalog
+
+`GET /api/projects` returns only explicitly configured public project records. Configure
+its product-owned JSON source with `KOIOS_PROJECT_CATALOG`. An unset path produces an
+empty catalog; a configured missing, malformed, duplicate, or contract-invalid catalog
+prevents application startup.
+
+Each record separates purpose, principles, capability status, and explicit limitations.
+The endpoint does not infer project status from private tasks, repositories, workflow
+runs, or control-center state. Independent scientific applications retain authority
+over their own claims and release lifecycles.
 
 ## Public publication catalog
 

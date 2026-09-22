@@ -11,10 +11,11 @@ The sequence:
 2. checks out exact reviewed revisions of its four Project Koios source dependencies;
 3. installs the exact `uv` and Python versions;
 4. synchronizes `uv.lock` without updating it;
-5. checks formatting;
-6. runs Ruff;
-7. runs mypy; and
-8. runs the API test suite.
+5. validates the exact product-owned public project catalog through the API contract;
+6. checks formatting;
+7. runs Ruff;
+8. runs mypy; and
+9. runs the API test suite.
 
 The job has read-only repository permission, disables checkout credential persistence,
 does not upload artifacts, and cancels an obsolete run for the same pull request or

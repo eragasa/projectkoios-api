@@ -8,6 +8,7 @@ from projectkoios.api.config import (
 )
 from projectkoios.api.github_tasks import GitHubTaskReader
 from projectkoios.api.literature_review import LiteratureReviewRepository
+from projectkoios.api.projects import PublicProjectRepository
 from projectkoios.api.publications import PublicationRepository
 from projectkoios.api.routers.citation_review import (
     create_citation_review_router,
@@ -20,6 +21,7 @@ from projectkoios.api.routers.github_tasks import (
 from projectkoios.api.routers.literature_review import (
     create_literature_review_router,
 )
+from projectkoios.api.routers.projects import create_projects_router
 from projectkoios.api.routers.publications import create_publications_router
 from projectkoios.api.routers.search import create_search_router
 from projectkoios.runtime import ProjectKoiosServices, create_services
@@ -36,6 +38,9 @@ class ProjectKoiosApp:
         self.publications = PublicationRepository(
             self.configuration.publications.catalog_path
         )
+        self.projects = PublicProjectRepository(
+            self.configuration.projects.catalog_path
+        )
 
         self.app = FastAPI(
             title=self.configuration.title,
@@ -47,6 +52,7 @@ class ProjectKoiosApp:
         )
 
         self.app.include_router(create_core_router())
+        self.app.include_router(create_projects_router(self.projects))
         self.app.include_router(create_publications_router(self.publications))
 
         if self.configuration.deployment_profile is DeploymentProfile.CONTROL:
