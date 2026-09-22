@@ -4,11 +4,17 @@ import os
 import re
 import tomllib
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path
 
 from projectkoios.obsidian.config import VaultConfiguration
 
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+
+
+class DeploymentProfile(StrEnum):
+    PUBLIC = "public"
+    CONTROL = "control"
 
 
 @dataclass(frozen=True)
@@ -45,10 +51,20 @@ class LiteratureReviewConfiguration:
 
 
 @dataclass(frozen=True)
+class PublicationConfiguration:
+    catalog_path: Path | None = field(
+        default_factory=lambda: _configured_publication_catalog()
+    )
+
+
+@dataclass(frozen=True)
 class ProjectKoiosAppConfiguration:
     title: str = "Project Koios"
     version: str = "0.0.0"
     debug: bool = False
+    deployment_profile: DeploymentProfile = field(
+        default_factory=lambda: _configured_deployment_profile()
+    )
 
     vault: VaultConfiguration = field(default_factory=VaultConfiguration)
     database: DatabaseConfiguration = field(
@@ -60,6 +76,27 @@ class ProjectKoiosAppConfiguration:
     literature_review: LiteratureReviewConfiguration = field(
         default_factory=LiteratureReviewConfiguration
     )
+    publications: PublicationConfiguration = field(
+        default_factory=PublicationConfiguration
+    )
+
+
+def _configured_deployment_profile() -> DeploymentProfile:
+    raw_profile = os.environ.get("KOIOS_DEPLOYMENT_PROFILE", "public")
+    try:
+        return DeploymentProfile(raw_profile)
+    except ValueError as error:
+        choices = ", ".join(profile.value for profile in DeploymentProfile)
+        raise ValueError(
+            f"KOIOS_DEPLOYMENT_PROFILE must be one of: {choices}"
+        ) from error
+
+
+def _configured_publication_catalog() -> Path | None:
+    catalog_path = os.environ.get("KOIOS_PUBLICATION_CATALOG")
+    if catalog_path is None:
+        return None
+    return Path(catalog_path).expanduser()
 
 
 def _configured_literature_review_run() -> Path | None:

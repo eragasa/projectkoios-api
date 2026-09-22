@@ -56,3 +56,9 @@ explicit_package_bases = true
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
+
+[tool.uv.sources]
+projectkoios = { path = "../projectkoios", editable = true }
+projectkoios-obsidian = { path = "../projectkoios-obsidian", editable = true }
+projectkoios-references = { path = "../projectkoios-references", editable = true }
+projectkoios-search = { path = "../projectkoios-search", editable = true }

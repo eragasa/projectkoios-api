@@ -4,10 +4,70 @@ FastAPI HTTP interface for Project Koios.
 
 Repository routing is documented in `projectkoios-bootstrap/maps/repositories.md`.
 
+## Deployment profiles
+
+The API has two explicit profiles selected with `KOIOS_DEPLOYMENT_PROFILE`:
+
+- `public` is the fail-closed default. It exposes core health and the public
+  publication catalog, but does not construct or register search, citation-review,
+  or literature-review services.
+- `control` exposes the public endpoints plus private operational endpoints. It is
+  intended for one operator on loopback or a separately protected private network.
+
+```bash
+KOIOS_DEPLOYMENT_PROFILE=public uvicorn projectkoios.api.main:app
+KOIOS_DEPLOYMENT_PROFILE=control uvicorn projectkoios.api.main:app --host 127.0.0.1
+```
+
+The profile boundary is an API capability boundary, not browser-side hiding. A public
+runtime does not have control routes in its OpenAPI document. The initial control
+profile has no remote-user authentication layer and must not be exposed directly to
+the public internet.
+
+## Public publication catalog
+
+`GET /api/publications` returns only explicitly published records. Configure its JSON
+source with `KOIOS_PUBLICATION_CATALOG`. An unset path produces an empty public catalog;
+a configured missing, malformed, duplicate, or schema-invalid catalog prevents
+application startup.
+
+The catalog uses schema version `1`:
+
+```json
+{
+  "schema_version": "1",
+  "publications": [
+    {
+      "id": "software.example-1",
+      "slug": "example-1",
+      "kind": "software",
+      "title": "Example software",
+      "summary": "A bounded public record.",
+      "authors": ["Project Koios"],
+      "published_on": "2026-09-22",
+      "version": "1.0.0",
+      "citation": "Project Koios (2026). Example software.",
+      "topics": ["research software"],
+      "claims": ["Declared software checks passed."],
+      "limitations": ["No scientific validation is claimed."],
+      "links": [
+        {
+          "label": "Repository",
+          "url": "https://example.test/repository"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Catalog order is editorial order. Only records in this file are public; private tasks,
+drafts, source paths, and review queues are not inferred or projected into it.
+
 ## Local citation review
 
-The API exposes a human citation-review queue at `/citation-reviews`. It reads
-a private review bundle and writes only explicit review decisions; it does not
+The control profile exposes a human citation-review queue at `/citation-reviews`. It
+reads a private review bundle and writes only explicit review decisions; it does not
 edit manuscripts.
 
 Default local paths are:
@@ -18,3 +78,9 @@ Default local paths are:
 
 The decision database is created with `0600` permissions. Source requests are
 restricted to filenames already present in the review bundle.
+
+## Continuous integration
+
+Hosted verification is an ordered, read-only GitHubTask sequence documented in
+[`docs/ci.md`](docs/ci.md). It uses the committed Python lock and exact sibling
+Project Koios revisions; it does not perform repository or release mutations.
