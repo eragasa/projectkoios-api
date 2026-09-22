@@ -33,7 +33,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios
-          ref: 0b0988d9c9e8bc778b3e90eb20c406e3c6a4a90e
+          ref: adde4b8213eee2704d1d3180897410bda2af3f00
           path: projectkoios
           persist-credentials: false
 
@@ -73,18 +73,31 @@ jobs:
         working-directory: projectkoios-api
         run: uv sync --locked --all-extras
 
-      - name: GitHubTask 08 · Check formatting
+      - name: GitHubTask 08 · Validate public project catalog
+        working-directory: projectkoios-api
+        run: |
+          .venv/bin/python - <<'PY'
+          from pathlib import Path
+          from projectkoios.api.projects import PublicProjectRepository
+
+          catalog = PublicProjectRepository(
+              Path("../projectkoios/public/project-catalog.json")
+          ).list_projects()
+          assert any(project.id == "projectkoios" for project in catalog.projects)
+          PY
+
+      - name: GitHubTask 09 · Check formatting
         working-directory: projectkoios-api
         run: .venv/bin/python -m ruff format --check src/python tests
 
-      - name: GitHubTask 09 · Lint
+      - name: GitHubTask 10 · Lint
         working-directory: projectkoios-api
         run: .venv/bin/python -m ruff check src/python tests
 
-      - name: GitHubTask 10 · Type-check API source
+      - name: GitHubTask 11 · Type-check API source
         working-directory: projectkoios-api
         run: .venv/bin/python -m mypy src/python/projectkoios/api
 
-      - name: GitHubTask 11 · Run tests
+      - name: GitHubTask 12 · Run tests
         working-directory: projectkoios-api
         run: .venv/bin/python -m pytest -q
