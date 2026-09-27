@@ -13,8 +13,9 @@ The sequence:
 4. synchronizes `uv.lock` without updating it;
 5. checks formatting;
 6. runs Ruff;
-7. runs mypy; and
-8. runs the API test suite.
+7. runs strict mypy;
+8. verifies the committed deterministic combined OpenAPI; and
+9. runs the API test suite.
 
 The job has read-only repository permission, disables checkout credential persistence,
 does not upload artifacts, and cancels an obsolete run for the same pull request or

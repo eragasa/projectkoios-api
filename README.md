@@ -9,8 +9,8 @@ Repository routing is documented in `projectkoios-bootstrap/maps/repositories.md
 The API has two explicit profiles selected with `KOIOS_DEPLOYMENT_PROFILE`:
 
 - `public` is the fail-closed default. It exposes core health and the public
-  publication catalog, but does not construct or register search, citation-review,
-  or literature-review services.
+  course, project, and publication contracts, but does not construct or register
+  search or review services.
 - `control` exposes the public endpoints plus private operational endpoints. It is
   intended for one operator on loopback or a separately protected private network.
 
@@ -97,6 +97,20 @@ The endpoint stores no cache or task state and exposes no mutation operation. Ea
 repository reports a bounded error kind instead of raw CLI output, credentials, or
 private paths. An empty allowlist produces an empty projection. The public profile does
 not construct the reader or expose the route.
+
+## Combined control-review contract
+
+The control profile also publishes bounded organizer and transcript review
+contracts. Their domain behavior is available only through explicitly injected
+owner adapters; without one, the routes return a safe `503`. No organizer daemon,
+transcript ingestion, filesystem catalog, or review persistence is implemented by
+this repository.
+
+The authoritative combined document is
+[`openapi/control.openapi.json`](openapi/control.openapi.json). Contract mapping,
+limits, error behavior, provenance, and the deliberate omission of the
+underspecified organizer event endpoints are documented in
+[`docs/control-review-contracts.md`](docs/control-review-contracts.md).
 
 ## Continuous integration
 

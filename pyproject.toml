@@ -52,6 +52,7 @@ select = ["E", "F", "I", "UP", "B"]
 mypy_path = ["src/python", "../projectkoios/src/python", "../projectkoios-references/src/python", "../projectkoios-search/src/python", "../projectkoios-obsidian/src/python"]
 namespace_packages = true
 explicit_package_bases = true
+strict = true
 
 [tool.ruff.format]
 quote-style = "double"

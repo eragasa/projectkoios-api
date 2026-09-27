@@ -83,8 +83,12 @@ jobs:
 
       - name: GitHubTask 10 · Type-check API source
         working-directory: projectkoios-api
-        run: .venv/bin/python -m mypy src/python/projectkoios/api
+        run: .venv/bin/python -m mypy --strict src/python/projectkoios/api
 
-      - name: GitHubTask 11 · Run tests
+      - name: GitHubTask 11 · Check generated OpenAPI
+        working-directory: projectkoios-api
+        run: .venv/bin/python -m projectkoios.api.openapi --check
+
+      - name: GitHubTask 12 · Run tests
         working-directory: projectkoios-api
         run: .venv/bin/python -m pytest -q
