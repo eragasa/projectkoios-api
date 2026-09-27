@@ -106,10 +106,18 @@ owner adapters; without one, the routes return a safe `503`. No organizer daemon
 transcript ingestion, filesystem catalog, or review persistence is implemented by
 this repository.
 
+Every owner projection is runtime-validated at the API boundary. Invalid owner
+data returns a fixed `502`, unexpected ordinary owner failures return a fixed
+`500`, and declared unavailability remains a fixed `503`, always through the
+safe API error envelope. Transcript PDFs are nonempty signature-checked exact
+bytes bounded at 100,000,000 bytes; PNG/JPEG/WebP previews are bounded at
+20,000,000 bytes. These single-operator resources are fully buffered, not
+streamed.
+
 The authoritative combined document is
 [`openapi/control.openapi.json`](openapi/control.openapi.json). Contract mapping,
-limits, error behavior, provenance, and the deliberate omission of the
-underspecified organizer event endpoints are documented in
+limits, error behavior, downstream Web migration, provenance, and the deliberate
+omission of all organizer event endpoints and schemas are documented in
 [`docs/control-review-contracts.md`](docs/control-review-contracts.md).
 
 ## Continuous integration

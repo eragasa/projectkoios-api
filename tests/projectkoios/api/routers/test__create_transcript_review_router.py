@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from projectkoios.api.provider_errors import ProviderUnavailable
@@ -94,16 +95,25 @@ class _UnavailableTranscript(_TranscriptFixture):
         raise ProviderUnavailable("private owner detail must not escape")
 
 
-class _OversizedPreviewTranscript(_TranscriptFixture):
+class _BinaryVariantTranscript(_TranscriptFixture):
+    def __init__(
+        self,
+        *,
+        source: TranscriptReviewResource | None = None,
+        preview: TranscriptReviewResource | None = None,
+    ) -> None:
+        self.source = source
+        self.preview = preview
+
+    def read_source(self, document_id: str) -> TranscriptReviewResource:
+        return self.source or super().read_source(document_id)
+
     def read_preview(
         self,
         document_id: str,
         asset_id: str,
     ) -> TranscriptReviewResource:
-        return TranscriptReviewResource(
-            body=b"1234",
-            media_type="image/png",
-        )
+        return self.preview or super().read_preview(document_id, asset_id)
 
 
 def _client(provider: _TranscriptFixture | None) -> TestClient:
@@ -126,8 +136,14 @@ def test__transcript_router__serves_path_free_owner_projections() -> None:
     assert detail.json()["source_sha256"] == "a" * 64
     assert source.content == b"%PDF-1.4\n%%EOF\n"
     assert source.headers["content-type"] == "application/pdf"
+    assert source.headers["content-disposition"] == "inline"
+    assert source.headers["x-content-type-options"] == "nosniff"
     assert preview.content == b"\x89PNG\r\n\x1a\n"
     assert preview.headers["content-type"] == "image/png"
+    assert preview.headers["content-disposition"] == "inline"
+    assert preview.headers["x-content-type-options"] == "nosniff"
+    assert "filename" not in source.headers["content-disposition"]
+    assert "filename" not in preview.headers["content-disposition"]
     assert "source_file" not in detail.text
     assert "assets_root" not in detail.text
 
@@ -177,24 +193,136 @@ def test__transcript_router__does_not_leak_owner_unavailability() -> None:
     assert "private owner detail" not in response.text
 
 
-def test__transcript_router__rejects_invalid_or_oversized_resources(
+def test__transcript_router__uses_declared_absolute_binary_limits() -> None:
+    assert transcript_router._MAX_PDF_BYTES == 100_000_000
+    assert transcript_router._MAX_PREVIEW_BYTES == 20_000_000
+
+
+def test__transcript_router__enforces_exact_and_plus_one_binary_limits(
     monkeypatch: MonkeyPatch,
 ) -> None:
-    monkeypatch.setattr(transcript_router, "_MAX_PREVIEW_BYTES", 3)
-
-    response = _client(_OversizedPreviewTranscript()).get(
-        "/transcript-reviews/document-001/assets/preview-001"
+    monkeypatch.setattr(transcript_router, "_MAX_PDF_BYTES", 5)
+    monkeypatch.setattr(transcript_router, "_MAX_PREVIEW_BYTES", 8)
+    exact = _client(
+        _BinaryVariantTranscript(
+            source=TranscriptReviewResource(
+                body=b"%PDF-",
+                media_type="application/pdf",
+            ),
+            preview=TranscriptReviewResource(
+                body=b"\x89PNG\r\n\x1a\n",
+                media_type="image/png",
+            ),
+        )
+    )
+    plus_one = _client(
+        _BinaryVariantTranscript(
+            source=TranscriptReviewResource(
+                body=b"%PDF-x",
+                media_type="application/pdf",
+            ),
+            preview=TranscriptReviewResource(
+                body=b"\x89PNG\r\n\x1a\nx",
+                media_type="image/png",
+            ),
+        )
     )
 
-    assert response.status_code == 503
+    assert (
+        exact.get("/transcript-reviews/document-001/source").status_code == 200
+    )
+    assert (
+        exact.get(
+            "/transcript-reviews/document-001/assets/preview-001"
+        ).status_code
+        == 200
+    )
+    oversized = [
+        plus_one.get("/transcript-reviews/document-001/source"),
+        plus_one.get("/transcript-reviews/document-001/assets/preview-001"),
+    ]
+    assert all(response.status_code == 502 for response in oversized)
+    assert transcript_router._MAX_PDF_BYTES == 5
+    assert transcript_router._MAX_PREVIEW_BYTES == 8
+
+
+@pytest.mark.parametrize(
+    ("media_type", "body"),
+    [
+        ("image/png", b"\x89PNG\r\n\x1a\n"),
+        ("image/jpeg", b"\xff\xd8\xff"),
+        ("image/webp", b"RIFF0000WEBP"),
+    ],
+)
+def test__transcript_router__accepts_only_matching_preview_magic(
+    media_type: str,
+    body: bytes,
+) -> None:
+    response = _client(
+        _BinaryVariantTranscript(
+            preview=TranscriptReviewResource(
+                body=body,
+                media_type=media_type,
+            )
+        )
+    ).get("/transcript-reviews/document-001/assets/preview-001")
+
+    assert response.status_code == 200
+    assert response.content == body
+    assert response.headers["content-type"] == media_type
+
+
+@pytest.mark.parametrize(
+    ("media_type", "body"),
+    [
+        ("application/pdf", b""),
+        ("application/pdf", b"not-a-pdf"),
+        ("image/png", b"\xff\xd8\xff"),
+        ("image/jpeg", b"\x89PNG\r\n\x1a\n"),
+        ("image/webp", b"RIFF0000NOPE"),
+        ("application/octet-stream", b"%PDF-"),
+    ],
+)
+def test__transcript_router__rejects_empty_spoofed_or_unknown_binary(
+    media_type: str,
+    body: bytes,
+) -> None:
+    is_pdf = media_type == "application/pdf"
+    provider = _BinaryVariantTranscript(
+        source=(
+            TranscriptReviewResource(body=body, media_type=media_type)
+            if is_pdf
+            else None
+        ),
+        preview=(
+            None
+            if is_pdf
+            else TranscriptReviewResource(body=body, media_type=media_type)
+        ),
+    )
+    path = (
+        "/transcript-reviews/document-001/source"
+        if is_pdf
+        else "/transcript-reviews/document-001/assets/preview-001"
+    )
+
+    response = _client(provider).get(path)
+
+    assert response.status_code == 502
     assert response.json() == {
-        "detail": "transcript review provider is unavailable"
+        "detail": "transcript review provider returned an invalid projection"
     }
 
 
-def test__transcript_router__validates_opaque_path_identifiers() -> None:
+@pytest.mark.parametrize(
+    "identifier",
+    ["not%20allowed", "a..b", "C:%5Cprivate", "control%00value"],
+)
+def test__transcript_router__validates_opaque_path_identifiers(
+    identifier: str,
+) -> None:
     response = _client(_TranscriptFixture()).get(
-        "/transcript-reviews/not%20allowed"
+        f"/transcript-reviews/{identifier}"
     )
 
-    assert response.status_code == 422
+    assert response.status_code in {404, 422}

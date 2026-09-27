@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -64,9 +65,15 @@ _EXISTING_SCHEMAS = {
     "ValidationError",
 }
 _RECONCILED_SCHEMAS = {
+    "ApiErrorResponse",
+    "CourseCode",
     "CourseMaterialsStatus",
     "LifeDomain",
+    "OrganizerActivity",
+    "OrganizerControlMode",
     "OrganizerControlRequest",
+    "OrganizerFileAvailability",
+    "OrganizerParaCategory",
     "OrganizerProposalListResponse",
     "OrganizerProposalResponse",
     "OrganizerStatusResponse",
@@ -94,6 +101,12 @@ _RECONCILED_SCHEMAS = {
     "TranscriptReviewRisk",
     "TranscriptReviewStatus",
 }
+_MASTER_PATHS_SHA256 = (
+    "5365d4194d9bb3eb177707cc095a58fa0e7bf5c759756766042298e44ee1edc5"
+)
+_MASTER_SCHEMAS_SHA256 = (
+    "ff502fac5c5032934143a08a68e0ceb5e10e060c5a2ff94225c928c42bb47633"
+)
 _NEW_PATHS = {
     "/api/courses",
     "/api/projects",
@@ -107,20 +120,55 @@ _NEW_PATHS = {
 }
 
 
-def test__combined_openapi__preserves_existing_paths_and_schemas() -> None:
+def _canonical_sha256(value: object) -> str:
+    payload = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()
+
+
+def test__combined_openapi__is_exact_selected_master_superset() -> None:
     schema = combined_openapi_schema()
 
-    assert _EXISTING_PATHS <= set(schema["paths"])
-    assert _EXISTING_SCHEMAS <= set(schema["components"]["schemas"])
-    assert _RECONCILED_SCHEMAS <= set(schema["components"]["schemas"])
-    assert _NEW_PATHS <= set(schema["paths"])
+    assert set(schema["paths"]) == _EXISTING_PATHS | _NEW_PATHS
+    assert set(schema["components"]["schemas"]) == (
+        _EXISTING_SCHEMAS | _RECONCILED_SCHEMAS
+    )
+    master_paths = {
+        name: schema["paths"][name] for name in sorted(_EXISTING_PATHS)
+    }
+    master_schemas = {
+        name: schema["components"]["schemas"][name]
+        for name in sorted(_EXISTING_SCHEMAS)
+    }
+    assert _canonical_sha256(master_paths) == _MASTER_PATHS_SHA256
+    assert _canonical_sha256(master_schemas) == _MASTER_SCHEMAS_SHA256
+    expected_methods = {path: {"get"} for path in _EXISTING_PATHS | _NEW_PATHS}
+    expected_methods.update(
+        {
+            "/citation-reviews/{claim_id}/decision": {"put"},
+            "/literature-review/references": {"get", "post"},
+            "/organizer/control": {"put"},
+            "/search": {"post"},
+        }
+    )
+    observed_methods = {
+        path: set(item) - {"parameters"}
+        for path, item in schema["paths"].items()
+    }
+    assert observed_methods == expected_methods
 
 
 def test__combined_openapi__excludes_underspecified_event_contracts() -> None:
     schema = combined_openapi_schema()
+    serialized = json.dumps(schema, sort_keys=True)
 
     assert "/organizer/events" not in schema["paths"]
     assert "/organizer/events/stream" not in schema["paths"]
+    assert "OrganizerEvent" not in serialized
+    assert "#/components/schemas/OrganizerEvent" not in serialized
 
 
 def test__combined_openapi__uses_nominal_owner_projected_course_code() -> None:
@@ -139,6 +187,9 @@ def test__combined_openapi__uses_nominal_owner_projected_course_code() -> None:
 def test__combined_openapi__documents_binary_errors_and_limits() -> None:
     schema = combined_openapi_schema()
     source = schema["paths"]["/transcript-reviews/{document_id}/source"]["get"]
+    preview = schema["paths"][
+        "/transcript-reviews/{document_id}/assets/{asset_id}"
+    ]["get"]
     proposals = schema["paths"]["/organizer/proposals"]["get"]
     limit = next(
         parameter
@@ -146,17 +197,61 @@ def test__combined_openapi__documents_binary_errors_and_limits() -> None:
         if parameter["name"] == "limit"
     )
 
-    assert source["responses"]["200"]["content"]["application/pdf"][
+    source_schema = source["responses"]["200"]["content"]["application/pdf"][
         "schema"
-    ] == {"format": "binary", "type": "string"}
-    assert source["responses"]["404"]["content"]["application/json"][
-        "schema"
-    ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
-    assert source["responses"]["503"]["content"]["application/json"][
-        "schema"
-    ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
+    ]
+    assert source_schema == {
+        "format": "binary",
+        "minLength": 1,
+        "type": "string",
+        "x-maximum-bytes": 100_000_000,
+    }
+    for media_type in ("image/jpeg", "image/png", "image/webp"):
+        assert (
+            preview["responses"]["200"]["content"][media_type]["schema"][
+                "x-maximum-bytes"
+            ]
+            == 20_000_000
+        )
+    for operation in (source, preview):
+        assert (
+            "fully buffered in memory"
+            in operation["responses"]["200"]["description"]
+        )
+        headers = operation["responses"]["200"]["headers"]
+        assert headers["Content-Disposition"]["schema"]["const"] == "inline"
+        assert headers["X-Content-Type-Options"]["schema"]["const"] == "nosniff"
+        for code in ("404", "500", "502", "503"):
+            assert operation["responses"][code]["content"]["application/json"][
+                "schema"
+            ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
     assert limit["schema"]["minimum"] == 1
     assert limit["schema"]["maximum"] == 500
+
+
+def test__combined_openapi__declares_fixed_provider_error_envelopes() -> None:
+    schema = combined_openapi_schema()
+    operations = [
+        ("/api/courses", "get"),
+        ("/api/projects", "get"),
+        ("/organizer/status", "get"),
+        ("/organizer/control", "put"),
+        ("/organizer/proposals", "get"),
+        ("/transcript-reviews", "get"),
+        ("/transcript-reviews/{document_id}", "get"),
+        ("/transcript-reviews/{document_id}/source", "get"),
+        (
+            "/transcript-reviews/{document_id}/assets/{asset_id}",
+            "get",
+        ),
+    ]
+
+    for path, method in operations:
+        responses = schema["paths"][path][method]["responses"]
+        for code in ("500", "502", "503"):
+            assert responses[code]["content"]["application/json"]["schema"] == {
+                "$ref": "#/components/schemas/ApiErrorResponse"
+            }
 
 
 def test__combined_openapi__is_deterministic_and_committed() -> None:
