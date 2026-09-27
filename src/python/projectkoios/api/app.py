@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import FastAPI
+from projectkoios.agent.organizer import OrganizerCatalog
 from projectkoios.api.citation_review import CitationReviewRepository
 from projectkoios.api.config import (
     DeploymentProfile,
@@ -23,6 +24,10 @@ from projectkoios.api.routers.github_tasks import (
 from projectkoios.api.routers.literature_review import (
     create_literature_review_router,
 )
+from projectkoios.api.routers.organizer import (
+    OrganizerProvider,
+    create_organizer_router,
+)
 from projectkoios.api.routers.projects import create_projects_router
 from projectkoios.api.routers.publications import create_publications_router
 from projectkoios.api.routers.search import create_search_router
@@ -35,6 +40,7 @@ class ProjectKoiosApp:
         configuration: ProjectKoiosAppConfiguration | None = None,
         services: ProjectKoiosServices | None = None,
         github_tasks: GitHubTaskProvider | None = None,
+        organizer: OrganizerProvider | None = None,
     ) -> None:
         self.configuration = configuration or ProjectKoiosAppConfiguration()
         self.courses = PublicCourseRepository(
@@ -62,12 +68,13 @@ class ProjectKoiosApp:
         self.app.include_router(create_publications_router(self.publications))
 
         if self.configuration.deployment_profile is DeploymentProfile.CONTROL:
-            self._register_control_routes(services, github_tasks)
+            self._register_control_routes(services, github_tasks, organizer)
 
     def _register_control_routes(
         self,
         services: ProjectKoiosServices | None,
         github_tasks: GitHubTaskProvider | None,
+        organizer: OrganizerProvider | None,
     ) -> None:
         control_services = services or create_services(self.configuration)
         citation_review = self.configuration.citation_review
@@ -84,6 +91,9 @@ class ProjectKoiosApp:
             self.configuration.github.repositories,
             executable=self.configuration.github.executable,
         )
+        organizer_provider = organizer or OrganizerCatalog(
+            self.configuration.organizer.catalog_path
+        )
 
         self.app.include_router(create_search_router(control_services.search))
         self.app.include_router(
@@ -93,6 +103,7 @@ class ProjectKoiosApp:
         self.app.include_router(
             create_literature_review_router(literature_reviews)
         )
+        self.app.include_router(create_organizer_router(organizer_provider))
 
     @classmethod
     def create_app(
@@ -100,10 +111,12 @@ class ProjectKoiosApp:
         configuration: ProjectKoiosAppConfiguration | None = None,
         services: ProjectKoiosServices | None = None,
         github_tasks: GitHubTaskProvider | None = None,
+        organizer: OrganizerProvider | None = None,
     ) -> FastAPI:
         projectkoios_app = cls(
             configuration=configuration,
             services=services,
             github_tasks=github_tasks,
+            organizer=organizer,
         )
         return projectkoios_app.app

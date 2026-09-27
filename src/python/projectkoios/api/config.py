@@ -51,6 +51,13 @@ class LiteratureReviewConfiguration:
 
 
 @dataclass(frozen=True)
+class OrganizerConfiguration:
+    catalog_path: Path = field(
+        default_factory=lambda: _configured_organizer_catalog()
+    )
+
+
+@dataclass(frozen=True)
 class CourseConfiguration:
     catalog_path: Path | None = field(
         default_factory=lambda: _configured_course_catalog()
@@ -97,6 +104,9 @@ class ProjectKoiosAppConfiguration:
     )
     literature_review: LiteratureReviewConfiguration = field(
         default_factory=LiteratureReviewConfiguration
+    )
+    organizer: OrganizerConfiguration = field(
+        default_factory=OrganizerConfiguration
     )
     courses: CourseConfiguration = field(default_factory=CourseConfiguration)
     publications: PublicationConfiguration = field(
@@ -161,6 +171,19 @@ def _configured_github_cli() -> str:
     if not executable or len(executable) > 4096:
         raise ValueError("KOIOS_GITHUB_CLI must name one executable")
     return executable
+
+
+def _configured_organizer_catalog() -> Path:
+    explicit = os.environ.get("KOIOS_ORGANIZER_CATALOG")
+    if explicit:
+        return Path(explicit).expanduser()
+    data_root = Path(
+        os.environ.get(
+            "KOIOS_DATA_ROOT",
+            "~/projectkoios/.koios/store-v1",
+        )
+    ).expanduser()
+    return data_root / "state" / "organizer" / "catalog.sqlite3"
 
 
 def _configured_literature_review_run() -> Path | None:
