@@ -11,7 +11,11 @@ statically with these preserved sources:
 - organizer snapshot `7454c022a0844496a87032c7fa728087a78ef662`
   (tree `65129071cd8211f1d18f6e5065b995173ba3863e`); and
 - transcript snapshot `b8e9b381e1f03d67afbfe291a46632512698450b`
-  (tree `9563c0150f9ba8f9d5a5eaf6ab4379a24eac6a52`).
+  (tree `9563c0150f9ba8f9d5a5eaf6ab4379a24eac6a52`); and
+- Web equation-review proposal
+  `6e435cf2ca1b20ed129f806e1874eabed193ec41`, specifically
+  `docs/equation-review-api-contract.md` and its provisional TypeScript
+  projection.
 
 The preserved trees were not merged. Public course/project DTOs and routes were
 reconstructed from the organizer proposal's public superset. Organizer and
@@ -24,12 +28,13 @@ The API owns only:
 
 - Pydantic request and response DTOs;
 - HTTP paths, query limits, status codes, and safe error envelopes;
-- narrow `Protocol` ports for owner-supplied projections; and
+- narrow `Protocol` ports for owner-supplied projections;
+- the explicit, content-addressed `pizzi2020` equation read boundary; and
 - `openapi/control.openapi.json`.
 
-It does not discover files, classify courses, ingest transcripts, open owner
-catalogs, supervise daemons, persist review state, or implement lifecycle
-behavior. Organizer and transcript routes are registered in the control profile
+It does not scan for files, classify courses, ingest transcripts, open owner
+catalogs, process PDFs, supervise daemons, persist equation review state, or
+implement lifecycle behavior. Organizer and transcript routes are registered in the control profile
 so their contract is present, but return `503` until their owner adapters are
 explicitly injected. Public courses and projects default to explicit empty
 catalog projections; populated catalogs likewise require injected providers.
@@ -115,6 +120,75 @@ numbers, and geometry all have explicit maxima. Region coordinates must be
 finite, nonnegative, no greater than 1,000,000, and define positive area.
 Document/item/link identities and aggregate counts are checked for consistency.
 
+## Equation review surface
+
+The control-only endpoints are:
+
+```text
+GET /equation-reviews?document_id=pizzi2020
+GET /equation-reviews/{candidate_id}/region
+PUT /equation-reviews/{candidate_id}/decision
+```
+
+The queue items are the complete candidate detail required by the reviewed Web
+candidate; no additional candidate-detail endpoint was present in the pinned
+provisional contract. The source identity, PDF-point region, deterministic
+evidence, nullable assistance, and nullable human decision fields retain the
+provisional JSON names. All identities, hashes, text, counts, pages, and finite
+positive-area coordinates are bounded. Source names are display-only, path-free
+values.
+
+Only `pizzi2020` is configured in this candidate. Both
+`KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE` and
+`KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS` must be set; neither has a default.
+The version `1` JSON bundle is limited to 20,000,000 bytes and 100,000
+candidates. It has this API projection shape:
+
+```json
+{
+  "schema_version": "1",
+  "document_id": "pizzi2020",
+  "items": [
+    {
+      "candidate_id": "opaque-id",
+      "source": {},
+      "region": {},
+      "deterministic_evidence": {},
+      "assistance": null,
+      "decision": null
+    }
+  ]
+}
+```
+
+The elided objects are the required OpenAPI response objects, not optional or
+hydrated placeholders. A bundle that is missing a field, changes the document,
+contains duplicate candidates, or claims an applications-owned decision is
+unavailable evidence (`503`). The API does not inspect a PDF. Region files are
+content-addressed direct children of the configured root, named exactly by the
+lowercase `region.image_sha256` with no extension. On access the API rejects
+root/file symlinks, escapes, missing/non-regular files, empty or over-20,000,000
+byte bodies, digest mismatches, and content outside PNG/JPEG/WebP signatures.
+Responses are `inline` and `nosniff`; paths and filenames are never exposed.
+
+The reviewed Web proposal's write request is accepted for validation. An
+`ACCEPT_TRANSCRIPTION` request must name the exact currently displayed
+`assistance.proposal_sha256`; a missing assistance object or any hash mismatch
+is a `409`. The endpoint nevertheless has only a typed `503` success status in
+the authoritative OpenAPI because no applications-owned append-only human
+revision seam exists. It performs no write and never turns proposed LaTeX into
+accepted text.
+
+The exact missing owner contract is an atomic append operation accepting the
+validated `document_id`, `candidate_id`, `source_sha256`,
+`deterministic_evidence.evidence_sha256` (candidate evidence hash),
+`region.image_sha256`, nullable exact `assistance.proposal_sha256`, disposition,
+and note. It must reject stale or mismatched evidence, assign a monotonically
+increasing revision under a declared concurrency policy, store an immutable UTC
+timestamped revision, and project the latest decision without mutating source or
+assisted text. The API can publish a `200 EquationReviewDecisionResponse` only
+after the applications owner publishes that contract and an adapter is injected.
+
 ## Deterministic OpenAPI
 
 The combined document is generated from the control-profile FastAPI source:
@@ -129,7 +203,7 @@ python -m projectkoios.api.openapi \
 Generation sorts all JSON keys and appends one newline. Tests assert byte-for-byte
 repeatability, equality with the committed artifact, the exact path superset of
 the selected API master, inclusion of the public course/project plus selected
-organizer/transcript contracts, and deliberate exclusion of event paths,
+organizer/transcript/equation contracts, and deliberate exclusion of event paths,
 schemas, and references.
 
 ## Downstream Web migration requirement
@@ -142,7 +216,11 @@ consumer moves to this contract, it must:
 3. use bounded status polling plus proposal reads instead of SSE;
 4. consume the direct required-nullable `course_code` projection without
    browser path matching; and
-5. add organizer and transcript-review proxy prefixes.
+5. add organizer, transcript-review, and equation-review proxy prefixes;
+6. replace the provisional equation projection with the generated API types;
+   and
+7. treat the equation decision operation's authoritative `503` as unavailable
+   until the applications-owned append contract exists.
 
 No organizer event schema or reference is retained for compatibility.
 

@@ -421,6 +421,327 @@
         "title": "CourseMaterialsStatus",
         "type": "string"
       },
+      "DeterministicEquationEvidenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detector": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detector",
+            "type": "string"
+          },
+          "detector_version": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detector Version",
+            "type": "string"
+          },
+          "evidence_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evidence Sha256",
+            "type": "string"
+          },
+          "extracted_text": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extracted Text"
+          }
+        },
+        "required": [
+          "detector",
+          "detector_version",
+          "evidence_sha256",
+          "extracted_text"
+        ],
+        "title": "DeterministicEquationEvidenceResponse",
+        "type": "object"
+      },
+      "EquationRegionEvidenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "coordinate_space": {
+            "const": "PDF_POINTS",
+            "title": "Coordinate Space",
+            "type": "string"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Height",
+            "type": "number"
+          },
+          "image_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Width",
+            "type": "number"
+          },
+          "x": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "coordinate_space",
+          "x",
+          "y",
+          "width",
+          "height",
+          "image_sha256"
+        ],
+        "title": "EquationRegionEvidenceResponse",
+        "type": "object"
+      },
+      "EquationReviewCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "FAILED": "#/components/schemas/PendingEquationAssistanceResponse",
+                    "PENDING": "#/components/schemas/PendingEquationAssistanceResponse",
+                    "PROPOSED": "#/components/schemas/ProposedEquationAssistanceResponse"
+                  },
+                  "propertyName": "status"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PendingEquationAssistanceResponse"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ProposedEquationAssistanceResponse"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance"
+          },
+          "candidate_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationReviewDecisionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deterministic_evidence": {
+            "$ref": "#/components/schemas/DeterministicEquationEvidenceResponse"
+          },
+          "region": {
+            "$ref": "#/components/schemas/EquationRegionEvidenceResponse"
+          },
+          "source": {
+            "$ref": "#/components/schemas/EquationSourceIdentityResponse"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "source",
+          "region",
+          "deterministic_evidence",
+          "assistance",
+          "decision"
+        ],
+        "title": "EquationReviewCandidateResponse",
+        "type": "object"
+      },
+      "EquationReviewDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance_proposal_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance Proposal Sha256"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EquationReviewDisposition"
+          },
+          "note": {
+            "maxLength": 10000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "assistance_proposal_sha256",
+          "note"
+        ],
+        "title": "EquationReviewDecisionRequest",
+        "type": "object"
+      },
+      "EquationReviewDecisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance_proposal_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance Proposal Sha256"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EquationReviewDisposition"
+          },
+          "note": {
+            "maxLength": 10000,
+            "title": "Note",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 1000000000.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at_utc": {
+            "format": "date-time",
+            "title": "Updated At Utc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "assistance_proposal_sha256",
+          "note",
+          "revision",
+          "updated_at_utc"
+        ],
+        "title": "EquationReviewDecisionResponse",
+        "type": "object"
+      },
+      "EquationReviewDisposition": {
+        "enum": [
+          "ACCEPT_TRANSCRIPTION",
+          "REJECT_CANDIDATE",
+          "REVISION_REQUIRED"
+        ],
+        "title": "EquationReviewDisposition",
+        "type": "string"
+      },
+      "EquationReviewQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "decided": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Decided",
+            "type": "integer"
+          },
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EquationReviewCandidateResponse"
+            },
+            "maxItems": 100000,
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "total",
+          "decided",
+          "items"
+        ],
+        "title": "EquationReviewQueueResponse",
+        "type": "object"
+      },
+      "EquationSourceIdentityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "physical_page": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Physical Page",
+            "type": "integer"
+          },
+          "source_name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "source_name",
+          "source_sha256",
+          "physical_page"
+        ],
+        "title": "EquationSourceIdentityResponse",
+        "type": "object"
+      },
       "GitHubPullRequestSummary": {
         "properties": {
           "base_branch": {
@@ -1414,6 +1735,83 @@
           "last_event_sequence"
         ],
         "title": "OrganizerStatusResponse",
+        "type": "object"
+      },
+      "PendingEquationAssistanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "proposal_sha256": {
+            "title": "Proposal Sha256",
+            "type": "null"
+          },
+          "proposed_latex": {
+            "title": "Proposed Latex",
+            "type": "null"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "method",
+          "proposal_sha256",
+          "proposed_latex"
+        ],
+        "title": "PendingEquationAssistanceResponse",
+        "type": "object"
+      },
+      "ProposedEquationAssistanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Method",
+            "type": "string"
+          },
+          "proposal_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Proposal Sha256",
+            "type": "string"
+          },
+          "proposed_latex": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Proposed Latex",
+            "type": "string"
+          },
+          "status": {
+            "const": "PROPOSED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "method",
+          "proposal_sha256",
+          "proposed_latex"
+        ],
+        "title": "ProposedEquationAssistanceResponse",
         "type": "object"
       },
       "ProvidedReferenceListResponse": {
@@ -3040,6 +3438,246 @@
         "summary": "Decide",
         "tags": [
           "citation reviews"
+        ]
+      }
+    },
+    "/equation-reviews": {
+      "get": {
+        "operationId": "queue_equation_reviews_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The equation-review identity is not configured."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Configured equation-review evidence is unavailable."
+          }
+        },
+        "summary": "Queue",
+        "tags": [
+          "equation-reviews"
+        ]
+      }
+    },
+    "/equation-reviews/{candidate_id}/decision": {
+      "put": {
+        "operationId": "decide_equation_reviews__candidate_id__decision_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EquationReviewDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The equation-review identity is not configured."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The request is not bound to the displayed proposal."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Equation decision persistence has no applications-owned adapter."
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "equation-reviews"
+        ]
+      }
+    },
+    "/equation-reviews/{candidate_id}/region": {
+      "get": {
+        "operationId": "region_equation_reviews__candidate_id__region_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              }
+            },
+            "description": "Content-addressed PNG, JPEG, or WebP evidence, fully buffered and limited to exactly 20,000,000 bytes.",
+            "headers": {
+              "Content-Disposition": {
+                "description": "Always `inline`; artifact filenames are never exposed.",
+                "schema": {
+                  "const": "inline",
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "Prevents media-type sniffing.",
+                "schema": {
+                  "const": "nosniff",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The equation-review identity is not configured."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "Configured equation-review evidence is unavailable."
+          }
+        },
+        "summary": "Region",
+        "tags": [
+          "equation-reviews"
         ]
       }
     },

@@ -51,6 +51,19 @@ class LiteratureReviewConfiguration:
 
 
 @dataclass(frozen=True)
+class EquationReviewDocumentConfiguration:
+    bundle_path: Path
+    regions_root: Path
+
+
+@dataclass(frozen=True)
+class EquationReviewConfiguration:
+    pizzi2020: EquationReviewDocumentConfiguration | None = field(
+        default_factory=lambda: _configured_pizzi2020_equation_review()
+    )
+
+
+@dataclass(frozen=True)
 class PublicationConfiguration:
     catalog_path: Path | None = field(
         default_factory=lambda: _configured_publication_catalog()
@@ -84,6 +97,9 @@ class ProjectKoiosAppConfiguration:
     literature_review: LiteratureReviewConfiguration = field(
         default_factory=LiteratureReviewConfiguration
     )
+    equation_review: EquationReviewConfiguration = field(
+        default_factory=EquationReviewConfiguration
+    )
     publications: PublicationConfiguration = field(
         default_factory=PublicationConfiguration
     )
@@ -99,6 +115,23 @@ def _configured_deployment_profile() -> DeploymentProfile:
         raise ValueError(
             f"KOIOS_DEPLOYMENT_PROFILE must be one of: {choices}"
         ) from error
+
+
+def _configured_pizzi2020_equation_review() -> (
+    EquationReviewDocumentConfiguration | None
+):
+    bundle = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE")
+    regions = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS")
+    if bundle is None and regions is None:
+        return None
+    if not bundle or not regions:
+        raise ValueError(
+            "pizzi2020 equation review requires both its bundle and regions"
+        )
+    return EquationReviewDocumentConfiguration(
+        bundle_path=Path(bundle).expanduser(),
+        regions_root=Path(regions).expanduser(),
+    )
 
 
 def _configured_publication_catalog() -> Path | None:

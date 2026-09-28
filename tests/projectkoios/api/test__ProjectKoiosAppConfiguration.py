@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 from projectkoios.api.config import (
     DeploymentProfile,
@@ -33,6 +35,48 @@ def test__deployment_profile__rejects_unknown_value(
     with pytest.raises(
         ValueError,
         match="KOIOS_DEPLOYMENT_PROFILE must be one of: public, control",
+    ):
+        ProjectKoiosAppConfiguration()
+
+
+def test__equation_review__requires_explicit_complete_pizzi_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE",
+        "/private/pizzi2020/bundle.json",
+    )
+    monkeypatch.setenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS",
+        "/private/pizzi2020/regions",
+    )
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert configuration.equation_review.pizzi2020 is not None
+    assert configuration.equation_review.pizzi2020.bundle_path == Path(
+        "/private/pizzi2020/bundle.json"
+    )
+    assert configuration.equation_review.pizzi2020.regions_root == Path(
+        "/private/pizzi2020/regions"
+    )
+
+
+def test__equation_review__rejects_partial_pizzi_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE",
+        "/private/pizzi2020/bundle.json",
+    )
+    monkeypatch.delenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS",
+        raising=False,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="pizzi2020 equation review requires both",
     ):
         ProjectKoiosAppConfiguration()
 

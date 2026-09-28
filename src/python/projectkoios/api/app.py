@@ -6,6 +6,7 @@ from projectkoios.api.config import (
     DeploymentProfile,
     ProjectKoiosAppConfiguration,
 )
+from projectkoios.api.equation_review import EquationReviewRepository
 from projectkoios.api.github_tasks import GitHubTaskReader
 from projectkoios.api.literature_review import LiteratureReviewRepository
 from projectkoios.api.public_catalogs import (
@@ -20,6 +21,9 @@ from projectkoios.api.routers.core import create_core_router
 from projectkoios.api.routers.courses import (
     PublicCourseProvider,
     create_courses_router,
+)
+from projectkoios.api.routers.equation_review import (
+    create_equation_review_router,
 )
 from projectkoios.api.routers.github_tasks import (
     GitHubTaskProvider,
@@ -106,6 +110,9 @@ class ProjectKoiosApp:
         literature_reviews = LiteratureReviewRepository(
             self.configuration.literature_review.run_path
         )
+        equation_reviews = EquationReviewRepository(
+            self.configuration.equation_review
+        )
 
         github_task_provider = github_tasks or GitHubTaskReader(
             self.configuration.github.repositories,
@@ -120,6 +127,7 @@ class ProjectKoiosApp:
         self.app.include_router(
             create_literature_review_router(literature_reviews)
         )
+        self.app.include_router(create_equation_review_router(equation_reviews))
         self.app.include_router(create_organizer_router(organizer))
         self.app.include_router(
             create_transcript_review_router(transcript_reviews)

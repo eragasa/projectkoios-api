@@ -68,6 +68,14 @@ _RECONCILED_SCHEMAS = {
     "ApiErrorResponse",
     "CourseCode",
     "CourseMaterialsStatus",
+    "DeterministicEquationEvidenceResponse",
+    "EquationRegionEvidenceResponse",
+    "EquationReviewCandidateResponse",
+    "EquationReviewDecisionRequest",
+    "EquationReviewDecisionResponse",
+    "EquationReviewDisposition",
+    "EquationReviewQueueResponse",
+    "EquationSourceIdentityResponse",
     "LifeDomain",
     "OrganizerActivity",
     "OrganizerControlMode",
@@ -89,6 +97,8 @@ _RECONCILED_SCHEMAS = {
     "PublicProjectReview",
     "PublicProjectSourceRevision",
     "PublicProjectStatus",
+    "PendingEquationAssistanceResponse",
+    "ProposedEquationAssistanceResponse",
     "TranscriptReviewCategory",
     "TranscriptReviewDocumentResponse",
     "TranscriptReviewDocumentSummaryResponse",
@@ -110,6 +120,9 @@ _MASTER_SCHEMAS_SHA256 = (
 _NEW_PATHS = {
     "/api/courses",
     "/api/projects",
+    "/equation-reviews",
+    "/equation-reviews/{candidate_id}/decision",
+    "/equation-reviews/{candidate_id}/region",
     "/organizer/status",
     "/organizer/control",
     "/organizer/proposals",
@@ -149,6 +162,7 @@ def test__combined_openapi__is_exact_selected_master_superset() -> None:
     expected_methods.update(
         {
             "/citation-reviews/{claim_id}/decision": {"put"},
+            "/equation-reviews/{candidate_id}/decision": {"put"},
             "/literature-review/references": {"get", "post"},
             "/organizer/control": {"put"},
             "/search": {"post"},
@@ -229,6 +243,43 @@ def test__combined_openapi__documents_binary_errors_and_limits() -> None:
     assert limit["schema"]["maximum"] == 500
 
 
+def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
+    schema = combined_openapi_schema()
+    queue = schema["paths"]["/equation-reviews"]["get"]
+    region = schema["paths"]["/equation-reviews/{candidate_id}/region"]["get"]
+    decision = schema["paths"]["/equation-reviews/{candidate_id}/decision"][
+        "put"
+    ]
+
+    document_id = next(
+        parameter
+        for parameter in queue["parameters"]
+        if parameter["name"] == "document_id"
+    )
+    assert document_id["required"] is True
+    assert queue["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/EquationReviewQueueResponse"}
+    assert set(region["responses"]["200"]["content"]) == {
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+    }
+    for media in region["responses"]["200"]["content"].values():
+        assert media["schema"]["x-maximum-bytes"] == 20_000_000
+    assert decision["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/EquationReviewDecisionRequest"
+    }
+    assert "200" not in decision["responses"]
+    assert decision["responses"]["503"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
+    assert (
+        "applications-owned adapter"
+        in decision["responses"]["503"]["description"]
+    )
+
+
 def test__combined_openapi__declares_fixed_provider_error_envelopes() -> None:
     schema = combined_openapi_schema()
     operations = [
@@ -276,12 +327,20 @@ def test__control_app__defaults_new_owner_contracts_to_unavailable() -> None:
 
     organizer = client.get("/organizer/status")
     transcripts = client.get("/transcript-reviews")
+    equations = client.get(
+        "/equation-reviews",
+        params={"document_id": "pizzi2020"},
+    )
 
     assert organizer.status_code == 503
     assert organizer.json() == {"detail": "organizer provider is unavailable"}
     assert transcripts.status_code == 503
     assert transcripts.json() == {
         "detail": "transcript review provider is unavailable"
+    }
+    assert equations.status_code == 503
+    assert equations.json() == {
+        "detail": "equation review evidence is unavailable"
     }
 
 
@@ -296,6 +355,7 @@ def test__public_openapi__keeps_control_contracts_absent() -> None:
     assert {"/api/courses", "/api/projects", "/api/publications"} <= paths
     assert (
         not {
+            "/equation-reviews",
             "/github/tasks",
             "/organizer/status",
             "/transcript-reviews",
@@ -312,12 +372,14 @@ def test__review_contracts__have_no_agent_or_owner_runtime_imports() -> None:
     )
     boundary_paths = [
         source_root / "course_models.py",
+        source_root / "equation_review_models.py",
         source_root / "organizer_models.py",
         source_root / "project_models.py",
         source_root / "public_catalogs.py",
         source_root / "transcript_review.py",
         source_root / "transcript_review_models.py",
         source_root / "routers" / "courses.py",
+        source_root / "routers" / "equation_review.py",
         source_root / "routers" / "organizer.py",
         source_root / "routers" / "projects.py",
         source_root / "routers" / "transcript_review.py",

@@ -79,6 +79,32 @@ Default local paths are:
 The decision database is created with `0600` permissions. Source requests are
 restricted to filenames already present in the review bundle.
 
+## Local equation review
+
+The control profile exposes the bounded `pizzi2020` equation-review projection
+at `GET /equation-reviews?document_id=pizzi2020` and its content-addressed
+region images at `GET /equation-reviews/{candidate_id}/region`. Both inputs are
+required; there are no default paths or filesystem discovery:
+
+```bash
+KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE=/private/pizzi2020/equation-review.json
+KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS=/private/pizzi2020/regions
+```
+
+The schema-version `1` bundle contains the queue candidates exactly as exposed
+by the HTTP response plus `schema_version`; every candidate must explicitly
+carry `decision: null`. Region bytes live directly under the configured root at
+a filename equal to `region.image_sha256`, with no extension. The API rejects
+symlinks, missing or non-regular resources, hash mismatches, unknown image
+signatures, oversized data, malformed bundles, and unowned decision claims as
+unavailable evidence. It never reads or processes a source PDF.
+
+`PUT /equation-reviews/{candidate_id}/decision` validates that an acceptance
+names the exact displayed assisted-proposal hash, but deliberately returns a
+typed `503`. No applications-owned append-only human revision contract exists
+in this candidate, so the API does not create a private substitute store or
+promote assisted text.
+
 ## Live GitHubTask projection
 
 The control profile exposes `GET /github/tasks`. Configure its explicit repository
@@ -100,11 +126,12 @@ not construct the reader or expose the route.
 
 ## Combined control-review contract
 
-The control profile also publishes bounded organizer and transcript review
-contracts. Their domain behavior is available only through explicitly injected
-owner adapters; without one, the routes return a safe `503`. No organizer daemon,
-transcript ingestion, filesystem catalog, or review persistence is implemented by
-this repository.
+The control profile also publishes bounded organizer, transcript-review, and
+equation-review contracts. Organizer and transcript domain behavior is
+available only through explicitly injected owner adapters; without one, those
+routes return a safe `503`. Equation reads use only the explicit `pizzi2020`
+configuration described above. No organizer daemon, transcript ingestion,
+filesystem discovery, or equation-review persistence is implemented here.
 
 Every owner projection is runtime-validated at the API boundary. Invalid owner
 data returns a fixed `502`, unexpected ordinary owner failures return a fixed
