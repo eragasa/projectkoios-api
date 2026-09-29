@@ -29,20 +29,19 @@ jobs:
           path: projectkoios-api
           persist-credentials: false
 
-      - name: GitHubTask 02 · Report unavailable applications owner source
-        run: |
-          echo "::error::projectkoios-applications b25ba8c is unpushed; hosted equation-review verification is unavailable"
-          exit 1
-
-      # These exact checkouts are intentionally unreachable until Task 02 is
-      # removed after the reviewed applications commit is published.
-      - name: GitHubTask 03 · Check out locked applications owner
+      - name: GitHubTask 02 · Check out published applications owner
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-applications
           ref: b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f
           path: projectkoios-applications
           persist-credentials: false
+
+      - name: GitHubTask 03 · Verify locked applications owner
+        working-directory: projectkoios-applications
+        run: |
+          test "$(git rev-parse HEAD)" = "b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f"
+          test "$(git rev-parse HEAD^{tree})" = "2f32fa9d9b3a5bb452a643dbba34a7dfae461423"
 
       - name: GitHubTask 04 · Check out locked ingestion dependency
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
