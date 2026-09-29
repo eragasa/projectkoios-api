@@ -9,8 +9,8 @@ Repository routing is documented in `projectkoios-bootstrap/maps/repositories.md
 The API has two explicit profiles selected with `KOIOS_DEPLOYMENT_PROFILE`:
 
 - `public` is the fail-closed default. It exposes core health and the public
-  course, project, and publication catalogs, but does not construct or register search,
-  citation-review, or literature-review services.
+  course, project, and publication catalogs, but does not construct or register
+  search or control-review services.
 - `control` exposes the public endpoints plus private operational endpoints. It is
   intended for one operator on loopback or a separately protected private network.
 
@@ -103,6 +103,36 @@ Default local paths are:
 The decision database is created with `0600` permissions. Source requests are
 restricted to filenames already present in the review bundle.
 
+## Local equation review
+
+The control profile exposes the bounded `pizzi2020` equation-review projection
+at `GET /equation-reviews?document_id=pizzi2020`, content-addressed region
+images at `GET /equation-reviews/{candidate_id}/region`, and human decisions at
+`PUT /equation-reviews/{candidate_id}/decision`. All paths are explicit; there
+is no filesystem discovery or default corpus:
+
+```bash
+KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE=/private/pizzi2020/equation-review.json
+KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS=/private/pizzi2020/regions
+KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT=/private/pizzi2020/document
+```
+
+The API validates bounded, path-free, content-addressed evidence and asks the
+applications owner to read and append revisions. Legacy schema-2 decisions are
+read-compatible; new decisions are schema 3. Acceptance requires canonical NFC
+reviewer math-body LaTeX without outer delimiters, the deterministic display
+mode, renderer identity/version, and exact rendered-input hashes. The browser
+supplies neither Obsidian Markdown nor receipt time. The owner derives Markdown,
+revalidates all source/evidence/region/proposal bindings, and records immutable
+UTC receipts. Assisted text remains `automated_unreviewed` until an explicit
+human revision is appended.
+
+The owner adapter is declared by the `equation-review-control` optional extra
+and imported only for a configured control capability. Applications commit
+`436d3da` preserves `[pdf-corpus]` isolation from simulations/Physkit. That
+commit remains unpushed, so hosted verification reports owner-source
+unavailability.
+
 ## Live GitHubTask projection
 
 The control profile exposes `GET /github/tasks`. Configure its explicit repository
@@ -122,8 +152,26 @@ repository reports a bounded error kind instead of raw CLI output, credentials, 
 private paths. An empty allowlist produces an empty projection. The public profile does
 not construct the reader or expose the route.
 
+## Organizer and transcript review
+
+The control profile preserves the agent-backed organizer routes:
+`GET /organizer/status`, `PUT /organizer/control`,
+`GET /organizer/events`, and `GET /organizer/events/stream`. The configured
+SQLite catalog remains owned by `projectkoios-agent`; the API does not duplicate
+its state or lifecycle logic. `KOIOS_ORGANIZER_CATALOG` selects the catalog, or
+it is derived from `KOIOS_DATA_ROOT`.
+
+The transcript-review routes are bounded owner ports. Without an injected
+transcript owner they return a safe `503`. Source PDFs and PNG/JPEG/WebP previews
+are path-free, signature-checked exact bytes with explicit size limits. The
+combined control contract and provenance are documented in
+[`docs/control-review-contracts.md`](docs/control-review-contracts.md), and the
+authoritative generated document is
+[`openapi/control.openapi.json`](openapi/control.openapi.json).
+
 ## Continuous integration
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in
-[`docs/ci.md`](docs/ci.md). It uses the committed Python lock and exact sibling
-Project Koios revisions; it does not perform repository or release mutations.
+[`docs/ci.md`](docs/ci.md). It currently stops with an explicit unavailable
+owner-source result because applications commit `436d3da` is unpushed; it does
+not present unreachable checkouts as passing evidence.

@@ -51,6 +51,20 @@ class LiteratureReviewConfiguration:
 
 
 @dataclass(frozen=True)
+class EquationReviewDocumentConfiguration:
+    bundle_path: Path
+    regions_root: Path
+    document_root: Path
+
+
+@dataclass(frozen=True)
+class EquationReviewConfiguration:
+    pizzi2020: EquationReviewDocumentConfiguration | None = field(
+        default_factory=lambda: _configured_pizzi2020_equation_review()
+    )
+
+
+@dataclass(frozen=True)
 class OrganizerConfiguration:
     catalog_path: Path = field(
         default_factory=lambda: _configured_organizer_catalog()
@@ -105,6 +119,9 @@ class ProjectKoiosAppConfiguration:
     literature_review: LiteratureReviewConfiguration = field(
         default_factory=LiteratureReviewConfiguration
     )
+    equation_review: EquationReviewConfiguration = field(
+        default_factory=EquationReviewConfiguration
+    )
     organizer: OrganizerConfiguration = field(
         default_factory=OrganizerConfiguration
     )
@@ -125,6 +142,32 @@ def _configured_deployment_profile() -> DeploymentProfile:
         raise ValueError(
             f"KOIOS_DEPLOYMENT_PROFILE must be one of: {choices}"
         ) from error
+
+
+def _configured_pizzi2020_equation_review() -> (
+    EquationReviewDocumentConfiguration | None
+):
+    bundle = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE")
+    regions = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS")
+    document_root = os.environ.get(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT"
+    )
+    values = (bundle, regions, document_root)
+    if all(value is None for value in values):
+        return None
+    if any(not value for value in values):
+        raise ValueError(
+            "pizzi2020 equation review requires its bundle, regions, and "
+            "document root"
+        )
+    assert bundle is not None
+    assert regions is not None
+    assert document_root is not None
+    return EquationReviewDocumentConfiguration(
+        bundle_path=Path(bundle).expanduser(),
+        regions_root=Path(regions).expanduser(),
+        document_root=Path(document_root).expanduser(),
+    )
 
 
 def _configured_course_catalog() -> Path | None:

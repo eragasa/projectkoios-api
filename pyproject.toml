@@ -29,7 +29,11 @@ where = ["src/python"]
 namespaces = true
 
 [project.optional-dependencies]
+equation-review-control = [
+    "projectkoios-applications[pdf-corpus]==0.1.0.dev0",
+]
 dev = [
+    "projectkoios-ingestion[pdf]==0.0.0",
     "pytest>=8.0",
     "httpx2>=2.0",
     "ruff>=0.8",
@@ -53,6 +57,11 @@ select = ["E", "F", "I", "UP", "B"]
 mypy_path = ["src/python", "../projectkoios/src/python", "../projectkoios-agent/src/python", "../projectkoios-references/src/python", "../projectkoios-search/src/python", "../projectkoios-obsidian/src/python"]
 namespace_packages = true
 explicit_package_bases = true
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["projectkoios.applications", "projectkoios.applications.*"]
+follow_imports = "skip"
 
 [tool.ruff.format]
 quote-style = "double"
@@ -61,6 +70,8 @@ indent-style = "space"
 [tool.uv.sources]
 projectkoios = { path = "../projectkoios", editable = true }
 projectkoios-agent = { path = "../projectkoios-agent", editable = true }
+projectkoios-applications = { path = "../projectkoios-applications", editable = true }
+projectkoios-ingestion = { path = "../projectkoios-ingestion", editable = true }
 projectkoios-obsidian = { path = "../projectkoios-obsidian", editable = true }
 projectkoios-references = { path = "../projectkoios-references", editable = true }
 projectkoios-search = { path = "../projectkoios-search", editable = true }

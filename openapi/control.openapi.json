@@ -1,0 +1,4627 @@
+{
+  "components": {
+    "schemas": {
+      "ApiErrorResponse": {
+        "additionalProperties": false,
+        "description": "Stable HTTP error envelope exposed by API-owned routes.",
+        "properties": {
+          "detail": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "ApiErrorResponse",
+        "type": "object"
+      },
+      "Body_provide_reference_literature_review_references_post": {
+        "properties": {
+          "citation_label": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Citation Label",
+            "type": "string"
+          },
+          "claim_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "doi_or_url": {
+            "anyOf": [
+              {
+                "maxLength": 1000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi Or Url"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Note",
+            "type": "string"
+          },
+          "reference_pdf": {
+            "contentMediaType": "application/octet-stream",
+            "title": "Reference Pdf",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "citation_label",
+          "reference_pdf"
+        ],
+        "title": "Body_provide_reference_literature_review_references_post",
+        "type": "object"
+      },
+      "CitationCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bibtex_entry_present": {
+            "title": "Bibtex Entry Present",
+            "type": "boolean"
+          },
+          "citation_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Key"
+          },
+          "file": {
+            "title": "File",
+            "type": "string"
+          },
+          "passage": {
+            "title": "Passage",
+            "type": "string"
+          },
+          "passage_id": {
+            "title": "Passage Id",
+            "type": "string"
+          },
+          "physical_page": {
+            "minimum": 1.0,
+            "title": "Physical Page",
+            "type": "integer"
+          },
+          "printed_page": {
+            "title": "Printed Page",
+            "type": "string"
+          },
+          "rank": {
+            "minimum": 1.0,
+            "title": "Rank",
+            "type": "integer"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rank",
+          "citation_key",
+          "bibtex_entry_present",
+          "score",
+          "file",
+          "physical_page",
+          "printed_page",
+          "passage_id",
+          "passage"
+        ],
+        "title": "CitationCandidateResponse",
+        "type": "object"
+      },
+      "CitationDecisionDisposition": {
+        "enum": [
+          "ACCEPT_CITATION",
+          "REJECT_CANDIDATES",
+          "PARTIAL_SUPPORT",
+          "CORPUS_GAP",
+          "NO_CITATION_REQUIRED"
+        ],
+        "title": "CitationDecisionDisposition",
+        "type": "string"
+      },
+      "CitationDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "disposition": {
+            "$ref": "#/components/schemas/CitationDecisionDisposition"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 4000,
+            "title": "Note",
+            "type": "string"
+          },
+          "selected_citation_keys": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Selected Citation Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "disposition"
+        ],
+        "title": "CitationDecisionRequest",
+        "type": "object"
+      },
+      "CitationDecisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "claim_id": {
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/CitationDecisionDisposition"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "selected_citation_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Selected Citation Keys",
+            "type": "array"
+          },
+          "updated_at_utc": {
+            "title": "Updated At Utc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "claim_id",
+          "disposition",
+          "selected_citation_keys",
+          "note",
+          "revision",
+          "updated_at_utc"
+        ],
+        "title": "CitationDecisionResponse",
+        "type": "object"
+      },
+      "CitationReviewDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/CitationCandidateResponse"
+            },
+            "title": "Candidates",
+            "type": "array"
+          },
+          "claim": {
+            "title": "Claim",
+            "type": "string"
+          },
+          "claim_id": {
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CitationDecisionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluation_status": {
+            "title": "Evaluation Status",
+            "type": "string"
+          },
+          "expected_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Expected Keys",
+            "type": "array"
+          },
+          "expected_keys_available": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Expected Keys Available",
+            "type": "array"
+          },
+          "expected_outcome": {
+            "title": "Expected Outcome",
+            "type": "string"
+          },
+          "lines": {
+            "title": "Lines",
+            "type": "string"
+          },
+          "manuscript_equations": {
+            "items": {
+              "$ref": "#/components/schemas/ManuscriptEquationResponse"
+            },
+            "title": "Manuscript Equations",
+            "type": "array"
+          },
+          "manuscript_excerpt_latex": {
+            "title": "Manuscript Excerpt Latex",
+            "type": "string"
+          },
+          "query": {
+            "title": "Query",
+            "type": "string"
+          },
+          "recommendation": {
+            "title": "Recommendation",
+            "type": "string"
+          },
+          "recommendation_relationship": {
+            "title": "Recommendation Relationship",
+            "type": "string"
+          },
+          "recommended_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recommended Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "claim_id",
+          "lines",
+          "claim",
+          "recommendation_relationship",
+          "recommended_keys",
+          "evaluation_status",
+          "decision",
+          "query",
+          "manuscript_excerpt_latex",
+          "manuscript_equations",
+          "expected_keys",
+          "expected_keys_available",
+          "expected_outcome",
+          "recommendation",
+          "candidates"
+        ],
+        "title": "CitationReviewDetailResponse",
+        "type": "object"
+      },
+      "CitationReviewQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assessment": {
+            "title": "Assessment",
+            "type": "string"
+          },
+          "decided": {
+            "minimum": 0.0,
+            "title": "Decided",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CitationReviewSummaryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "manuscript_sha256": {
+            "title": "Manuscript Sha256",
+            "type": "string"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "assessment",
+          "manuscript_sha256",
+          "total",
+          "decided",
+          "items"
+        ],
+        "title": "CitationReviewQueueResponse",
+        "type": "object"
+      },
+      "CitationReviewSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "claim": {
+            "title": "Claim",
+            "type": "string"
+          },
+          "claim_id": {
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CitationDecisionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evaluation_status": {
+            "title": "Evaluation Status",
+            "type": "string"
+          },
+          "lines": {
+            "title": "Lines",
+            "type": "string"
+          },
+          "recommendation_relationship": {
+            "title": "Recommendation Relationship",
+            "type": "string"
+          },
+          "recommended_keys": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Recommended Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "claim_id",
+          "lines",
+          "claim",
+          "recommendation_relationship",
+          "recommended_keys",
+          "evaluation_status",
+          "decision"
+        ],
+        "title": "CitationReviewSummaryResponse",
+        "type": "object"
+      },
+      "CourseMaterialsStatus": {
+        "enum": [
+          "inventory-only",
+          "review-candidate",
+          "published"
+        ],
+        "title": "CourseMaterialsStatus",
+        "type": "string"
+      },
+      "DeterministicEquationEvidenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detector": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detector",
+            "type": "string"
+          },
+          "detector_version": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detector Version",
+            "type": "string"
+          },
+          "evidence_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Evidence Sha256",
+            "type": "string"
+          },
+          "extracted_text": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extracted Text"
+          }
+        },
+        "required": [
+          "detector",
+          "detector_version",
+          "evidence_sha256",
+          "extracted_text"
+        ],
+        "title": "DeterministicEquationEvidenceResponse",
+        "type": "object"
+      },
+      "EquationDisplayMode": {
+        "enum": [
+          "INLINE",
+          "DISPLAY"
+        ],
+        "title": "EquationDisplayMode",
+        "type": "string"
+      },
+      "EquationModelProvenanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "model_name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Model Name",
+            "type": "string"
+          },
+          "model_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Model Sha256",
+            "type": "string"
+          },
+          "prompt_version": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Prompt Version",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Result Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model_name",
+          "model_sha256",
+          "prompt_version",
+          "request_id",
+          "result_id"
+        ],
+        "title": "EquationModelProvenanceResponse",
+        "type": "object"
+      },
+      "EquationRegionEvidenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "coordinate_space": {
+            "const": "PDF_POINTS",
+            "title": "Coordinate Space",
+            "type": "string"
+          },
+          "height": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Height",
+            "type": "number"
+          },
+          "image_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Image Sha256",
+            "type": "string"
+          },
+          "width": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 1000000.0,
+            "title": "Width",
+            "type": "number"
+          },
+          "x": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "coordinate_space",
+          "x",
+          "y",
+          "width",
+          "height",
+          "image_sha256"
+        ],
+        "title": "EquationRegionEvidenceResponse",
+        "type": "object"
+      },
+      "EquationRenderConfirmation": {
+        "additionalProperties": false,
+        "properties": {
+          "rendered_obsidian_markdown_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Rendered Obsidian Markdown Sha256",
+            "type": "string"
+          },
+          "rendered_reviewer_latex_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Rendered Reviewer Latex Sha256",
+            "type": "string"
+          },
+          "renderer_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Renderer Id",
+            "type": "string"
+          },
+          "renderer_version": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Renderer Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "renderer_id",
+          "renderer_version",
+          "rendered_reviewer_latex_sha256",
+          "rendered_obsidian_markdown_sha256"
+        ],
+        "title": "EquationRenderConfirmation",
+        "type": "object"
+      },
+      "EquationReviewCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "FAILED": "#/components/schemas/PendingEquationAssistanceResponse",
+                    "PENDING": "#/components/schemas/PendingEquationAssistanceResponse",
+                    "PROPOSED": "#/components/schemas/ProposedEquationAssistanceResponse"
+                  },
+                  "propertyName": "status"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/PendingEquationAssistanceResponse"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ProposedEquationAssistanceResponse"
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance"
+          },
+          "candidate_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "current_revision": {
+            "maximum": 9999.0,
+            "minimum": 0.0,
+            "title": "Current Revision",
+            "type": "integer"
+          },
+          "decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationReviewDecision"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "deterministic_evidence": {
+            "$ref": "#/components/schemas/DeterministicEquationEvidenceResponse"
+          },
+          "display_mode": {
+            "$ref": "#/components/schemas/EquationDisplayMode"
+          },
+          "expected_previous_revision": {
+            "maximum": 9999.0,
+            "minimum": 0.0,
+            "title": "Expected Previous Revision",
+            "type": "integer"
+          },
+          "region": {
+            "$ref": "#/components/schemas/EquationRegionEvidenceResponse"
+          },
+          "source": {
+            "$ref": "#/components/schemas/EquationSourceIdentityResponse"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EquationReviewStatus"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "source",
+          "region",
+          "deterministic_evidence",
+          "display_mode",
+          "assistance",
+          "status",
+          "current_revision",
+          "expected_previous_revision",
+          "decision"
+        ],
+        "title": "EquationReviewCandidateResponse",
+        "type": "object"
+      },
+      "EquationReviewDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance_proposal_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance Proposal Sha256"
+          },
+          "display_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationDisplayMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EquationReviewDisposition"
+          },
+          "note": {
+            "maxLength": 10000,
+            "title": "Note",
+            "type": "string"
+          },
+          "obsidian_markdown": {
+            "anyOf": [
+              {
+                "maxLength": 100005,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obsidian Markdown"
+          },
+          "obsidian_markdown_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obsidian Markdown Sha256"
+          },
+          "recorded_at_utc": {
+            "format": "date-time",
+            "title": "Recorded At Utc",
+            "type": "string"
+          },
+          "render_confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationRenderConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewer_latex": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Latex"
+          },
+          "reviewer_latex_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Latex Sha256"
+          },
+          "revision": {
+            "maximum": 9999.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revision_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "enum": [
+              2,
+              3
+            ],
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EquationReviewStatus"
+          }
+        },
+        "required": [
+          "status",
+          "schema_version",
+          "disposition",
+          "assistance_proposal_sha256",
+          "reviewer_latex",
+          "reviewer_latex_sha256",
+          "obsidian_markdown",
+          "obsidian_markdown_sha256",
+          "display_mode",
+          "render_confirmation",
+          "note",
+          "revision",
+          "revision_id",
+          "recorded_at_utc"
+        ],
+        "title": "EquationReviewDecision",
+        "type": "object"
+      },
+      "EquationReviewDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance_proposal_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance Proposal Sha256"
+          },
+          "display_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationDisplayMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EquationReviewDisposition"
+          },
+          "expected_previous_revision": {
+            "exclusiveMaximum": 9999.0,
+            "minimum": 0.0,
+            "title": "Expected Previous Revision",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 10000,
+            "title": "Note",
+            "type": "string"
+          },
+          "render_confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationRenderConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewer_latex": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Latex"
+          }
+        },
+        "required": [
+          "disposition",
+          "assistance_proposal_sha256",
+          "reviewer_latex",
+          "display_mode",
+          "render_confirmation",
+          "note",
+          "expected_previous_revision"
+        ],
+        "title": "EquationReviewDecisionRequest",
+        "type": "object"
+      },
+      "EquationReviewDecisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance_proposal_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance Proposal Sha256"
+          },
+          "candidate_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "display_mode": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationDisplayMode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EquationReviewDisposition"
+          },
+          "note": {
+            "maxLength": 10000,
+            "title": "Note",
+            "type": "string"
+          },
+          "obsidian_markdown": {
+            "anyOf": [
+              {
+                "maxLength": 100005,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obsidian Markdown"
+          },
+          "obsidian_markdown_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Obsidian Markdown Sha256"
+          },
+          "recorded_at_utc": {
+            "format": "date-time",
+            "title": "Recorded At Utc",
+            "type": "string"
+          },
+          "render_confirmation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationRenderConfirmation"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reviewer_latex": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Latex"
+          },
+          "reviewer_latex_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewer Latex Sha256"
+          },
+          "revision": {
+            "maximum": 9999.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "revision_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Revision Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "enum": [
+              2,
+              3
+            ],
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/EquationReviewStatus"
+          }
+        },
+        "required": [
+          "status",
+          "schema_version",
+          "disposition",
+          "assistance_proposal_sha256",
+          "reviewer_latex",
+          "reviewer_latex_sha256",
+          "obsidian_markdown",
+          "obsidian_markdown_sha256",
+          "display_mode",
+          "render_confirmation",
+          "note",
+          "revision",
+          "revision_id",
+          "recorded_at_utc",
+          "candidate_id"
+        ],
+        "title": "EquationReviewDecisionResponse",
+        "type": "object"
+      },
+      "EquationReviewDisposition": {
+        "enum": [
+          "ACCEPT_TRANSCRIPTION",
+          "REJECT_CANDIDATE",
+          "REVISION_REQUIRED"
+        ],
+        "title": "EquationReviewDisposition",
+        "type": "string"
+      },
+      "EquationReviewFailureCode": {
+        "enum": [
+          "EQUATION_REVIEW_PROPOSAL_STALE",
+          "EQUATION_REVIEW_EVIDENCE_STALE",
+          "EQUATION_REVIEW_REVISION_STALE",
+          "EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL",
+          "EQUATION_REVIEW_RENDER_STALE",
+          "EQUATION_REVIEW_EDIT_AFTER_RENDER",
+          "EQUATION_REVIEW_CONCURRENT_DECISION",
+          "EQUATION_REVIEW_PARTIAL_OUTPUT",
+          "EQUATION_REVIEW_OWNER_UNAVAILABLE"
+        ],
+        "title": "EquationReviewFailureCode",
+        "type": "string"
+      },
+      "EquationReviewFailureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/EquationReviewFailureCode"
+          },
+          "detail": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "EquationReviewFailureResponse",
+        "type": "object"
+      },
+      "EquationReviewQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "decided": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Decided",
+            "type": "integer"
+          },
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EquationReviewCandidateResponse"
+            },
+            "maxItems": 256,
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "total",
+          "decided",
+          "items"
+        ],
+        "title": "EquationReviewQueueResponse",
+        "type": "object"
+      },
+      "EquationReviewStatus": {
+        "enum": [
+          "UNREVIEWED",
+          "LEGACY_ACCEPTANCE",
+          "ACCEPTED",
+          "REJECTED",
+          "REVISION_REQUIRED"
+        ],
+        "title": "EquationReviewStatus",
+        "type": "string"
+      },
+      "EquationSourceIdentityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "physical_page": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Physical Page",
+            "type": "integer"
+          },
+          "source_name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source Name",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "document_id",
+          "source_name",
+          "source_sha256",
+          "physical_page"
+        ],
+        "title": "EquationSourceIdentityResponse",
+        "type": "object"
+      },
+      "GitHubPullRequestSummary": {
+        "properties": {
+          "base_branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Base Branch",
+            "type": "string"
+          },
+          "head_branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Head Branch",
+            "type": "string"
+          },
+          "head_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Head Sha",
+            "type": "string"
+          },
+          "is_draft": {
+            "title": "Is Draft",
+            "type": "boolean"
+          },
+          "number": {
+            "minimum": 1.0,
+            "title": "Number",
+            "type": "integer"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "number",
+          "title",
+          "url",
+          "is_draft",
+          "head_branch",
+          "head_sha",
+          "base_branch"
+        ],
+        "title": "GitHubPullRequestSummary",
+        "type": "object"
+      },
+      "GitHubRepositoryTaskProjection": {
+        "properties": {
+          "default_branch": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Branch"
+          },
+          "error_kind": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Kind"
+          },
+          "latest_sequence": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GitHubTaskSequence"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "open_pull_requests": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GitHubPullRequestSummary"
+            },
+            "title": "Open Pull Requests",
+            "type": "array"
+          },
+          "open_pull_requests_complete": {
+            "default": true,
+            "title": "Open Pull Requests Complete",
+            "type": "boolean"
+          },
+          "repository": {
+            "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$",
+            "title": "Repository",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "ok",
+              "error"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repository",
+          "state"
+        ],
+        "title": "GitHubRepositoryTaskProjection",
+        "type": "object"
+      },
+      "GitHubTask": {
+        "properties": {
+          "completed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completed At"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conclusion"
+          },
+          "job_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Job Name",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "sequence_index": {
+            "minimum": 1.0,
+            "title": "Sequence Index",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sequence_index",
+          "job_name",
+          "name",
+          "status"
+        ],
+        "title": "GitHubTask",
+        "type": "object"
+      },
+      "GitHubTaskDashboard": {
+        "properties": {
+          "repositories": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GitHubRepositoryTaskProjection"
+            },
+            "title": "Repositories",
+            "type": "array"
+          },
+          "source": {
+            "const": "github-live",
+            "default": "github-live",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "title": "GitHubTaskDashboard",
+        "type": "object"
+      },
+      "GitHubTaskSequence": {
+        "properties": {
+          "branch": {
+            "maxLength": 255,
+            "minLength": 1,
+            "title": "Branch",
+            "type": "string"
+          },
+          "commit_sha": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Commit Sha",
+            "type": "string"
+          },
+          "conclusion": {
+            "anyOf": [
+              {
+                "maxLength": 40,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Conclusion"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Event",
+            "type": "string"
+          },
+          "run_id": {
+            "minimum": 1.0,
+            "title": "Run Id",
+            "type": "integer"
+          },
+          "status": {
+            "maxLength": 40,
+            "minLength": 1,
+            "title": "Status",
+            "type": "string"
+          },
+          "tasks": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GitHubTask"
+            },
+            "title": "Tasks",
+            "type": "array"
+          },
+          "tasks_complete": {
+            "default": true,
+            "title": "Tasks Complete",
+            "type": "boolean"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          },
+          "workflow_name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Workflow Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "run_id",
+          "workflow_name",
+          "event",
+          "status",
+          "branch",
+          "commit_sha",
+          "url",
+          "created_at"
+        ],
+        "title": "GitHubTaskSequence",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LiteratureClaimProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assumptions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Assumptions",
+            "type": "array"
+          },
+          "claim": {
+            "title": "Claim",
+            "type": "string"
+          },
+          "claim_id": {
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "corrected_claim": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrected Claim"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureEvidenceReferenceResponse"
+            },
+            "title": "Evidence",
+            "type": "array"
+          },
+          "evidence_count": {
+            "minimum": 0.0,
+            "title": "Evidence Count",
+            "type": "integer"
+          },
+          "section": {
+            "title": "Section",
+            "type": "string"
+          },
+          "source_requests": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Source Requests",
+            "type": "array"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiteratureClaimStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Summary"
+          },
+          "validation_frame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LiteratureValidationFrameResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "claim_id",
+          "section",
+          "claim",
+          "evidence_count",
+          "status",
+          "summary",
+          "corrected_claim",
+          "assumptions",
+          "evidence",
+          "source_requests",
+          "validation_frame"
+        ],
+        "title": "LiteratureClaimProgressResponse",
+        "type": "object"
+      },
+      "LiteratureClaimStatus": {
+        "enum": [
+          "SUPPORTED",
+          "QUALIFIED",
+          "CONTRADICTED",
+          "UNRESOLVED"
+        ],
+        "title": "LiteratureClaimStatus",
+        "type": "string"
+      },
+      "LiteratureEquationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "interpretation": {
+            "title": "Interpretation",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "latex": {
+            "title": "Latex",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "latex",
+          "interpretation"
+        ],
+        "title": "LiteratureEquationResponse",
+        "type": "object"
+      },
+      "LiteratureEvidenceReferenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "citation_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation Key"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "physical_page": {
+            "minimum": 1.0,
+            "title": "Physical Page",
+            "type": "integer"
+          },
+          "quote": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Quote",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "citation_key",
+          "physical_page",
+          "quote"
+        ],
+        "title": "LiteratureEvidenceReferenceResponse",
+        "type": "object"
+      },
+      "LiteratureReviewPhase": {
+        "enum": [
+          "PENDING",
+          "RETRIEVING",
+          "ASSESSING",
+          "COMPLETE"
+        ],
+        "title": "LiteratureReviewPhase",
+        "type": "string"
+      },
+      "LiteratureReviewProgressResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assessment_count": {
+            "minimum": 0.0,
+            "title": "Assessment Count",
+            "type": "integer"
+          },
+          "assessment_status": {
+            "title": "Assessment Status",
+            "type": "string"
+          },
+          "claim_count": {
+            "minimum": 0.0,
+            "title": "Claim Count",
+            "type": "integer"
+          },
+          "claims": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureClaimProgressResponse"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "classifier_implementation_authorized": {
+            "title": "Classifier Implementation Authorized",
+            "type": "boolean"
+          },
+          "completion_percent": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Completion Percent",
+            "type": "number"
+          },
+          "evidence_ready_count": {
+            "minimum": 0.0,
+            "title": "Evidence Ready Count",
+            "type": "integer"
+          },
+          "human_disposition": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Human Disposition"
+          },
+          "original_submission_markdown": {
+            "title": "Original Submission Markdown",
+            "type": "string"
+          },
+          "phase": {
+            "$ref": "#/components/schemas/LiteratureReviewPhase"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "scientific_calculation_authorized": {
+            "title": "Scientific Calculation Authorized",
+            "type": "boolean"
+          },
+          "status_counts": {
+            "$ref": "#/components/schemas/LiteratureStatusCountResponse"
+          }
+        },
+        "required": [
+          "run_id",
+          "phase",
+          "assessment_status",
+          "claim_count",
+          "evidence_ready_count",
+          "assessment_count",
+          "completion_percent",
+          "status_counts",
+          "human_disposition",
+          "classifier_implementation_authorized",
+          "scientific_calculation_authorized",
+          "original_submission_markdown",
+          "claims"
+        ],
+        "title": "LiteratureReviewProgressResponse",
+        "type": "object"
+      },
+      "LiteratureStatusCountResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "contradicted": {
+            "minimum": 0.0,
+            "title": "Contradicted",
+            "type": "integer"
+          },
+          "qualified": {
+            "minimum": 0.0,
+            "title": "Qualified",
+            "type": "integer"
+          },
+          "supported": {
+            "minimum": 0.0,
+            "title": "Supported",
+            "type": "integer"
+          },
+          "unresolved": {
+            "minimum": 0.0,
+            "title": "Unresolved",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "supported",
+          "qualified",
+          "contradicted",
+          "unresolved"
+        ],
+        "title": "LiteratureStatusCountResponse",
+        "type": "object"
+      },
+      "LiteratureValidationFrameResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assessment_status": {
+            "title": "Assessment Status",
+            "type": "string"
+          },
+          "conclusion": {
+            "title": "Conclusion",
+            "type": "string"
+          },
+          "equations": {
+            "items": {
+              "$ref": "#/components/schemas/LiteratureEquationResponse"
+            },
+            "title": "Equations",
+            "type": "array"
+          },
+          "evidence_labels": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Evidence Labels",
+            "type": "array"
+          },
+          "finding": {
+            "title": "Finding",
+            "type": "string"
+          }
+        },
+        "required": [
+          "assessment_status",
+          "finding",
+          "conclusion",
+          "evidence_labels",
+          "equations"
+        ],
+        "title": "LiteratureValidationFrameResponse",
+        "type": "object"
+      },
+      "ManuscriptEquationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "display": {
+            "title": "Display",
+            "type": "boolean"
+          },
+          "latex": {
+            "title": "Latex",
+            "type": "string"
+          }
+        },
+        "required": [
+          "latex",
+          "display"
+        ],
+        "title": "ManuscriptEquationResponse",
+        "type": "object"
+      },
+      "OrganizerControlRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "mode": {
+            "enum": [
+              "on",
+              "pause",
+              "off"
+            ],
+            "title": "Mode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "OrganizerControlRequest",
+        "type": "object"
+      },
+      "OrganizerEventListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "events": {
+            "items": {
+              "$ref": "#/components/schemas/OrganizerEventResponse"
+            },
+            "title": "Events",
+            "type": "array"
+          }
+        },
+        "required": [
+          "events"
+        ],
+        "title": "OrganizerEventListResponse",
+        "type": "object"
+      },
+      "OrganizerEventResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "file_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File Id"
+          },
+          "kind": {
+            "title": "Kind",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "occurred_at": {
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "root_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Root Id"
+          },
+          "sequence": {
+            "minimum": 1.0,
+            "title": "Sequence",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequence",
+          "occurred_at",
+          "kind",
+          "message",
+          "root_id",
+          "file_id"
+        ],
+        "title": "OrganizerEventResponse",
+        "type": "object"
+      },
+      "OrganizerStatusResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activity": {
+            "enum": [
+              "off",
+              "paused",
+              "idle",
+              "discovering",
+              "scanning",
+              "classifying",
+              "failed"
+            ],
+            "title": "Activity",
+            "type": "string"
+          },
+          "current_relative_path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Relative Path"
+          },
+          "current_root_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Root Id"
+          },
+          "desired_mode": {
+            "enum": [
+              "on",
+              "pause",
+              "off"
+            ],
+            "title": "Desired Mode",
+            "type": "string"
+          },
+          "discovered_roots": {
+            "minimum": 0.0,
+            "title": "Discovered Roots",
+            "type": "integer"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
+          },
+          "last_event_sequence": {
+            "minimum": 0.0,
+            "title": "Last Event Sequence",
+            "type": "integer"
+          },
+          "local_files": {
+            "minimum": 0.0,
+            "title": "Local Files",
+            "type": "integer"
+          },
+          "observed_files": {
+            "minimum": 0.0,
+            "title": "Observed Files",
+            "type": "integer"
+          },
+          "placeholder_files": {
+            "minimum": 0.0,
+            "title": "Placeholder Files",
+            "type": "integer"
+          },
+          "proposed_files": {
+            "minimum": 0.0,
+            "title": "Proposed Files",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "desired_mode",
+          "activity",
+          "discovered_roots",
+          "observed_files",
+          "local_files",
+          "placeholder_files",
+          "proposed_files",
+          "last_event_sequence",
+          "current_root_id",
+          "current_relative_path",
+          "last_error"
+        ],
+        "title": "OrganizerStatusResponse",
+        "type": "object"
+      },
+      "PendingEquationAssistanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "method": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method"
+          },
+          "proposal_sha256": {
+            "title": "Proposal Sha256",
+            "type": "null"
+          },
+          "proposed_latex": {
+            "title": "Proposed Latex",
+            "type": "null"
+          },
+          "status": {
+            "enum": [
+              "PENDING",
+              "FAILED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "method",
+          "proposal_sha256",
+          "proposed_latex"
+        ],
+        "title": "PendingEquationAssistanceResponse",
+        "type": "object"
+      },
+      "ProposedEquationAssistanceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
+          },
+          "method": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Method",
+            "type": "string"
+          },
+          "model_provenance": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EquationModelProvenanceResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proposal_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Proposal Sha256",
+            "type": "string"
+          },
+          "proposed_latex": {
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Proposed Latex",
+            "type": "string"
+          },
+          "status": {
+            "const": "PROPOSED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "method",
+          "proposal_sha256",
+          "proposed_latex"
+        ],
+        "title": "ProposedEquationAssistanceResponse",
+        "type": "object"
+      },
+      "ProvidedReferenceListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProvidedReferenceResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ProvidedReferenceListResponse",
+        "type": "object"
+      },
+      "ProvidedReferenceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_length": {
+            "minimum": 1.0,
+            "title": "Byte Length",
+            "type": "integer"
+          },
+          "citation_label": {
+            "title": "Citation Label",
+            "type": "string"
+          },
+          "claim_id": {
+            "title": "Claim Id",
+            "type": "string"
+          },
+          "doi_or_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi Or Url"
+          },
+          "duplicate": {
+            "title": "Duplicate",
+            "type": "boolean"
+          },
+          "latest_generation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latest Generation"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "receipt_id": {
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "received_at_utc": {
+            "title": "Received At Utc",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ProvidedReferenceStatus"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "claim_id",
+          "citation_label",
+          "doi_or_url",
+          "note",
+          "source_sha256",
+          "byte_length",
+          "status",
+          "received_at_utc",
+          "latest_generation",
+          "duplicate"
+        ],
+        "title": "ProvidedReferenceResponse",
+        "type": "object"
+      },
+      "ProvidedReferenceStatus": {
+        "enum": [
+          "RECEIVED_NOT_INGESTED",
+          "INGESTED_AUTOMATED_UNREVIEWED"
+        ],
+        "title": "ProvidedReferenceStatus",
+        "type": "string"
+      },
+      "PublicCapabilityStatus": {
+        "enum": [
+          "available",
+          "in-development",
+          "planned"
+        ],
+        "title": "PublicCapabilityStatus",
+        "type": "string"
+      },
+      "PublicCourseCatalog": {
+        "properties": {
+          "institutions": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PublicCourseInstitution"
+            },
+            "maxItems": 50,
+            "title": "Institutions",
+            "type": "array"
+          },
+          "publication_boundary": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Publication Boundary",
+            "type": "array"
+          },
+          "reviewed_on": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewed On"
+          },
+          "schema_version": {
+            "const": "1",
+            "default": "1",
+            "title": "Schema Version",
+            "type": "string"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/PublicCourseSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unresolved_collections": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 30,
+            "title": "Unresolved Collections",
+            "type": "array"
+          }
+        },
+        "title": "PublicCourseCatalog",
+        "type": "object"
+      },
+      "PublicCourseInstitution": {
+        "properties": {
+          "courses": {
+            "items": {
+              "$ref": "#/components/schemas/PublicCourseRecord"
+            },
+            "maxItems": 200,
+            "minItems": 1,
+            "title": "Courses",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "courses"
+        ],
+        "title": "PublicCourseInstitution",
+        "type": "object"
+      },
+      "PublicCourseRecord": {
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z0-9-]{2,32}$",
+            "title": "Code",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "materials_status": {
+            "$ref": "#/components/schemas/CourseMaterialsStatus"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 240,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "materials_status"
+        ],
+        "title": "PublicCourseRecord",
+        "type": "object"
+      },
+      "PublicCourseSource": {
+        "properties": {
+          "repository": {
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+            "title": "Repository",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Revision",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repository",
+          "revision",
+          "url"
+        ],
+        "title": "PublicCourseSource",
+        "type": "object"
+      },
+      "PublicProjectCapability": {
+        "properties": {
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublicCapabilityStatus"
+          },
+          "summary": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "status",
+          "summary"
+        ],
+        "title": "PublicProjectCapability",
+        "type": "object"
+      },
+      "PublicProjectCatalog": {
+        "properties": {
+          "projects": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PublicProjectRecord"
+            },
+            "title": "Projects",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1",
+            "default": "1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "title": "PublicProjectCatalog",
+        "type": "object"
+      },
+      "PublicProjectLink": {
+        "properties": {
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "url"
+        ],
+        "title": "PublicProjectLink",
+        "type": "object"
+      },
+      "PublicProjectRecord": {
+        "properties": {
+          "capabilities": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PublicProjectCapability"
+            },
+            "maxItems": 30,
+            "title": "Capabilities",
+            "type": "array"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/PublicProjectLink"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Evidence",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "links": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PublicProjectLink"
+            },
+            "maxItems": 20,
+            "title": "Links",
+            "type": "array"
+          },
+          "name": {
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "principles": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Principles",
+            "type": "array"
+          },
+          "purposes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Purposes",
+            "type": "array"
+          },
+          "review": {
+            "$ref": "#/components/schemas/PublicProjectReview"
+          },
+          "slug": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "source_revisions": {
+            "items": {
+              "$ref": "#/components/schemas/PublicProjectSourceRevision"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Source Revisions",
+            "type": "array"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PublicProjectStatus"
+          },
+          "summary": {
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "tagline": {
+            "maxLength": 300,
+            "minLength": 1,
+            "title": "Tagline",
+            "type": "string"
+          },
+          "topics": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 20,
+            "title": "Topics",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "name",
+          "tagline",
+          "summary",
+          "status",
+          "review",
+          "source_revisions",
+          "evidence"
+        ],
+        "title": "PublicProjectRecord",
+        "type": "object"
+      },
+      "PublicProjectReview": {
+        "properties": {
+          "record_version": {
+            "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+            "title": "Record Version",
+            "type": "string"
+          },
+          "review_url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Review Url",
+            "type": "string"
+          },
+          "reviewed_on": {
+            "format": "date",
+            "title": "Reviewed On",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_version",
+          "reviewed_on",
+          "review_url"
+        ],
+        "title": "PublicProjectReview",
+        "type": "object"
+      },
+      "PublicProjectSourceRevision": {
+        "properties": {
+          "repository": {
+            "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$",
+            "title": "Repository",
+            "type": "string"
+          },
+          "revision": {
+            "pattern": "^[0-9a-f]{40}$",
+            "title": "Revision",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "repository",
+          "revision",
+          "url"
+        ],
+        "title": "PublicProjectSourceRevision",
+        "type": "object"
+      },
+      "PublicProjectStatus": {
+        "enum": [
+          "active-development",
+          "maintained",
+          "archived"
+        ],
+        "title": "PublicProjectStatus",
+        "type": "string"
+      },
+      "PublicationCatalog": {
+        "properties": {
+          "publications": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PublicationRecord"
+            },
+            "title": "Publications",
+            "type": "array"
+          },
+          "schema_version": {
+            "const": "1",
+            "default": "1",
+            "title": "Schema Version",
+            "type": "string"
+          }
+        },
+        "title": "PublicationCatalog",
+        "type": "object"
+      },
+      "PublicationKind": {
+        "enum": [
+          "software",
+          "article",
+          "dataset",
+          "report"
+        ],
+        "title": "PublicationKind",
+        "type": "string"
+      },
+      "PublicationLink": {
+        "properties": {
+          "label": {
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "url": {
+            "format": "uri",
+            "maxLength": 2083,
+            "minLength": 1,
+            "title": "Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "url"
+        ],
+        "title": "PublicationLink",
+        "type": "object"
+      },
+      "PublicationRecord": {
+        "properties": {
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Authors",
+            "type": "array"
+          },
+          "citation": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Citation"
+          },
+          "claims": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Claims",
+            "type": "array"
+          },
+          "id": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/PublicationKind"
+          },
+          "limitations": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Limitations",
+            "type": "array"
+          },
+          "links": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/PublicationLink"
+            },
+            "title": "Links",
+            "type": "array"
+          },
+          "published_on": {
+            "format": "date",
+            "title": "Published On",
+            "type": "string"
+          },
+          "slug": {
+            "pattern": "^[a-z0-9][a-z0-9._-]{0,127}$",
+            "title": "Slug",
+            "type": "string"
+          },
+          "summary": {
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Summary",
+            "type": "string"
+          },
+          "title": {
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "topics": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Topics",
+            "type": "array"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "maxLength": 80,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "id",
+          "slug",
+          "kind",
+          "title",
+          "summary",
+          "authors",
+          "published_on"
+        ],
+        "title": "PublicationRecord",
+        "type": "object"
+      },
+      "SearchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "limit": {
+            "default": 10,
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "query": {
+            "minLength": 1,
+            "title": "Query",
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "title": "SearchRequest",
+        "type": "object"
+      },
+      "SearchResult": {
+        "properties": {
+          "object_type": {
+            "title": "Object Type",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "score": {
+            "title": "Score",
+            "type": "number"
+          },
+          "snippet": {
+            "title": "Snippet",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "path",
+          "snippet",
+          "score",
+          "object_type"
+        ],
+        "title": "SearchResult",
+        "type": "object"
+      },
+      "TranscriptReviewCategory": {
+        "enum": [
+          "TRANSCRIPT_DIFF",
+          "DEHYPHENATION",
+          "PAGE_NUMBER",
+          "FRONT_MATTER",
+          "PRIVATE_USE_GLYPH",
+          "EQUATION",
+          "FIGURE",
+          "BIBLIOGRAPHY",
+          "CITATION"
+        ],
+        "title": "TranscriptReviewCategory",
+        "type": "string"
+      },
+      "TranscriptReviewDocumentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_generation": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Artifact Generation",
+            "type": "integer"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptReviewCategory"
+            },
+            "maxItems": 9,
+            "title": "Categories",
+            "type": "array"
+          },
+          "clean_artifact_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Clean Artifact Id",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptReviewItemResponse"
+            },
+            "maxItems": 100000,
+            "title": "Items",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "maxLength": 2000,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "manifest_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "pending_items": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Pending Items",
+            "type": "integer"
+          },
+          "physical_page_count": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Physical Page Count",
+            "type": "integer"
+          },
+          "source_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TranscriptReviewStatus"
+          },
+          "total_items": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Total Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "display_name",
+          "source_id",
+          "status",
+          "artifact_generation",
+          "physical_page_count",
+          "total_items",
+          "pending_items",
+          "categories",
+          "manifest_id",
+          "clean_artifact_id",
+          "source_sha256",
+          "limitations",
+          "items"
+        ],
+        "title": "TranscriptReviewDocumentResponse",
+        "type": "object"
+      },
+      "TranscriptReviewDocumentSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_generation": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Artifact Generation",
+            "type": "integer"
+          },
+          "categories": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptReviewCategory"
+            },
+            "maxItems": 9,
+            "title": "Categories",
+            "type": "array"
+          },
+          "display_name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "pending_items": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Pending Items",
+            "type": "integer"
+          },
+          "physical_page_count": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Physical Page Count",
+            "type": "integer"
+          },
+          "source_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TranscriptReviewStatus"
+          },
+          "total_items": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Total Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "document_id",
+          "display_name",
+          "source_id",
+          "status",
+          "artifact_generation",
+          "physical_page_count",
+          "total_items",
+          "pending_items",
+          "categories"
+        ],
+        "title": "TranscriptReviewDocumentSummaryResponse",
+        "type": "object"
+      },
+      "TranscriptReviewItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "category": {
+            "$ref": "#/components/schemas/TranscriptReviewCategory"
+          },
+          "explanation": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Explanation",
+            "type": "string"
+          },
+          "flags": {
+            "default": [],
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Flags",
+            "type": "array"
+          },
+          "item_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "links": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/TranscriptReviewLinkResponse"
+            },
+            "maxItems": 500,
+            "title": "Links",
+            "type": "array"
+          },
+          "physical_page": {
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Physical Page",
+            "type": "integer"
+          },
+          "predecessor_text": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Predecessor Text"
+          },
+          "preview_asset_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preview Asset Id"
+          },
+          "printed_page": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Printed Page"
+          },
+          "projected_text": {
+            "anyOf": [
+              {
+                "maxLength": 100000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Projected Text"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TranscriptReviewRegionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "risk": {
+            "$ref": "#/components/schemas/TranscriptReviewRisk"
+          },
+          "source_text": {
+            "maxLength": 100000,
+            "title": "Source Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "category",
+          "risk",
+          "physical_page",
+          "source_text",
+          "explanation"
+        ],
+        "title": "TranscriptReviewItemResponse",
+        "type": "object"
+      },
+      "TranscriptReviewLinkRelation": {
+        "enum": [
+          "CITES",
+          "CITED_BY",
+          "DERIVED_FROM",
+          "HAS_DERIVATIVE"
+        ],
+        "title": "TranscriptReviewLinkRelation",
+        "type": "string"
+      },
+      "TranscriptReviewLinkResolution": {
+        "enum": [
+          "LINKED",
+          "AMBIGUOUS",
+          "UNRESOLVED"
+        ],
+        "title": "TranscriptReviewLinkResolution",
+        "type": "string"
+      },
+      "TranscriptReviewLinkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "label": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Label",
+            "type": "string"
+          },
+          "relation": {
+            "$ref": "#/components/schemas/TranscriptReviewLinkRelation"
+          },
+          "resolution": {
+            "$ref": "#/components/schemas/TranscriptReviewLinkResolution"
+          },
+          "target_item_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Item Id"
+          }
+        },
+        "required": [
+          "relation",
+          "resolution",
+          "label"
+        ],
+        "title": "TranscriptReviewLinkResponse",
+        "type": "object"
+      },
+      "TranscriptReviewQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "documents": {
+            "items": {
+              "$ref": "#/components/schemas/TranscriptReviewDocumentSummaryResponse"
+            },
+            "maxItems": 10000,
+            "title": "Documents",
+            "type": "array"
+          },
+          "pending_items": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Pending Items",
+            "type": "integer"
+          },
+          "review_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Review Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TranscriptReviewStatus"
+          },
+          "title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          },
+          "total_documents": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Total Documents",
+            "type": "integer"
+          },
+          "total_items": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Total Items",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "review_id",
+          "title",
+          "status",
+          "total_documents",
+          "total_items",
+          "pending_items",
+          "documents"
+        ],
+        "title": "TranscriptReviewQueueResponse",
+        "type": "object"
+      },
+      "TranscriptReviewRegionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "x0": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "X0",
+            "type": "number"
+          },
+          "x1": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "X1",
+            "type": "number"
+          },
+          "y0": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Y0",
+            "type": "number"
+          },
+          "y1": {
+            "maximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Y1",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x0",
+          "y0",
+          "x1",
+          "y1"
+        ],
+        "title": "TranscriptReviewRegionResponse",
+        "type": "object"
+      },
+      "TranscriptReviewRisk": {
+        "enum": [
+          "REVIEW_REQUIRED",
+          "INFORMATIONAL"
+        ],
+        "title": "TranscriptReviewRisk",
+        "type": "string"
+      },
+      "TranscriptReviewStatus": {
+        "enum": [
+          "AUTOMATED_UNREVIEWED"
+        ],
+        "title": "TranscriptReviewStatus",
+        "type": "string"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Project Koios",
+    "version": "0.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/": {
+      "get": {
+        "operationId": "read_root__get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Read Root  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Root",
+        "tags": [
+          "core"
+        ]
+      }
+    },
+    "/api/courses": {
+      "get": {
+        "operationId": "list_courses_api_courses_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicCourseCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Courses",
+        "tags": [
+          "courses"
+        ]
+      }
+    },
+    "/api/projects": {
+      "get": {
+        "operationId": "list_projects_api_projects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicProjectCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Projects",
+        "tags": [
+          "projects"
+        ]
+      }
+    },
+    "/api/publications": {
+      "get": {
+        "operationId": "list_publications_api_publications_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PublicationCatalog"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Publications",
+        "tags": [
+          "publications"
+        ]
+      }
+    },
+    "/citation-reviews": {
+      "get": {
+        "operationId": "queue_citation_reviews_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationReviewQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Queue",
+        "tags": [
+          "citation reviews"
+        ]
+      }
+    },
+    "/citation-reviews/sources/{source_name}": {
+      "get": {
+        "operationId": "source_citation_reviews_sources__source_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "source_name",
+            "required": true,
+            "schema": {
+              "title": "Source Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Source",
+        "tags": [
+          "citation reviews"
+        ]
+      }
+    },
+    "/citation-reviews/{claim_id}": {
+      "get": {
+        "operationId": "detail_citation_reviews__claim_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationReviewDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detail",
+        "tags": [
+          "citation reviews"
+        ]
+      }
+    },
+    "/citation-reviews/{claim_id}/decision": {
+      "put": {
+        "operationId": "decide_citation_reviews__claim_id__decision_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "claim_id",
+            "required": true,
+            "schema": {
+              "title": "Claim Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CitationDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "citation reviews"
+        ]
+      }
+    },
+    "/equation-reviews": {
+      "get": {
+        "operationId": "queue_equation_reviews_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The equation-review identity is not configured."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "The proposal, immutable evidence, expected revision, or concurrent append does not match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "Configured evidence, the owner root, or complete append output is unavailable."
+          }
+        },
+        "summary": "Queue",
+        "tags": [
+          "equation-reviews"
+        ]
+      }
+    },
+    "/equation-reviews/{candidate_id}/decision": {
+      "put": {
+        "operationId": "decide_equation_reviews__candidate_id__decision_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EquationReviewDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The equation-review identity is not configured."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "The proposal, immutable evidence, expected revision, or concurrent append does not match."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "Configured evidence, the owner root, or complete append output is unavailable."
+          }
+        },
+        "summary": "Decide",
+        "tags": [
+          "equation-reviews"
+        ]
+      }
+    },
+    "/equation-reviews/{candidate_id}/region": {
+      "get": {
+        "operationId": "region_equation_reviews__candidate_id__region_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "candidate_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Candidate Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              }
+            },
+            "description": "Content-addressed PNG, JPEG, or WebP evidence, fully buffered and limited to exactly 20,000,000 bytes.",
+            "headers": {
+              "Content-Disposition": {
+                "description": "Always `inline`; artifact filenames are never exposed.",
+                "schema": {
+                  "const": "inline",
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "Prevents media-type sniffing.",
+                "schema": {
+                  "const": "nosniff",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The equation-review identity is not configured."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "Configured evidence, the owner root, or complete append output is unavailable."
+          }
+        },
+        "summary": "Region",
+        "tags": [
+          "equation-reviews"
+        ]
+      }
+    },
+    "/github/tasks": {
+      "get": {
+        "operationId": "read_github_tasks_github_tasks_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GitHubTaskDashboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Github Tasks",
+        "tags": [
+          "github-tasks"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health",
+        "tags": [
+          "core"
+        ]
+      }
+    },
+    "/literature-review/progress": {
+      "get": {
+        "operationId": "progress_literature_review_progress_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiteratureReviewProgressResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Progress",
+        "tags": [
+          "literature review"
+        ]
+      }
+    },
+    "/literature-review/references": {
+      "get": {
+        "operationId": "references_literature_review_references_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvidedReferenceListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "References",
+        "tags": [
+          "literature review"
+        ]
+      },
+      "post": {
+        "operationId": "provide_reference_literature_review_references_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_provide_reference_literature_review_references_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvidedReferenceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provide Reference",
+        "tags": [
+          "literature review"
+        ]
+      }
+    },
+    "/organizer/control": {
+      "put": {
+        "operationId": "update_control_organizer_control_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrganizerControlRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizerStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Update Control",
+        "tags": [
+          "organizer"
+        ]
+      }
+    },
+    "/organizer/events": {
+      "get": {
+        "operationId": "read_events_organizer_events_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizerEventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Events",
+        "tags": [
+          "organizer"
+        ]
+      }
+    },
+    "/organizer/events/stream": {
+      "get": {
+        "operationId": "stream_events_organizer_events_stream_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Stream Events",
+        "tags": [
+          "organizer"
+        ]
+      }
+    },
+    "/organizer/status": {
+      "get": {
+        "operationId": "read_status_organizer_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrganizerStatusResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Read Status",
+        "tags": [
+          "organizer"
+        ]
+      }
+    },
+    "/search": {
+      "post": {
+        "operationId": "search_search_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SearchResult"
+                  },
+                  "title": "Response Search Search Post",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Search",
+        "tags": [
+          "search"
+        ]
+      }
+    },
+    "/transcript-reviews": {
+      "get": {
+        "operationId": "read_queue_transcript_reviews_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptReviewQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "No transcript review owner adapter is available."
+          }
+        },
+        "summary": "Read Queue",
+        "tags": [
+          "transcript-reviews"
+        ]
+      }
+    },
+    "/transcript-reviews/{document_id}": {
+      "get": {
+        "operationId": "read_document_transcript_reviews__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptReviewDocumentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The requested transcript review projection was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "No transcript review owner adapter is available."
+          }
+        },
+        "summary": "Read Document",
+        "tags": [
+          "transcript-reviews"
+        ]
+      }
+    },
+    "/transcript-reviews/{document_id}/assets/{asset_id}": {
+      "get": {
+        "operationId": "read_preview_transcript_reviews__document_id__assets__asset_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              },
+              "image/webp": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 20000000
+                }
+              }
+            },
+            "description": "Nonempty PNG, JPEG, or WebP with matching magic bytes, fully buffered in memory and limited to exactly 20,000,000 bytes.",
+            "headers": {
+              "Content-Disposition": {
+                "description": "Always `inline`; provider filenames are never exposed.",
+                "schema": {
+                  "const": "inline",
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "Prevents media-type sniffing.",
+                "schema": {
+                  "const": "nosniff",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The requested transcript review projection was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "No transcript review owner adapter is available."
+          }
+        },
+        "summary": "Read Preview",
+        "tags": [
+          "transcript-reviews"
+        ]
+      }
+    },
+    "/transcript-reviews/{document_id}/source": {
+      "get": {
+        "operationId": "read_source_transcript_reviews__document_id__source_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "format": "binary",
+                  "minLength": 1,
+                  "type": "string",
+                  "x-maximum-bytes": 100000000
+                }
+              }
+            },
+            "description": "Nonempty PDF with a `%PDF-` signature, fully buffered in memory and limited to exactly 100,000,000 bytes.",
+            "headers": {
+              "Content-Disposition": {
+                "description": "Always `inline`; provider filenames are never exposed.",
+                "schema": {
+                  "const": "inline",
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "description": "Prevents media-type sniffing.",
+                "schema": {
+                  "const": "nosniff",
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The requested transcript review projection was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript review owner adapter returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "No transcript review owner adapter is available."
+          }
+        },
+        "summary": "Read Source",
+        "tags": [
+          "transcript-reviews"
+        ]
+      }
+    }
+  }
+}
