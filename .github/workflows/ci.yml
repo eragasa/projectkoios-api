@@ -31,10 +31,28 @@ jobs:
 
       - name: GitHubTask 02 · Report unavailable applications owner source
         run: |
-          echo "::error::projectkoios-applications 312f42e is unpushed; hosted equation-review verification is unavailable"
+          echo "::error::projectkoios-applications 1e331a9 is unpushed; hosted equation-review verification is unavailable"
           exit 1
 
-      - name: GitHubTask 03 · Check out locked Project Koios core
+      # These exact checkouts are intentionally unreachable until Task 02 is
+      # removed after the reviewed applications commit is published.
+      - name: GitHubTask 03 · Check out locked applications owner
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios-applications
+          ref: 1e331a9527434938d0aa8ae7bfc4a99bddc87d9d
+          path: projectkoios-applications
+          persist-credentials: false
+
+      - name: GitHubTask 04 · Check out locked ingestion dependency
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios-ingestion
+          ref: 024162ca65f4552c274b29e30462888d4379f2fc
+          path: projectkoios-ingestion
+          persist-credentials: false
+
+      - name: GitHubTask 05 · Check out locked Project Koios core
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios
@@ -42,7 +60,7 @@ jobs:
           path: projectkoios
           persist-credentials: false
 
-      - name: GitHubTask 04 · Check out locked search component
+      - name: GitHubTask 06 · Check out locked search component
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-search
@@ -50,7 +68,7 @@ jobs:
           path: projectkoios-search
           persist-credentials: false
 
-      - name: GitHubTask 05 · Check out locked Obsidian component
+      - name: GitHubTask 07 · Check out locked Obsidian component
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-obsidian
@@ -58,7 +76,7 @@ jobs:
           path: projectkoios-obsidian
           persist-credentials: false
 
-      - name: GitHubTask 06 · Check out locked references component
+      - name: GitHubTask 08 · Check out locked references component
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-references
@@ -66,7 +84,7 @@ jobs:
           path: projectkoios-references
           persist-credentials: false
 
-      - name: GitHubTask 07 · Install locked Python toolchain
+      - name: GitHubTask 09 · Install locked Python toolchain
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
         with:
           version: "0.11.25"
@@ -74,26 +92,26 @@ jobs:
           working-directory: projectkoios-api
           enable-cache: false
 
-      - name: GitHubTask 08 · Synchronize locked environment
+      - name: GitHubTask 10 · Synchronize locked environment
         working-directory: projectkoios-api
         run: uv sync --locked --all-extras
 
-      - name: GitHubTask 09 · Check formatting
+      - name: GitHubTask 11 · Check formatting
         working-directory: projectkoios-api
         run: .venv/bin/python -m ruff format --check src/python tests
 
-      - name: GitHubTask 10 · Lint
+      - name: GitHubTask 12 · Lint
         working-directory: projectkoios-api
         run: .venv/bin/python -m ruff check src/python tests
 
-      - name: GitHubTask 11 · Type-check API source
+      - name: GitHubTask 13 · Type-check API source
         working-directory: projectkoios-api
         run: .venv/bin/python -m mypy --strict src/python/projectkoios/api
 
-      - name: GitHubTask 12 · Check generated OpenAPI
+      - name: GitHubTask 14 · Check generated OpenAPI
         working-directory: projectkoios-api
         run: .venv/bin/python -m projectkoios.api.openapi --check
 
-      - name: GitHubTask 13 · Run tests
+      - name: GitHubTask 15 · Run tests
         working-directory: projectkoios-api
         run: .venv/bin/python -m pytest -q

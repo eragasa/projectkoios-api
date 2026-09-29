@@ -114,9 +114,10 @@ stable typed classifications. Assisted text remains automated and unreviewed;
 the append creates a separate human revision and never promotes or rewrites it.
 The owner adapter is declared by the `equation-review-control` optional extra
 and is imported only when this configured control capability is constructed.
-Applications commit `312f42e` remains unpushed and still mandates
-simulations/Physkit, so standalone installation of that extra is currently
-unavailable; see the documented packaging blocker.
+Applications follow-up `1e331a9` isolates `[pdf-corpus]` from its optional
+simulations/Physkit capabilities; the API lock therefore contains neither
+package. The exact applications commit remains unpushed, so hosted verification
+continues to report owner-source unavailability.
 
 ## Live GitHubTask projection
 
@@ -166,5 +167,5 @@ omission of all organizer event endpoints and schemas are documented in
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in
 [`docs/ci.md`](docs/ci.md). It currently stops with an explicit unavailable
-owner-source result because applications commit `312f42e` is unpushed; it does
-not present a configured checkout or standalone install as passing evidence.
+owner-source result because applications commit `1e331a9` is unpushed; it does
+not present the unreachable configured checkout as passing evidence.

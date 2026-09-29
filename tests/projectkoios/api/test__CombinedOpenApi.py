@@ -386,14 +386,20 @@ def test__public_openapi__keeps_control_contracts_absent() -> None:
     )
 
 
-def test__equation_owner__has_no_direct_simulations_dependency() -> None:
+def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
     project = tomllib.loads(
         (_REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    lock = tomllib.loads(
+        (_REPOSITORY_ROOT / "uv.lock").read_text(encoding="utf-8")
     )
     dependencies = project["project"]["dependencies"]
     extra = project["project"]["optional-dependencies"][
         "equation-review-control"
     ]
+    development = project["project"]["optional-dependencies"]["dev"]
+    sources = project["tool"]["uv"]["sources"]
+    locked_names = {package["name"] for package in lock["package"]}
     workflow = (_REPOSITORY_ROOT / ".github/workflows/ci.yml").read_text(
         encoding="utf-8"
     )
@@ -404,10 +410,77 @@ def test__equation_owner__has_no_direct_simulations_dependency() -> None:
     )
     assert extra == [
         "projectkoios-applications[pdf-corpus]==0.1.0.dev0",
-        "projectkoios-ingestion[pdf]==0.0.0",
     ]
-    assert "projectkoios-applications 312f42e is unpushed" in workflow
-    assert "Check out locked applications owner" not in workflow
+    assert "projectkoios-ingestion[pdf]==0.0.0" in development
+    assert "projectkoios-simulations" not in sources
+    assert not {"projectkoios-simulations", "physkit"} & locked_names
+    assert "projectkoios-applications 1e331a9 is unpushed" in workflow
+    assert "1e331a9527434938d0aa8ae7bfc4a99bddc87d9d" in workflow
+    assert "Check out locked applications owner" in workflow
+    assert workflow.index("Report unavailable applications owner source") < (
+        workflow.index("Check out locked applications owner")
+    )
+    assert "projectkoios-simulations" not in workflow
+
+
+def test__configured_control__imports_pdf_corpus_without_simulations() -> None:
+    environment = dict(os.environ)
+    script = """
+import sys
+from importlib.abc import MetaPathFinder
+from pathlib import Path
+
+class RejectSimulationImports(MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "physkit" or fullname.startswith(
+            "projectkoios.simulations"
+        ):
+            raise RuntimeError(f"forbidden capability import: {fullname}")
+        return None
+
+sys.meta_path.insert(0, RejectSimulationImports())
+from projectkoios.api.app import ProjectKoiosApp
+from projectkoios.api.config import (
+    DeploymentProfile,
+    EquationReviewConfiguration,
+    EquationReviewDocumentConfiguration,
+    ProjectKoiosAppConfiguration,
+)
+root = Path.cwd() / "deliberately-unavailable-test-root"
+app = ProjectKoiosApp.create_app(
+    configuration=ProjectKoiosAppConfiguration(
+        deployment_profile=DeploymentProfile.CONTROL,
+        equation_review=EquationReviewConfiguration(
+            pizzi2020=EquationReviewDocumentConfiguration(
+                bundle_path=root / "bundle.json",
+                regions_root=root / "regions",
+                document_root=root / "document",
+            )
+        ),
+    )
+)
+assert app.state.deployment_profile == "control"
+assert "projectkoios.api.equation_review_owner" in sys.modules
+assert "projectkoios.applications.pdf_corpus_ingestion" in sys.modules
+assert "physkit" not in sys.modules
+assert not any(
+    name == "projectkoios.simulations"
+    or name.startswith("projectkoios.simulations.")
+    for name in sys.modules
+)
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=_REPOSITORY_ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr
 
 
 def test__public_startup__does_not_import_applications_owner_chain() -> None:
@@ -416,6 +489,17 @@ def test__public_startup__does_not_import_applications_owner_chain() -> None:
     environment["PYTHONPATH"] = str(source_root)
     script = """
 import sys
+from importlib.abc import MetaPathFinder
+
+class RejectApplicationsImports(MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname == "projectkoios.applications" or fullname.startswith(
+            "projectkoios.applications."
+        ):
+            raise RuntimeError(f"private extra import attempted: {fullname}")
+        return None
+
+sys.meta_path.insert(0, RejectApplicationsImports())
 from projectkoios.api.app import ProjectKoiosApp
 from projectkoios.api.config import (
     DeploymentProfile,

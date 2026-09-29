@@ -30,9 +30,9 @@ namespaces = true
 [project.optional-dependencies]
 equation-review-control = [
     "projectkoios-applications[pdf-corpus]==0.1.0.dev0",
-    "projectkoios-ingestion[pdf]==0.0.0",
 ]
 dev = [
+    "projectkoios-ingestion[pdf]==0.0.0",
     "pytest>=8.0",
     "httpx2>=2.0",
     "ruff>=0.8",
@@ -69,4 +69,3 @@ projectkoios-ingestion = { path = "../projectkoios-ingestion", editable = true }
 projectkoios-obsidian = { path = "../projectkoios-obsidian", editable = true }
 projectkoios-references = { path = "../projectkoios-references", editable = true }
 projectkoios-search = { path = "../projectkoios-search", editable = true }
-projectkoios-simulations = { path = "../projectkoios-simulations", editable = true }

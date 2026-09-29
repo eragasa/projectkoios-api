@@ -16,9 +16,10 @@ statically with these preserved sources:
   `6e435cf2ca1b20ed129f806e1874eabed193ec41`, specifically
   `docs/equation-review-api-contract.md` and its provisional TypeScript
   projection; and
-- applications equation-review schema `2` contract
-  `312f42e9b231d7aa05100ece3639ea26ea213461` (tree
-  `05a6a8433df8be4b47ddd4e2301cd8e20078b6d9`).
+- applications equation-review schema `2` contract and capability packaging
+  follow-up `1e331a9527434938d0aa8ae7bfc4a99bddc87d9` (tree
+  `399d07372410255fc479a5fe2b3d22deee81f669`, parent
+  `312f42e9b231d7aa05100ece3639ea26ea213461`).
 
 The preserved trees were not merged. Public course/project DTOs and routes were
 reconstructed from the organizer proposal's public superset. Organizer and
@@ -247,29 +248,30 @@ consumer moves to this contract, it must:
 
 No organizer event schema or reference is retained for compatibility.
 
-## Declared dependency seam and packaging blocker
+## Declared dependency seam and hosted availability
 
 The private adapter is declared behind the API
 `equation-review-control` optional extra. Public startup and an unconfigured
 control profile do not import `projectkoios.applications`; only construction of
-a configured equation-review control store imports the private/scientific
-chain. The extra declares
-`projectkoios-applications[pdf-corpus]==0.1.0.dev0` and the ingestion source that
-its eager PDF-corpus initializer requires. There is no direct API dependency on
-`projectkoios-simulations`.
+a configured equation-review control store imports the owner chain. The only
+applications capability selected by that runtime extra is
+`projectkoios-applications[pdf-corpus]==0.1.0.dev0`. The development extra also
+names `projectkoios-ingestion[pdf]` so `uv` can bind that unpublished transitive
+requirement to the reviewed local source; dependency sources are not inherited
+from another package. This local lock aid does not broaden the control runtime
+extra. There is no API dependency or source mapping for
+`projectkoios-simulations` or Physkit.
 
-This is not yet a standalone-installable boundary. Applications commit
-`312f42e` is explicitly unpushed, and its base metadata still mandates
-`projectkoios-simulations`, which in turn mandates Physkit. With only reviewed
-local source, `uv` cannot resolve that transitive unpublished simulations source
-without adding the redundant direct API dependency rejected by review. The
-committed lock records the locally reviewed candidate graph, but independent
-lock regeneration and standalone installation are **unavailable**, not passing
-evidence. Hosted CI stops explicitly before dependency setup for the same
-reason; it does not claim that an unpushed checkout succeeded.
+Applications follow-up `1e331a9` makes simulation, example, and development
+requirements separate capabilities. Clean offline lock regeneration against
+that exact local applications tree resolves 46 packages and produces no
+`projectkoios-simulations` or Physkit package record. A guarded import/startup
+check also proves that the configured equation-review control store can load
+through `[pdf-corpus]` while imports of simulations and Physkit are rejected.
+The API contains no copied or extracted owner persistence code.
 
-Applications-owner action is required: publish an installable reviewed source
-chain, or provide an equation-review install surface whose metadata and package
-initializer do not require simulations/Physkit and unrelated PDF-corpus imports.
-Only then may API CI checkout/sync be enabled and the lock independently
-regenerated. The API contains no copied or extracted owner persistence code.
+Hosted verification remains **unavailable** because applications commit
+`1e331a9` is explicitly unpushed. CI retains the exact future checkout reference
+but stops before attempting it, so an unavailable remote commit cannot be
+mistaken for passing evidence. No installation was performed as part of this
+compatibility update.
