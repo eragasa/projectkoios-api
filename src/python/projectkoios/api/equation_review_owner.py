@@ -11,6 +11,7 @@ from projectkoios.api.equation_review_boundary import (
     EquationReviewEditAfterRender,
     EquationReviewEvidenceBinding,
     EquationReviewEvidenceStale,
+    EquationReviewNoncanonicalLatex,
     EquationReviewOwnerUnavailable,
     EquationReviewPartialOutput,
     EquationReviewRenderStale,
@@ -138,7 +139,11 @@ class ApplicationsEquationReviewDecisionStore:
                 owner_request,
                 document_root=self._root(),
             )
-        except EquationReviewEditAfterRender, EquationReviewRenderStale:
+        except (
+            EquationReviewEditAfterRender,
+            EquationReviewNoncanonicalLatex,
+            EquationReviewRenderStale,
+        ):
             raise
         except OwnerEvidenceMismatch as error:
             raise EquationReviewEvidenceStale from error
@@ -225,12 +230,15 @@ def _owner_request(
         ):
             raise EquationReviewOwnerUnavailable
         owner_display_mode = OwnerDisplayMode(display_mode.value)
-        expected = OwnerRenderConfirmation.create(
-            renderer_id=confirmation.renderer_id,
-            renderer_version=confirmation.renderer_version,
-            reviewer_latex=reviewer_latex,
-            display_mode=owner_display_mode,
-        )
+        try:
+            expected = OwnerRenderConfirmation.create(
+                renderer_id=confirmation.renderer_id,
+                renderer_version=confirmation.renderer_version,
+                reviewer_latex=reviewer_latex,
+                display_mode=owner_display_mode,
+            )
+        except OwnerReviewError as error:
+            raise EquationReviewNoncanonicalLatex from error
         if (
             confirmation.rendered_reviewer_latex_sha256
             != expected.rendered_reviewer_latex_sha256

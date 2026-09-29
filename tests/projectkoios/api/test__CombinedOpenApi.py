@@ -336,6 +336,7 @@ def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
     assert "model_provenance" in proposed["properties"]
     failures = schema["components"]["schemas"]["EquationReviewFailureCode"]
     assert {
+        "EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL",
         "EQUATION_REVIEW_RENDER_STALE",
         "EQUATION_REVIEW_EDIT_AFTER_RENDER",
     } <= set(failures["enum"])
@@ -464,8 +465,8 @@ def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
     assert "projectkoios-ingestion[pdf]==0.0.0" in development
     assert "projectkoios-simulations" not in sources
     assert not {"projectkoios-simulations", "physkit"} & locked_names
-    assert "projectkoios-applications 523a467 is unpushed" in workflow
-    assert "523a46746530ffdb010fa90a8ebc6484447976a6" in workflow
+    assert "projectkoios-applications 436d3da is unpushed" in workflow
+    assert "436d3daa286d66528ea04957eb0908c572535406" in workflow
     assert "Check out locked applications owner" in workflow
     assert workflow.index("Report unavailable applications owner source") < (
         workflow.index("Check out locked applications owner")

@@ -17,6 +17,7 @@ from projectkoios.api.equation_review_boundary import (
     EquationReviewConcurrentDecision,
     EquationReviewEditAfterRender,
     EquationReviewEvidenceBinding,
+    EquationReviewNoncanonicalLatex,
     EquationReviewPartialOutput,
     EquationReviewRenderStale,
     EquationReviewRevisionStale,
@@ -594,6 +595,11 @@ def test__equation_review__projects_latest_owner_decision_into_queue(
             "equation review revision is stale",
         ),
         (
+            EquationReviewNoncanonicalLatex(),
+            "EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL",
+            "reviewer LaTeX must be a canonical math body",
+        ),
+        (
             EquationReviewRenderStale(),
             "EQUATION_REVIEW_RENDER_STALE",
             "equation review render confirmation is stale",
@@ -610,7 +616,7 @@ def test__equation_review__projects_latest_owner_decision_into_queue(
         ),
     ],
 )
-def test__equation_review__classifies_stale_and_concurrent_append_conflicts(
+def test__equation_review__classifies_typed_review_conflicts(
     tmp_path: Path,
     failure: Exception,
     code: str,

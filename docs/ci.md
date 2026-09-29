@@ -10,7 +10,7 @@ synchronizes `uv.lock`, checks formatting and Ruff, runs strict mypy, verifies
 the deterministic OpenAPI, and runs tests.
 
 Hosted execution is currently **unavailable** at GitHubTask 02. Reviewed
-applications schema-3 owner `523a46746530ffdb010fa90a8ebc6484447976a6` is
+applications schema-3 owner `436d3daa286d66528ea04957eb0908c572535406` is
 explicitly unpushed, so the workflow reports that blocker and exits before
 attempting its exact checkout. The later checkout is retained as an unreachable
 pin for review and must not be treated as execution evidence. Once that commit
@@ -21,8 +21,8 @@ The job has read-only repository permission, disables checkout credential persis
 does not upload artifacts, and cancels an obsolete run for the same pull request or
 branch. A failed task stops later tasks through normal GitHub Actions behavior.
 
-The lock remains consistent with applications tree
-`211348d597e01646b2f0d05cd1f73d7718eb6a63`. The selected `[pdf-corpus]`
+The lock was regenerated offline against applications tree
+`3f7d08efa469dd6d1a5bc8e83f0f342ada88123c`. The selected `[pdf-corpus]`
 capability resolves without a simulations or Physkit package record; only
 applications, ingestion, and references participate in the owner path. Offline
 lock consistency and dependency-tree checks are local evidence only. No package

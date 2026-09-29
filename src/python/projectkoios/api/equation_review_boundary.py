@@ -30,6 +30,10 @@ class EquationReviewEditAfterRender(EquationReviewOwnerFailure):
     """Reviewer LaTeX changed after the confirmed render."""
 
 
+class EquationReviewNoncanonicalLatex(EquationReviewOwnerFailure):
+    """Reviewer LaTeX is not the owner's canonical math-body form."""
+
+
 class EquationReviewConcurrentDecision(EquationReviewOwnerFailure):
     """A different writer won the same exclusive append position."""
 

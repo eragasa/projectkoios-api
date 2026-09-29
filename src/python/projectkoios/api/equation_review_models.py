@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import unicodedata
 from datetime import timedelta
 from enum import StrEnum
 from typing import Annotated, Literal
@@ -51,6 +52,7 @@ class EquationReviewFailureCode(StrEnum):
     PROPOSAL_STALE = "EQUATION_REVIEW_PROPOSAL_STALE"
     EVIDENCE_STALE = "EQUATION_REVIEW_EVIDENCE_STALE"
     REVISION_STALE = "EQUATION_REVIEW_REVISION_STALE"
+    REVIEWER_LATEX_NONCANONICAL = "EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL"
     RENDER_STALE = "EQUATION_REVIEW_RENDER_STALE"
     EDIT_AFTER_RENDER = "EQUATION_REVIEW_EDIT_AFTER_RENDER"
     CONCURRENT_DECISION = "EQUATION_REVIEW_CONCURRENT_DECISION"
@@ -396,9 +398,35 @@ def _canonical_obsidian_markdown(
     reviewer_latex: str,
     display_mode: EquationDisplayMode,
 ) -> str:
+    body = _canonical_reviewer_latex_body(reviewer_latex)
     if display_mode is EquationDisplayMode.INLINE:
-        return f"${reviewer_latex}$"
-    return f"$$\n{reviewer_latex}\n$$"
+        return f"${body}$"
+    return f"$$\n{body}\n$$"
+
+
+def _canonical_reviewer_latex_body(value: str) -> str:
+    if (
+        value != value.strip()
+        or "\r" in value
+        or unicodedata.normalize("NFC", value) != value
+        or (
+            len(value) >= 2
+            and value.startswith("$")
+            and value.endswith("$")
+            and _is_unescaped(value, len(value) - 1)
+        )
+    ):
+        raise ValueError("reviewer LaTeX is not a canonical math body")
+    return value
+
+
+def _is_unescaped(value: str, index: int) -> bool:
+    backslashes = 0
+    cursor = index - 1
+    while cursor >= 0 and value[cursor] == "\\":
+        backslashes += 1
+        cursor -= 1
+    return backslashes % 2 == 0
 
 
 def _path_free_provenance_label(

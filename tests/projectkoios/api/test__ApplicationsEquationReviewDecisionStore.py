@@ -21,6 +21,7 @@ from projectkoios.api.equation_review_boundary import (
     EquationReviewEditAfterRender,
     EquationReviewEvidenceBinding,
     EquationReviewEvidenceStale,
+    EquationReviewNoncanonicalLatex,
     EquationReviewOwnerUnavailable,
     EquationReviewPartialOutput,
     EquationReviewRenderStale,
@@ -363,7 +364,7 @@ def _request(
     return EquationReviewDecisionRequest.model_validate(payload)
 
 
-def test__real_schema3_owner__unchanged_proposal_retry_and_latest_receipt(
+def test__real_schema3_owner__canonical_math_body_retry_and_latest_receipt(
     tmp_path: Path,
 ) -> None:
     document, _, binding, _, proposal_sha256, _ = _document_package(tmp_path)
@@ -386,6 +387,8 @@ def test__real_schema3_owner__unchanged_proposal_retry_and_latest_receipt(
     assert retried.schema_version == 3
     assert retried.status == "ACCEPTED"
     assert retried.reviewer_latex == _REVIEWER_LATEX
+    assert not retried.reviewer_latex.startswith("$")
+    assert not retried.reviewer_latex.endswith("$")
     assert retried.reviewer_latex_sha256 == _REVIEWER_SHA256
     assert retried.obsidian_markdown == _OBSIDIAN_MARKDOWN
     assert retried.obsidian_markdown_sha256 == _OBSIDIAN_SHA256
@@ -498,6 +501,44 @@ def test__real_schema3_owner__distinguishes_render_staleness_and_edit(
                 proposal_sha256,
                 reviewer_latex=r"E = mc^{2}",
                 rendered_reviewer_latex_sha256=_REVIEWER_SHA256,
+            ),
+        )
+    human_root = (
+        document
+        / "content/equations/regions"
+        / equation_candidate_artifact_key(_CANDIDATE)
+        / "human"
+    )
+    assert not human_root.exists()
+
+
+@pytest.mark.parametrize(
+    "reviewer_latex",
+    (
+        " E = mc^2",
+        "E = mc^2 ",
+        "E\r+1",
+        "e\u0301 = 1",
+        "$E = mc^2$",
+        "$$E = mc^2$$",
+    ),
+)
+def test__real_schema3_owner__types_noncanonical_math_body(
+    tmp_path: Path,
+    reviewer_latex: str,
+) -> None:
+    document, _, binding, _, proposal_sha256, _ = _document_package(tmp_path)
+    store = ApplicationsEquationReviewDecisionStore(
+        document,
+        clock=lambda: _FIRST_TIME,
+    )
+
+    with pytest.raises(EquationReviewNoncanonicalLatex):
+        store.append(
+            binding,
+            _request(
+                proposal_sha256,
+                reviewer_latex=reviewer_latex,
             ),
         )
     human_root = (
@@ -715,7 +756,7 @@ def _api_client(
                             "image_sha256": binding.region_image_sha256,
                         },
                         "deterministic_evidence": {
-                            "detector": "schema-2-fixture",
+                            "detector": "schema-3-fixture",
                             "detector_version": "1",
                             "evidence_sha256": (
                                 binding.candidate_evidence_sha256
@@ -755,6 +796,35 @@ def _api_client(
     app = FastAPI()
     app.include_router(create_equation_review_router(repository))
     return TestClient(app)
+
+
+def test__http__real_owner_types_delimited_reviewer_latex(
+    tmp_path: Path,
+) -> None:
+    document, _, binding, _, proposal_sha256, image = _document_package(
+        tmp_path
+    )
+    client = _api_client(
+        tmp_path,
+        document,
+        binding,
+        proposal_sha256,
+        image,
+    )
+
+    response = client.put(
+        f"/equation-reviews/{_CANDIDATE}/decision",
+        json=_request(
+            proposal_sha256,
+            reviewer_latex=r"$E = mc^2$",
+        ).model_dump(mode="json"),
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {
+        "code": "EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL",
+        "detail": "reviewer LaTeX must be a canonical math body",
+    }
 
 
 @pytest.mark.parametrize(

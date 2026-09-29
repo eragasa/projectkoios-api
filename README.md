@@ -106,8 +106,10 @@ append.
 
 `PUT /equation-reviews/{candidate_id}/decision` validates that an acceptance
 names the exact displayed assisted-proposal hash and carries canonical reviewer
-LaTeX, display mode, renderer identity/version, and the two exact rendered-input
-hashes. The browser cannot supply Obsidian Markdown; applications schema `3`
+LaTeX math body, display mode, renderer identity/version, and the two exact
+rendered-input hashes. The body must be NFC-normalized and have no outer math
+delimiters, edge whitespace, or carriage returns; violations have a typed
+conflict. The browser cannot supply Obsidian Markdown; applications schema `3`
 derives its canonical wrapper and persists both exact representations. The API
 uses the owner to recompute render hashes and distinguishes a stale wrapper from
 an edit after render. The request must include `expected_previous_revision`; it
@@ -122,7 +124,7 @@ creates a separate human revision and never promotes or rewrites it.
 
 The owner adapter is declared by the `equation-review-control` optional extra
 and is imported only when this configured control capability is constructed.
-Applications commit `523a467` preserves `[pdf-corpus]` isolation from optional
+Applications commit `436d3da` preserves `[pdf-corpus]` isolation from optional
 simulations/Physkit capabilities; the API lock therefore contains neither
 package. The exact applications commit remains unpushed, so hosted verification
 continues to report owner-source unavailability.
@@ -175,5 +177,5 @@ omission of all organizer event endpoints and schemas are documented in
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in
 [`docs/ci.md`](docs/ci.md). It currently stops with an explicit unavailable
-owner-source result because applications commit `523a467` is unpushed; it does
+owner-source result because applications commit `436d3da` is unpushed; it does
 not present the unreachable configured checkout as passing evidence.

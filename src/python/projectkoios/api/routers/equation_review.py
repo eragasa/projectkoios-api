@@ -15,6 +15,7 @@ from projectkoios.api.equation_review_boundary import (
     EquationReviewConcurrentDecision,
     EquationReviewEditAfterRender,
     EquationReviewEvidenceStale,
+    EquationReviewNoncanonicalLatex,
     EquationReviewOwnerUnavailable,
     EquationReviewPartialOutput,
     EquationReviewRenderStale,
@@ -200,6 +201,12 @@ def create_equation_review_router(
                 status.HTTP_409_CONFLICT,
                 EquationReviewFailureCode.REVISION_STALE,
                 "equation review revision is stale",
+            )
+        except EquationReviewNoncanonicalLatex:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.REVIEWER_LATEX_NONCANONICAL,
+                "reviewer LaTeX must be a canonical math body",
             )
         except EquationReviewRenderStale:
             return _failure(

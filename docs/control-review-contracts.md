@@ -17,9 +17,9 @@ statically with these preserved sources:
   `docs/equation-review-api-contract.md` and its provisional TypeScript
   projection; and
 - applications equation-review schema `3` contract and isolated capability
-  owner `523a46746530ffdb010fa90a8ebc6484447976a6` (tree
-  `211348d597e01646b2f0d05cd1f73d7718eb6a63`, parent
-  `1e331a9527434938d0aa8ae7bfc4a99bddc87d9`).
+  owner `436d3daa286d66528ea04957eb0908c572535406` (tree
+  `3f7d08efa469dd6d1a5bc8e83f0f342ada88123c`, parent
+  `523a46746530ffdb010fa90a8ebc6484447976a6`).
 
 The preserved trees were not merged. Public course/project DTOs and routes were
 reconstructed from the organizer proposal's public superset. Organizer and
@@ -192,9 +192,14 @@ The API validates the reviewed Web write fields. An `ACCEPT_TRANSCRIPTION`
 request must name the exact displayed `assistance.proposal_sha256` and carry
 canonical reviewer LaTeX, deterministic display mode, renderer identity and
 version, and SHA-256 values for the rendered reviewer-LaTeX and canonical
-Obsidian inputs. A missing proposal hash or representation is `422`; a different
-or absent proposal is typed `409`. The request has no Obsidian Markdown field:
-the owner derives `$<latex>$` for `INLINE` or `$$\n<latex>\n$$` for `DISPLAY`.
+Obsidian inputs. Reviewer LaTeX is the exact NFC-normalized math body: no outer
+`$...$`/`$$...$$` delimiters, leading/trailing whitespace, or carriage returns.
+Noncanonical input is typed
+`EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL`; the immutable assisted proposal
+may retain delimiters and is never rewritten. A missing proposal hash or
+representation is `422`; a different or absent proposal is typed `409`. The
+request has no Obsidian Markdown field: the owner derives `$<latex>$` for
+`INLINE` or `$$\n<latex>\n$$` for `DISPLAY`.
 The adapter invokes the owner's render-confirmation constructor to recompute
 both current hashes before append. A reviewer-LaTeX mismatch is typed
 `EQUATION_REVIEW_EDIT_AFTER_RENDER`; a canonical-wrapper mismatch is typed
@@ -283,9 +288,10 @@ from another package. This local lock aid does not broaden the control runtime
 extra. There is no API dependency or source mapping for
 `projectkoios-simulations` or Physkit.
 
-Applications commit `523a467` retains separate simulation, example, and
-development capabilities while adding schema-3 accepted representations. Lock
-consistency against tree `211348d597e01646b2f0d05cd1f73d7718eb6a63` resolves
+Applications commit `436d3da` retains separate simulation, example, and
+development capabilities while requiring canonical schema-3 reviewer math
+bodies. Lock consistency against tree
+`3f7d08efa469dd6d1a5bc8e83f0f342ada88123c` resolves
 46 packages and produces no `projectkoios-simulations` or Physkit package
 record. A guarded import/startup
 check also proves that the configured equation-review control store can load
@@ -293,7 +299,7 @@ through `[pdf-corpus]` while imports of simulations and Physkit are rejected.
 The API contains no copied or extracted owner persistence code.
 
 Hosted verification remains **unavailable** because applications commit
-`523a467` is explicitly unpushed. CI retains the exact future checkout reference
+`436d3da` is explicitly unpushed. CI retains the exact future checkout reference
 but stops before attempting it, so an unavailable remote commit cannot be
 mistaken for passing evidence. No installation was performed as part of this
 compatibility update.
