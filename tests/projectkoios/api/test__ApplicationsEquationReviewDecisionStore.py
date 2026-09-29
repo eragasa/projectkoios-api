@@ -17,10 +17,13 @@ from projectkoios.api.config import (
 )
 from projectkoios.api.equation_review import EquationReviewRepository
 from projectkoios.api.equation_review_boundary import (
+    EquationReviewConcurrentDecision,
+    EquationReviewEditAfterRender,
     EquationReviewEvidenceBinding,
     EquationReviewEvidenceStale,
     EquationReviewOwnerUnavailable,
     EquationReviewPartialOutput,
+    EquationReviewRenderStale,
     EquationReviewRevisionStale,
 )
 from projectkoios.api.equation_review_models import (
@@ -34,6 +37,9 @@ from projectkoios.api.routers.equation_review import (
 )
 from projectkoios.applications.pdf_corpus_ingestion import (
     AssistedEquationAttempt,
+    EquationDisplayMode,
+    EquationRenderConfirmation,
+    EquationReviewConcurrencyError,
     HumanEquationRevisionRequest,
     publish_assisted_equation_attempt,
 )
@@ -55,6 +61,10 @@ _DOCUMENT = "pizzi2020"
 _CANDIDATE = "pizzi2020:eq:001"
 _FIRST_TIME = datetime(2026, 9, 29, 3, 0, tzinfo=UTC)
 _LATER_TIME = _FIRST_TIME + timedelta(hours=1)
+_REVIEWER_LATEX = r"E = mc^2"
+_REVIEWER_SHA256 = hashlib.sha256(_REVIEWER_LATEX.encode()).hexdigest()
+_OBSIDIAN_MARKDOWN = "$$\nE = mc^2\n$$"
+_OBSIDIAN_SHA256 = hashlib.sha256(_OBSIDIAN_MARKDOWN.encode()).hexdigest()
 
 
 def _canonical(value: object) -> bytes:
@@ -251,24 +261,109 @@ def _document_package(
     )
 
 
+def _write_legacy_schema2_revision(
+    document: Path,
+    binding: OwnerEvidenceBinding,
+    proposal_sha256: str,
+) -> tuple[bytes, bytes]:
+    identity = {
+        "assistance_proposal_sha256": proposal_sha256,
+        "candidate_evidence_sha256": binding.candidate_evidence_sha256,
+        "candidate_id": binding.candidate_id,
+        "contract_id": ("projectkoios.applications.pdf-corpus-equation-review"),
+        "disposition": "ACCEPT_TRANSCRIPTION",
+        "document_id": binding.document_id,
+        "note": "Legacy schema-2 acceptance requires correction.",
+        "region_image_sha256": binding.region_image_sha256,
+        "revision": 1,
+        "schema_version": 2,
+        "source_sha256": binding.source_sha256,
+    }
+    decision = _canonical(
+        {
+            **identity,
+            "recorded_at_utc": "2026-09-28T12:00:00.000000Z",
+            "revision_id": (
+                "equation-human-revision:sha256:"
+                f"{hashlib.sha256(_canonical(identity)).hexdigest()}"
+            ),
+        }
+    )
+    decision_value = json.loads(decision)
+    manifest = _canonical(
+        {
+            **decision_value,
+            "artifact_files": [
+                {
+                    "byte_size": len(decision),
+                    "relative_path": "decision.json",
+                    "sha256": hashlib.sha256(decision).hexdigest(),
+                }
+            ],
+            "status": "human-reviewed",
+        }
+    )
+    revision_root = (
+        document
+        / "content/equations/regions"
+        / equation_candidate_artifact_key(binding.candidate_id)
+        / "human/revision-0001"
+    )
+    revision_root.mkdir(parents=True)
+    (revision_root / "decision.json").write_bytes(decision)
+    (revision_root / "manifest.json").write_bytes(manifest)
+    return decision, manifest
+
+
 def _request(
     proposal_sha256: str | None,
     *,
     disposition: str = "ACCEPT_TRANSCRIPTION",
     note: str = "Checked against exact evidence.",
     expected_previous_revision: int = 0,
+    reviewer_latex: str = _REVIEWER_LATEX,
+    display_mode: str = "DISPLAY",
+    rendered_reviewer_latex_sha256: str | None = None,
+    rendered_obsidian_markdown_sha256: str | None = None,
 ) -> EquationReviewDecisionRequest:
-    return EquationReviewDecisionRequest.model_validate(
-        {
-            "disposition": disposition,
-            "assistance_proposal_sha256": proposal_sha256,
-            "note": note,
-            "expected_previous_revision": expected_previous_revision,
-        }
+    accepting = disposition == "ACCEPT_TRANSCRIPTION"
+    obsidian = (
+        f"$${chr(10)}{reviewer_latex}{chr(10)}$$"
+        if display_mode == "DISPLAY"
+        else f"${reviewer_latex}$"
     )
+    payload: dict[str, object] = {
+        "disposition": disposition,
+        "assistance_proposal_sha256": proposal_sha256,
+        "reviewer_latex": None,
+        "display_mode": None,
+        "render_confirmation": None,
+        "note": note,
+        "expected_previous_revision": expected_previous_revision,
+    }
+    if accepting:
+        payload.update(
+            {
+                "reviewer_latex": reviewer_latex,
+                "display_mode": display_mode,
+                "render_confirmation": {
+                    "renderer_id": "mathjax",
+                    "renderer_version": "3.2.2",
+                    "rendered_reviewer_latex_sha256": (
+                        rendered_reviewer_latex_sha256
+                        or hashlib.sha256(reviewer_latex.encode()).hexdigest()
+                    ),
+                    "rendered_obsidian_markdown_sha256": (
+                        rendered_obsidian_markdown_sha256
+                        or hashlib.sha256(obsidian.encode()).hexdigest()
+                    ),
+                },
+            }
+        )
+    return EquationReviewDecisionRequest.model_validate(payload)
 
 
-def test__real_schema2_owner__create_retry_and_latest_receipt(
+def test__real_schema3_owner__unchanged_proposal_retry_and_latest_receipt(
     tmp_path: Path,
 ) -> None:
     document, _, binding, _, proposal_sha256, _ = _document_package(tmp_path)
@@ -285,13 +380,83 @@ def test__real_schema2_owner__create_retry_and_latest_receipt(
 
     assert created == retried
     assert latest is not None
-    assert retried.updated_at_utc == _FIRST_TIME
-    assert retried.updated_at_utc != _LATER_TIME
+    assert retried.recorded_at_utc == _FIRST_TIME
+    assert retried.recorded_at_utc != _LATER_TIME
     assert retried.revision == 1
+    assert retried.schema_version == 3
+    assert retried.status == "ACCEPTED"
+    assert retried.reviewer_latex == _REVIEWER_LATEX
+    assert retried.reviewer_latex_sha256 == _REVIEWER_SHA256
+    assert retried.obsidian_markdown == _OBSIDIAN_MARKDOWN
+    assert retried.obsidian_markdown_sha256 == _OBSIDIAN_SHA256
     assert latest.model_dump() == created.model_dump(exclude={"candidate_id"})
 
 
-def test__real_schema2_owner__rejects_stale_proposal_and_evidence(
+def test__real_owner__loads_schema2_then_appends_schema3_correction(
+    tmp_path: Path,
+) -> None:
+    (
+        document,
+        _,
+        binding,
+        owner_binding,
+        proposal_sha256,
+        _,
+    ) = _document_package(tmp_path)
+    legacy_decision, legacy_manifest = _write_legacy_schema2_revision(
+        document,
+        owner_binding,
+        proposal_sha256,
+    )
+    store = ApplicationsEquationReviewDecisionStore(
+        document,
+        clock=lambda: _LATER_TIME,
+    )
+
+    legacy = store.latest(binding)
+    corrected_latex = r"E = mc^{2}"
+    corrected = store.append(
+        binding,
+        _request(
+            proposal_sha256,
+            reviewer_latex=corrected_latex,
+            note="Accepted after correction and exact render.",
+            expected_previous_revision=1,
+        ),
+    )
+
+    assert legacy is not None
+    assert legacy.status == "LEGACY_ACCEPTANCE"
+    assert legacy.schema_version == 2
+    assert legacy.reviewer_latex is None
+    assert legacy.obsidian_markdown is None
+    assert corrected.status == "ACCEPTED"
+    assert corrected.schema_version == 3
+    assert corrected.revision == 2
+    assert corrected.reviewer_latex == corrected_latex
+    assert (
+        corrected.reviewer_latex_sha256
+        == hashlib.sha256(corrected_latex.encode()).hexdigest()
+    )
+    assert corrected.obsidian_markdown == f"$$\n{corrected_latex}\n$$"
+    revision_root = (
+        document
+        / "content/equations/regions"
+        / equation_candidate_artifact_key(_CANDIDATE)
+        / "human"
+    )
+    assert (revision_root / "revision-0001/decision.json").read_bytes() == (
+        legacy_decision
+    )
+    assert (revision_root / "revision-0001/manifest.json").read_bytes() == (
+        legacy_manifest
+    )
+    assert (
+        revision_root / "revision-0002/reviewer-latex.txt"
+    ).read_text() == corrected_latex
+
+
+def test__real_schema3_owner__rejects_stale_proposal_and_evidence(
     tmp_path: Path,
 ) -> None:
     document, _, binding, _, _, _ = _document_package(tmp_path)
@@ -309,7 +474,91 @@ def test__real_schema2_owner__rejects_stale_proposal_and_evidence(
         )
 
 
-def test__real_schema2_owner__classifies_stale_and_different_winner(
+def test__real_schema3_owner__distinguishes_render_staleness_and_edit(
+    tmp_path: Path,
+) -> None:
+    document, _, binding, _, proposal_sha256, _ = _document_package(tmp_path)
+    store = ApplicationsEquationReviewDecisionStore(
+        document,
+        clock=lambda: _FIRST_TIME,
+    )
+
+    with pytest.raises(EquationReviewRenderStale):
+        store.append(
+            binding,
+            _request(
+                proposal_sha256,
+                rendered_obsidian_markdown_sha256="f" * 64,
+            ),
+        )
+    with pytest.raises(EquationReviewEditAfterRender):
+        store.append(
+            binding,
+            _request(
+                proposal_sha256,
+                reviewer_latex=r"E = mc^{2}",
+                rendered_reviewer_latex_sha256=_REVIEWER_SHA256,
+            ),
+        )
+    human_root = (
+        document
+        / "content/equations/regions"
+        / equation_candidate_artifact_key(_CANDIDATE)
+        / "human"
+    )
+    assert not human_root.exists()
+
+
+def test__real_schema3_owner__rejection_has_no_accepted_content(
+    tmp_path: Path,
+) -> None:
+    document, _, binding, _, _, _ = _document_package(tmp_path)
+    store = ApplicationsEquationReviewDecisionStore(
+        document,
+        clock=lambda: _FIRST_TIME,
+    )
+
+    rejected = store.append(
+        binding,
+        _request(None, disposition="REJECT_CANDIDATE"),
+    )
+
+    assert rejected.status == "REJECTED"
+    assert rejected.schema_version == 3
+    assert rejected.reviewer_latex is None
+    assert rejected.reviewer_latex_sha256 is None
+    assert rejected.obsidian_markdown is None
+    assert rejected.obsidian_markdown_sha256 is None
+    assert rejected.display_mode is None
+    assert rejected.render_confirmation is None
+
+
+def test__real_schema3_owner__classifies_owner_append_race(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    document, _, binding, _, _, _ = _document_package(tmp_path)
+    store = ApplicationsEquationReviewDecisionStore(
+        document,
+        clock=lambda: _FIRST_TIME,
+    )
+
+    def lose_race(request: object, *, document_root: object) -> object:
+        raise EquationReviewConcurrencyError("private competing evidence")
+
+    monkeypatch.setattr(
+        owner_adapter,
+        "append_human_equation_revision",
+        lose_race,
+    )
+    with pytest.raises(EquationReviewConcurrentDecision):
+        store.append(
+            binding,
+            _request(None, disposition="REJECT_CANDIDATE"),
+        )
+
+
+def test__real_schema3_owner__classifies_stale_and_different_winner(
     tmp_path: Path,
 ) -> None:
     document, _, binding, _, proposal_sha256, _ = _document_package(tmp_path)
@@ -338,7 +587,7 @@ def test__real_schema2_owner__classifies_stale_and_different_winner(
         )
 
 
-def test__real_schema2_owner__classifies_partial_output(
+def test__real_schema3_owner__classifies_partial_output(
     tmp_path: Path,
 ) -> None:
     document, _, binding, _, proposal_sha256, _ = _document_package(tmp_path)
@@ -359,7 +608,7 @@ def test__real_schema2_owner__classifies_partial_output(
         store.append(binding, _request(proposal_sha256))
 
 
-def test__real_schema2_owner__rejects_unavailable_root_and_clock_edges(
+def test__real_schema3_owner__rejects_unavailable_root_and_clock_edges(
     tmp_path: Path,
 ) -> None:
     missing = ApplicationsEquationReviewDecisionStore(
@@ -413,10 +662,19 @@ def _owner_request(
     binding: OwnerEvidenceBinding,
     proposal_sha256: str,
 ) -> HumanEquationRevisionRequest:
+    confirmation = EquationRenderConfirmation.create(
+        renderer_id="mathjax",
+        renderer_version="3.2.2",
+        reviewer_latex=_REVIEWER_LATEX,
+        display_mode=EquationDisplayMode.DISPLAY,
+    )
     return HumanEquationRevisionRequest(
         binding=binding,
         disposition=OwnerDisposition.ACCEPT_TRANSCRIPTION,
         assistance_proposal_sha256=proposal_sha256,
+        reviewer_latex=_REVIEWER_LATEX,
+        display_mode=EquationDisplayMode.DISPLAY,
+        render_confirmation=confirmation,
         note="Valid owner result before adversarial mutation.",
         recorded_at_utc=_FIRST_TIME,
         expected_previous_revision=0,
@@ -437,7 +695,7 @@ def _api_client(
     bundle_path.write_text(
         json.dumps(
             {
-                "schema_version": "1",
+                "schema_version": "2",
                 "document_id": _DOCUMENT,
                 "items": [
                     {
@@ -464,11 +722,14 @@ def _api_client(
                             ),
                             "extracted_text": "E = mc^2",
                         },
+                        "display_mode": "DISPLAY",
                         "assistance": {
                             "status": "PROPOSED",
                             "method": "local-equation-assistance-v1",
                             "proposal_sha256": proposal_sha256,
                             "proposed_latex": "E = mc^2",
+                            "attempt_id": None,
+                            "model_provenance": None,
                         },
                         "decision": None,
                     }
@@ -498,7 +759,15 @@ def _api_client(
 
 @pytest.mark.parametrize(
     "malformation",
-    ("result", "revision", "disposition", "time"),
+    (
+        "result",
+        "revision",
+        "revision_id",
+        "binding",
+        "accepted_content",
+        "disposition",
+        "time",
+    ),
 )
 def test__http__malformed_owner_receipt_is_typed_partial_without_leak(
     tmp_path: Path,
@@ -522,6 +791,24 @@ def test__http__malformed_owner_receipt_is_typed_partial_without_leak(
         malformed = SimpleNamespace(secret="private owner detail")
     elif malformation == "revision":
         object.__setattr__(valid.revision, "revision", 10_000)
+    elif malformation == "revision_id":
+        object.__setattr__(
+            valid.revision,
+            "revision_id",
+            f"equation-human-revision:sha256:{'f' * 64}",
+        )
+    elif malformation == "binding":
+        object.__setattr__(
+            valid.revision.binding,
+            "candidate_id",
+            "pizzi2020:eq:other",
+        )
+    elif malformation == "accepted_content":
+        object.__setattr__(
+            valid.revision,
+            "obsidian_markdown",
+            "$$\nsilently different\n$$",
+        )
     elif malformation == "disposition":
         object.__setattr__(
             valid.revision,
@@ -557,12 +844,7 @@ def test__http__malformed_owner_receipt_is_typed_partial_without_leak(
 
     response = client.put(
         f"/equation-reviews/{_CANDIDATE}/decision",
-        json={
-            "disposition": "ACCEPT_TRANSCRIPTION",
-            "assistance_proposal_sha256": proposal_sha256,
-            "note": "Checked exact evidence.",
-            "expected_previous_revision": 0,
-        },
+        json=_request(proposal_sha256).model_dump(mode="json"),
     )
 
     assert response.status_code == 503

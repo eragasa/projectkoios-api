@@ -16,15 +16,22 @@ from projectkoios.api.equation_review_boundary import (
     EquationReviewEvidenceBinding,
     EquationReviewEvidenceStale,
     EquationReviewOwnerUnavailable,
+    EquationReviewRenderStale,
 )
 from projectkoios.api.equation_review_models import (
     MAX_EQUATION_REVIEW_CANDIDATES,
+    AssistedEquationProposalResponse,
+    DeterministicEquationEvidenceResponse,
+    EquationDisplayMode,
+    EquationRegionEvidenceResponse,
     EquationReviewCandidateResponse,
     EquationReviewDecision,
     EquationReviewDecisionRequest,
     EquationReviewDecisionResponse,
     EquationReviewDisposition,
     EquationReviewQueueResponse,
+    EquationReviewStatus,
+    EquationSourceIdentityResponse,
     ProposedEquationAssistanceResponse,
 )
 from pydantic import (
@@ -59,12 +66,24 @@ class EquationRegionResource:
     media_type: str
 
 
+class _EquationReviewBundleCandidate(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    candidate_id: OpaqueId
+    source: EquationSourceIdentityResponse
+    region: EquationRegionEvidenceResponse
+    deterministic_evidence: DeterministicEquationEvidenceResponse
+    display_mode: EquationDisplayMode
+    assistance: AssistedEquationProposalResponse | None
+    decision: None
+
+
 class _EquationReviewBundle(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    schema_version: Literal["1"]
+    schema_version: Literal["2"]
     document_id: Literal["pizzi2020"]
-    items: tuple[EquationReviewCandidateResponse, ...] = Field(
+    items: tuple[_EquationReviewBundleCandidate, ...] = Field(
         max_length=MAX_EQUATION_REVIEW_CANDIDATES
     )
 
@@ -75,10 +94,6 @@ class _EquationReviewBundle(BaseModel):
         candidate_ids = [str(item.candidate_id) for item in self.items]
         if len(candidate_ids) != len(set(candidate_ids)):
             raise ValueError("equation bundle candidate ids must be unique")
-        if any(item.decision is not None for item in self.items):
-            raise ValueError(
-                "equation bundle cannot claim applications-owned decisions"
-            )
         if any(
             item.source.document_id != self.document_id for item in self.items
         ):
@@ -114,15 +129,31 @@ class EquationReviewRepository:
                 mode="python",
                 round_trip=True,
                 warnings=False,
+                exclude={"decision"},
             )
-            payload["decision"] = (
-                decision.model_dump(
-                    mode="python",
-                    round_trip=True,
-                    warnings=False,
-                )
-                if decision is not None
-                else None
+            payload.update(
+                {
+                    "status": (
+                        EquationReviewStatus.UNREVIEWED
+                        if decision is None
+                        else decision.status
+                    ),
+                    "current_revision": (
+                        0 if decision is None else decision.revision
+                    ),
+                    "expected_previous_revision": (
+                        0 if decision is None else decision.revision
+                    ),
+                    "decision": (
+                        None
+                        if decision is None
+                        else decision.model_dump(
+                            mode="python",
+                            round_trip=True,
+                            warnings=False,
+                        )
+                    ),
+                }
             )
             try:
                 items.append(
@@ -206,10 +237,34 @@ class EquationReviewRepository:
             raise EquationReviewOwnerUnavailable from error
         if (
             validated.candidate_id != binding.candidate_id
+            or validated.schema_version != 3
             or validated.disposition is not request.disposition
             or validated.assistance_proposal_sha256
             != request.assistance_proposal_sha256
             or validated.note != request.note
+            or validated.revision != request.expected_previous_revision + 1
+        ):
+            raise EquationReviewOwnerUnavailable
+        if (
+            request.disposition
+            is EquationReviewDisposition.ACCEPT_TRANSCRIPTION
+        ):
+            if (
+                validated.reviewer_latex != request.reviewer_latex
+                or validated.display_mode is not request.display_mode
+                or validated.render_confirmation != request.render_confirmation
+            ):
+                raise EquationReviewOwnerUnavailable
+        elif any(
+            value is not None
+            for value in (
+                validated.reviewer_latex,
+                validated.reviewer_latex_sha256,
+                validated.obsidian_markdown,
+                validated.obsidian_markdown_sha256,
+                validated.display_mode,
+                validated.render_confirmation,
+            )
         ):
             raise EquationReviewOwnerUnavailable
         return validated
@@ -236,9 +291,14 @@ class EquationReviewRepository:
             )
         ):
             raise InvalidEquationReviewDecision
+        if (
+            request.display_mode is not None
+            and request.display_mode is not candidate.display_mode
+        ):
+            raise EquationReviewRenderStale
         return _binding(candidate)
 
-    def _candidate(self, candidate_id: str) -> EquationReviewCandidateResponse:
+    def _candidate(self, candidate_id: str) -> _EquationReviewBundleCandidate:
         bundle = self._bundle(_PIZZI2020)
         for candidate in bundle.items:
             if candidate.candidate_id == candidate_id:
@@ -291,7 +351,7 @@ class EquationReviewRepository:
 
 
 def _binding(
-    candidate: EquationReviewCandidateResponse,
+    candidate: _EquationReviewBundleCandidate,
 ) -> EquationReviewEvidenceBinding:
     return EquationReviewEvidenceBinding(
         document_id=str(candidate.source.document_id),
@@ -305,7 +365,7 @@ def _binding(
 
 
 def _validated_latest_decision(
-    candidate: EquationReviewCandidateResponse,
+    candidate: _EquationReviewBundleCandidate,
     decision: EquationReviewDecision | None,
 ) -> EquationReviewDecision | None:
     if decision is None:
@@ -326,6 +386,12 @@ def _validated_latest_decision(
     if proposal_hash is not None and (
         not isinstance(assistance, ProposedEquationAssistanceResponse)
         or assistance.proposal_sha256 != proposal_hash
+    ):
+        raise EquationReviewEvidenceStale
+    if (
+        validated.disposition is EquationReviewDisposition.ACCEPT_TRANSCRIPTION
+        and validated.display_mode is not None
+        and validated.display_mode is not candidate.display_mode
     ):
         raise EquationReviewEvidenceStale
     return validated

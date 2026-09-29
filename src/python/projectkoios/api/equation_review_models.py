@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 from datetime import timedelta
 from enum import StrEnum
@@ -33,10 +34,25 @@ class EquationReviewDisposition(StrEnum):
     REVISION_REQUIRED = "REVISION_REQUIRED"
 
 
+class EquationDisplayMode(StrEnum):
+    INLINE = "INLINE"
+    DISPLAY = "DISPLAY"
+
+
+class EquationReviewStatus(StrEnum):
+    UNREVIEWED = "UNREVIEWED"
+    LEGACY_ACCEPTANCE = "LEGACY_ACCEPTANCE"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    REVISION_REQUIRED = "REVISION_REQUIRED"
+
+
 class EquationReviewFailureCode(StrEnum):
     PROPOSAL_STALE = "EQUATION_REVIEW_PROPOSAL_STALE"
     EVIDENCE_STALE = "EQUATION_REVIEW_EVIDENCE_STALE"
     REVISION_STALE = "EQUATION_REVIEW_REVISION_STALE"
+    RENDER_STALE = "EQUATION_REVIEW_RENDER_STALE"
+    EDIT_AFTER_RENDER = "EQUATION_REVIEW_EDIT_AFTER_RENDER"
     CONCURRENT_DECISION = "EQUATION_REVIEW_CONCURRENT_DECISION"
     PARTIAL_OUTPUT = "EQUATION_REVIEW_PARTIAL_OUTPUT"
     OWNER_UNAVAILABLE = "EQUATION_REVIEW_OWNER_UNAVAILABLE"
@@ -96,6 +112,22 @@ class DeterministicEquationEvidenceResponse(BaseModel):
     extracted_text: BoundedText | None
 
 
+class EquationModelProvenanceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    model_name: BoundedLabel
+    model_sha256: Sha256
+    prompt_version: BoundedLabel
+    request_id: OpaqueId
+    result_id: OpaqueId
+
+    @model_validator(mode="after")
+    def has_path_free_labels(self) -> EquationModelProvenanceResponse:
+        _path_free_provenance_label(self.model_name)
+        _path_free_provenance_label(self.prompt_version)
+        return self
+
+
 class PendingEquationAssistanceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -112,6 +144,13 @@ class ProposedEquationAssistanceResponse(BaseModel):
     method: BoundedLabel
     proposal_sha256: Sha256
     proposed_latex: str = Field(min_length=1, max_length=100_000)
+    attempt_id: OpaqueId | None = None
+    model_provenance: EquationModelProvenanceResponse | None = None
+
+    @model_validator(mode="after")
+    def has_non_path_method(self) -> ProposedEquationAssistanceResponse:
+        _path_free_provenance_label(self.method, allow_separator=True)
+        return self
 
 
 AssistedEquationProposalResponse = Annotated[
@@ -120,27 +159,113 @@ AssistedEquationProposalResponse = Annotated[
 ]
 
 
+class EquationRenderConfirmation(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    renderer_id: BoundedLabel
+    renderer_version: BoundedLabel
+    rendered_reviewer_latex_sha256: Sha256
+    rendered_obsidian_markdown_sha256: Sha256
+
+    @model_validator(mode="after")
+    def has_path_free_renderer(self) -> EquationRenderConfirmation:
+        _path_free_provenance_label(self.renderer_id)
+        _path_free_provenance_label(self.renderer_version)
+        return self
+
+
 class EquationReviewDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    status: EquationReviewStatus
+    schema_version: Literal[2, 3]
     disposition: EquationReviewDisposition
     assistance_proposal_sha256: Sha256 | None
+    reviewer_latex: str | None = Field(max_length=100_000)
+    reviewer_latex_sha256: Sha256 | None
+    obsidian_markdown: str | None = Field(max_length=100_005)
+    obsidian_markdown_sha256: Sha256 | None
+    display_mode: EquationDisplayMode | None
+    render_confirmation: EquationRenderConfirmation | None
     note: str = Field(max_length=10_000)
     revision: int = Field(ge=1, le=MAX_EQUATION_REVIEW_REVISIONS)
-    updated_at_utc: AwareDatetime
+    revision_id: OpaqueId
+    recorded_at_utc: AwareDatetime
 
     @model_validator(mode="after")
-    def is_utc_and_binds_acceptance(self) -> EquationReviewDecision:
-        offset = self.updated_at_utc.utcoffset()
+    def is_exact_owner_revision(self) -> EquationReviewDecision:
+        offset = self.recorded_at_utc.utcoffset()
         if offset is None or offset != timedelta(0):
             raise ValueError("equation decision timestamps must be UTC")
-        if (
-            self.disposition is EquationReviewDisposition.ACCEPT_TRANSCRIPTION
-            and self.assistance_proposal_sha256 is None
-        ):
-            raise ValueError(
-                "accepted transcriptions require an assistance proposal hash"
+        accepted_values = (
+            self.reviewer_latex,
+            self.reviewer_latex_sha256,
+            self.obsidian_markdown,
+            self.obsidian_markdown_sha256,
+            self.display_mode,
+            self.render_confirmation,
+        )
+        if self.disposition is EquationReviewDisposition.ACCEPT_TRANSCRIPTION:
+            if self.assistance_proposal_sha256 is None:
+                raise ValueError(
+                    "accepted transcriptions require an assistance "
+                    "proposal hash"
+                )
+            if self.schema_version == 2:
+                if self.status is not EquationReviewStatus.LEGACY_ACCEPTANCE:
+                    raise ValueError("legacy acceptance status is inconsistent")
+                if any(value is not None for value in accepted_values):
+                    raise ValueError(
+                        "legacy acceptance cannot claim canonical "
+                        "representations"
+                    )
+                return self
+            if self.status is not EquationReviewStatus.ACCEPTED:
+                raise ValueError("accepted review status is inconsistent")
+            if any(value is None for value in accepted_values):
+                raise ValueError(
+                    "accepted schema-3 revision is missing representations"
+                )
+            assert self.reviewer_latex is not None
+            assert self.reviewer_latex_sha256 is not None
+            assert self.obsidian_markdown is not None
+            assert self.obsidian_markdown_sha256 is not None
+            assert self.display_mode is not None
+            assert self.render_confirmation is not None
+            if not self.reviewer_latex:
+                raise ValueError("reviewer LaTeX cannot be empty")
+            if _text_sha256(self.reviewer_latex) != self.reviewer_latex_sha256:
+                raise ValueError("reviewer LaTeX hash is inconsistent")
+            canonical_markdown = _canonical_obsidian_markdown(
+                self.reviewer_latex,
+                self.display_mode,
             )
+            if self.obsidian_markdown != canonical_markdown:
+                raise ValueError("Obsidian Markdown is not canonical")
+            if (
+                _text_sha256(self.obsidian_markdown)
+                != self.obsidian_markdown_sha256
+            ):
+                raise ValueError("Obsidian Markdown hash is inconsistent")
+            if (
+                self.render_confirmation.rendered_reviewer_latex_sha256
+                != self.reviewer_latex_sha256
+                or self.render_confirmation.rendered_obsidian_markdown_sha256
+                != self.obsidian_markdown_sha256
+            ):
+                raise ValueError("render confirmation is stale")
+            return self
+        if any(value is not None for value in accepted_values):
+            raise ValueError(
+                "non-acceptance cannot claim accepted representations"
+            )
+        expected_status = (
+            EquationReviewStatus.REJECTED
+            if self.disposition is EquationReviewDisposition.REJECT_CANDIDATE
+            else EquationReviewStatus.REVISION_REQUIRED
+        )
+        if self.status is not expected_status:
+            raise ValueError("non-acceptance review status is inconsistent")
         return self
 
 
@@ -162,8 +287,33 @@ class EquationReviewCandidateResponse(BaseModel):
     source: EquationSourceIdentityResponse
     region: EquationRegionEvidenceResponse
     deterministic_evidence: DeterministicEquationEvidenceResponse
+    display_mode: EquationDisplayMode
     assistance: AssistedEquationProposalResponse | None
+    status: EquationReviewStatus
+    current_revision: int = Field(ge=0, le=MAX_EQUATION_REVIEW_REVISIONS)
+    expected_previous_revision: int = Field(
+        ge=0,
+        le=MAX_EQUATION_REVIEW_REVISIONS,
+    )
     decision: EquationReviewDecision | None
+
+    @model_validator(mode="after")
+    def has_consistent_review_state(self) -> EquationReviewCandidateResponse:
+        if self.decision is None:
+            if (
+                self.status is not EquationReviewStatus.UNREVIEWED
+                or self.current_revision != 0
+                or self.expected_previous_revision != 0
+            ):
+                raise ValueError("unreviewed candidate state is inconsistent")
+            return self
+        if (
+            self.status is not self.decision.status
+            or self.current_revision != self.decision.revision
+            or self.expected_previous_revision != self.decision.revision
+        ):
+            raise ValueError("reviewed candidate state is inconsistent")
+        return self
 
 
 class EquationReviewQueueResponse(BaseModel):
@@ -200,6 +350,9 @@ class EquationReviewDecisionRequest(BaseModel):
 
     disposition: EquationReviewDisposition
     assistance_proposal_sha256: Sha256 | None
+    reviewer_latex: str | None = Field(max_length=100_000)
+    display_mode: EquationDisplayMode | None
+    render_confirmation: EquationRenderConfirmation | None
     note: str = Field(max_length=10_000)
     expected_previous_revision: int = Field(
         ge=0,
@@ -207,14 +360,60 @@ class EquationReviewDecisionRequest(BaseModel):
     )
 
     @model_validator(mode="after")
-    def accepted_transcription_names_proposal(
+    def has_disposition_specific_representations(
         self,
     ) -> EquationReviewDecisionRequest:
-        if (
-            self.disposition is EquationReviewDisposition.ACCEPT_TRANSCRIPTION
-            and self.assistance_proposal_sha256 is None
-        ):
+        values = (
+            self.reviewer_latex,
+            self.display_mode,
+            self.render_confirmation,
+        )
+        if self.disposition is EquationReviewDisposition.ACCEPT_TRANSCRIPTION:
+            if self.assistance_proposal_sha256 is None:
+                raise ValueError(
+                    "accepted transcriptions require an assistance "
+                    "proposal hash"
+                )
+            if (
+                any(value is None for value in values)
+                or not self.reviewer_latex
+            ):
+                raise ValueError(
+                    "accepted transcriptions require rendered reviewer LaTeX"
+                )
+        elif any(value is not None for value in values):
             raise ValueError(
-                "accepted transcriptions require an assistance proposal hash"
+                "non-acceptance cannot carry accepted representations"
             )
         return self
+
+
+def _text_sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8", errors="strict")).hexdigest()
+
+
+def _canonical_obsidian_markdown(
+    reviewer_latex: str,
+    display_mode: EquationDisplayMode,
+) -> str:
+    if display_mode is EquationDisplayMode.INLINE:
+        return f"${reviewer_latex}$"
+    return f"$$\n{reviewer_latex}\n$$"
+
+
+def _path_free_provenance_label(
+    value: str,
+    *,
+    allow_separator: bool = False,
+) -> None:
+    if (
+        _CONTROL_CHARACTER.search(value) is not None
+        or value.startswith(("/", "\\"))
+        or "://" in value
+        or re.match(r"^[A-Za-z]:[/\\]", value) is not None
+        or "\\" in value
+        or "../" in value
+        or "/.." in value
+        or (not allow_separator and "/" in value)
+    ):
+        raise ValueError("provenance labels cannot contain path syntax")

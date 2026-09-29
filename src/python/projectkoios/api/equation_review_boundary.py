@@ -22,6 +22,14 @@ class EquationReviewRevisionStale(EquationReviewOwnerFailure):
     """The browser's expected previous human revision is stale."""
 
 
+class EquationReviewRenderStale(EquationReviewOwnerFailure):
+    """The rendered canonical wrapper no longer matches the request."""
+
+
+class EquationReviewEditAfterRender(EquationReviewOwnerFailure):
+    """Reviewer LaTeX changed after the confirmed render."""
+
+
 class EquationReviewConcurrentDecision(EquationReviewOwnerFailure):
     """A different writer won the same exclusive append position."""
 

@@ -73,7 +73,10 @@ _RECONCILED_SCHEMAS = {
     "CourseCode",
     "CourseMaterialsStatus",
     "DeterministicEquationEvidenceResponse",
+    "EquationDisplayMode",
+    "EquationModelProvenanceResponse",
     "EquationRegionEvidenceResponse",
+    "EquationRenderConfirmation",
     "EquationReviewCandidateResponse",
     "EquationReviewDecision",
     "EquationReviewDecisionRequest",
@@ -82,6 +85,7 @@ _RECONCILED_SCHEMAS = {
     "EquationReviewFailureCode",
     "EquationReviewFailureResponse",
     "EquationReviewQueueResponse",
+    "EquationReviewStatus",
     "EquationSourceIdentityResponse",
     "LifeDomain",
     "OrganizerActivity",
@@ -282,13 +286,59 @@ def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
     ] == {"$ref": "#/components/schemas/EquationReviewDecisionResponse"}
     request = schema["components"]["schemas"]["EquationReviewDecisionRequest"]
     assert "recorded_at_utc" not in request["properties"]
+    assert "obsidian_markdown" not in request["properties"]
+    assert (
+        request["properties"]["reviewer_latex"]["anyOf"][0]["maxLength"]
+        == 100_000
+    )
+    assert request["properties"]["display_mode"]["anyOf"][0] == {
+        "$ref": "#/components/schemas/EquationDisplayMode"
+    }
+    assert request["properties"]["render_confirmation"]["anyOf"][0] == {
+        "$ref": "#/components/schemas/EquationRenderConfirmation"
+    }
     assert request["properties"]["expected_previous_revision"] == {
         "exclusiveMaximum": 9_999.0,
         "minimum": 0,
         "title": "Expected Previous Revision",
         "type": "integer",
     }
-    assert "expected_previous_revision" in request["required"]
+    assert {
+        "expected_previous_revision",
+        "reviewer_latex",
+        "display_mode",
+        "render_confirmation",
+    } <= set(request["required"])
+    candidate = schema["components"]["schemas"][
+        "EquationReviewCandidateResponse"
+    ]
+    assert {
+        "status",
+        "current_revision",
+        "expected_previous_revision",
+        "display_mode",
+    } <= set(candidate["required"])
+    response = schema["components"]["schemas"]["EquationReviewDecisionResponse"]
+    assert {
+        "schema_version",
+        "revision_id",
+        "recorded_at_utc",
+        "reviewer_latex",
+        "reviewer_latex_sha256",
+        "obsidian_markdown",
+        "obsidian_markdown_sha256",
+        "render_confirmation",
+    } <= set(response["required"])
+    proposed = schema["components"]["schemas"][
+        "ProposedEquationAssistanceResponse"
+    ]
+    assert "attempt_id" in proposed["properties"]
+    assert "model_provenance" in proposed["properties"]
+    failures = schema["components"]["schemas"]["EquationReviewFailureCode"]
+    assert {
+        "EQUATION_REVIEW_RENDER_STALE",
+        "EQUATION_REVIEW_EDIT_AFTER_RENDER",
+    } <= set(failures["enum"])
     assert (
         schema["components"]["schemas"]["EquationReviewQueueResponse"][
             "properties"
@@ -414,8 +464,8 @@ def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
     assert "projectkoios-ingestion[pdf]==0.0.0" in development
     assert "projectkoios-simulations" not in sources
     assert not {"projectkoios-simulations", "physkit"} & locked_names
-    assert "projectkoios-applications 1e331a9 is unpushed" in workflow
-    assert "1e331a9527434938d0aa8ae7bfc4a99bddc87d9d" in workflow
+    assert "projectkoios-applications 523a467 is unpushed" in workflow
+    assert "523a46746530ffdb010fa90a8ebc6484447976a6" in workflow
     assert "Check out locked applications owner" in workflow
     assert workflow.index("Report unavailable applications owner source") < (
         workflow.index("Check out locked applications owner")

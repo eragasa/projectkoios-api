@@ -16,10 +16,10 @@ statically with these preserved sources:
   `6e435cf2ca1b20ed129f806e1874eabed193ec41`, specifically
   `docs/equation-review-api-contract.md` and its provisional TypeScript
   projection; and
-- applications equation-review schema `2` contract and capability packaging
-  follow-up `1e331a9527434938d0aa8ae7bfc4a99bddc87d9` (tree
-  `399d07372410255fc479a5fe2b3d22deee81f669`, parent
-  `312f42e9b231d7aa05100ece3639ea26ea213461`).
+- applications equation-review schema `3` contract and isolated capability
+  owner `523a46746530ffdb010fa90a8ebc6484447976a6` (tree
+  `211348d597e01646b2f0d05cd1f73d7718eb6a63`, parent
+  `1e331a9527434938d0aa8ae7bfc4a99bddc87d9`).
 
 The preserved trees were not merged. Public course/project DTOs and routes were
 reconstructed from the organizer proposal's public superset. Organizer and
@@ -34,8 +34,8 @@ The API owns only:
 - HTTP paths, query limits, status codes, and safe error envelopes;
 - narrow `Protocol` ports for owner-supplied projections;
 - the explicit, content-addressed `pizzi2020` equation read boundary;
-- a narrow adapter to the declared applications-owned schema `2` revision
-  seam; and
+- a narrow adapter to the declared applications-owned schema `3` revision
+  seam with read compatibility for legacy schema-2 revisions; and
 - `openapi/control.openapi.json`.
 
 It does not scan for files, classify courses, ingest transcripts, open owner
@@ -152,12 +152,12 @@ Only `pizzi2020` is configured in this candidate.
 `KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT` must all be set; none has a
 default. The first two configure the path-free API read projection. The third
 is the exact applications-owned document-package root used for latest-decision
-validation and append. The version `1` JSON bundle is limited to 20,000,000
-bytes and 256 candidates. It has this API projection shape:
+validation and append. The version `2` JSON bundle is limited to 20,000,000
+bytes and 256 candidates. It has this private projection shape:
 
 ```json
 {
-  "schema_version": "1",
+  "schema_version": "2",
   "document_id": "pizzi2020",
   "items": [
     {
@@ -165,6 +165,7 @@ bytes and 256 candidates. It has this API projection shape:
       "source": {},
       "region": {},
       "deterministic_evidence": {},
+      "display_mode": "DISPLAY",
       "assistance": null,
       "decision": null
     }
@@ -172,35 +173,53 @@ bytes and 256 candidates. It has this API projection shape:
 }
 ```
 
-The elided objects are the required OpenAPI response objects, not optional or
-hydrated placeholders. A bundle that is missing a field, changes the document,
-contains duplicate candidates, or claims an applications-owned decision is
-unavailable evidence (`503`). The API does not inspect a PDF. Region files are
+The elided objects are bounded API evidence objects, not hydrated placeholders.
+Proposed assistance may carry its attempt identity and explicit model
+name/digest, prompt version, and request/result identities. These values are
+path-free and optional only when model provenance is unavailable. The bundle
+never carries owner review state: the API derives typed status,
+`current_revision`, `expected_previous_revision`, and the latest decision from
+the owner on every read. A bundle that is missing a required field, changes the
+document, contains duplicate candidates, or claims an applications-owned
+decision is unavailable evidence (`503`). The API does not inspect a PDF. Region files are
 content-addressed direct children of the configured root, named exactly by the
 lowercase `region.image_sha256` with no extension. On access the API rejects
 root/file symlinks, escapes, missing/non-regular files, empty or over-20,000,000
 byte bodies, digest mismatches, and content outside PNG/JPEG/WebP signatures.
 Responses are `inline` and `nosniff`; paths and filenames are never exposed.
 
-The API validates the reviewed Web proposal's write fields. An
-`ACCEPT_TRANSCRIPTION` request must name the exact currently displayed
-`assistance.proposal_sha256`; a missing hash is `422` and a different or absent
-proposal is typed `409`. The adopted schema adds required
-`expected_previous_revision` (`0` through `9998`) for owner-enforced optimistic
-concurrency. There is no request timestamp. The control adapter generates a
-strict timezone-aware UTC `recorded_at_utc`, binds document, candidate, source,
-deterministic-evidence, region-image, and proposal hashes, and invokes only
-`append_human_equation_revision`. It returns the owner-stored winning receipt as
-`200 EquationReviewDecisionResponse`. On a semantic retry the adapter may
-supply a later time, but the owner returns the original immutable receipt;
-revision number, not time, is canonical ordering.
+The API validates the reviewed Web write fields. An `ACCEPT_TRANSCRIPTION`
+request must name the exact displayed `assistance.proposal_sha256` and carry
+canonical reviewer LaTeX, deterministic display mode, renderer identity and
+version, and SHA-256 values for the rendered reviewer-LaTeX and canonical
+Obsidian inputs. A missing proposal hash or representation is `422`; a different
+or absent proposal is typed `409`. The request has no Obsidian Markdown field:
+the owner derives `$<latex>$` for `INLINE` or `$$\n<latex>\n$$` for `DISPLAY`.
+The adapter invokes the owner's render-confirmation constructor to recompute
+both current hashes before append. A reviewer-LaTeX mismatch is typed
+`EQUATION_REVIEW_EDIT_AFTER_RENDER`; a canonical-wrapper mismatch is typed
+`EQUATION_REVIEW_RENDER_STALE`. Non-acceptance must send the three accepted
+representation fields as null and cannot claim accepted content.
+
+Every request includes `expected_previous_revision` (`0` through `9998`) for
+owner-enforced optimistic concurrency. There is no request timestamp. The
+control adapter generates strict UTC `recorded_at_utc`, binds document,
+candidate, source, deterministic evidence, region image, and proposal hashes,
+and invokes only `append_human_equation_revision`. The response returns the
+stored schema/revision identity and time plus exact accepted reviewer LaTeX,
+owner-derived Obsidian Markdown, their hashes, and render confirmation. A
+legacy schema-2 acceptance is projected as `LEGACY_ACCEPTANCE` with no claimed
+canonical content; a correction appends schema-3 revision 2 without rewriting
+revision 1. Rejection and revision-required records return all accepted-content
+fields as null. On semantic retry the owner returns the original immutable
+receipt; revision number, not time, is canonical ordering.
 
 The adapter maps applications-owned failures without exposing exception text:
-stale proposal/evidence/revision and different concurrent winners are typed
-`409`; partial or malformed output and an unavailable authorized root are typed
-`503`. The API does not parse or reproduce schema `2` artifacts. Queue decisions
-come only from `load_latest_human_equation_revision`, which revalidates owner
-evidence and historical proposal bindings. Assisted text remains
+stale proposal/evidence/revision/render state and different concurrent winners
+are typed `409`; partial or malformed output and an unavailable authorized root
+are typed `503`. Queue decisions come only from
+`load_latest_human_equation_revision`, which fully validates legacy/schema-3
+history and historical proposal bindings. Assisted text remains
 `automated_unreviewed`; human acceptance is a separate append-only revision.
 
 To bound local request amplification, the API accepts at most 256 candidates
@@ -240,11 +259,13 @@ consumer moves to this contract, it must:
    browser path matching; and
 5. add organizer, transcript-review, and equation-review proxy prefixes;
 6. replace the provisional equation projection with the generated API types;
-7. send required `expected_previous_revision` (`0` before the first decision,
-   otherwise the displayed revision);
-8. never send `recorded_at_utc`; and
-9. handle typed `409` stale/concurrent classifications and typed `503`
-   partial/unavailable classifications.
+7. send required `expected_previous_revision` from the queue projection;
+8. render and submit current reviewer LaTeX, display mode, renderer identity and
+   version, and both rendered-input hashes, but never submit Obsidian Markdown;
+9. never send `recorded_at_utc`;
+10. expose only the path-free provenance projection in Debug & Provenance; and
+11. handle typed `409` proposal/evidence/revision/render/concurrency outcomes
+    and typed `503` partial/unavailable outcomes.
 
 No organizer event schema or reference is retained for compatibility.
 
@@ -262,16 +283,17 @@ from another package. This local lock aid does not broaden the control runtime
 extra. There is no API dependency or source mapping for
 `projectkoios-simulations` or Physkit.
 
-Applications follow-up `1e331a9` makes simulation, example, and development
-requirements separate capabilities. Clean offline lock regeneration against
-that exact local applications tree resolves 46 packages and produces no
-`projectkoios-simulations` or Physkit package record. A guarded import/startup
+Applications commit `523a467` retains separate simulation, example, and
+development capabilities while adding schema-3 accepted representations. Lock
+consistency against tree `211348d597e01646b2f0d05cd1f73d7718eb6a63` resolves
+46 packages and produces no `projectkoios-simulations` or Physkit package
+record. A guarded import/startup
 check also proves that the configured equation-review control store can load
 through `[pdf-corpus]` while imports of simulations and Physkit are rejected.
 The API contains no copied or extracted owner persistence code.
 
 Hosted verification remains **unavailable** because applications commit
-`1e331a9` is explicitly unpushed. CI retains the exact future checkout reference
+`523a467` is explicitly unpushed. CI retains the exact future checkout reference
 but stops before attempting it, so an unavailable remote commit cannot be
 mistaken for passing evidence. No installation was performed as part of this
 compatibility update.

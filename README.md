@@ -92,10 +92,12 @@ KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS=/private/pizzi2020/regions
 KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT=/private/pizzi2020/document
 ```
 
-The schema-version `1` bundle contains the queue candidates exactly as exposed
-by the HTTP response plus `schema_version`; every candidate must explicitly
-carry `decision: null`. Region bytes live directly under the configured root at
-a filename equal to `region.image_sha256`, with no extension. The API rejects
+The schema-version `2` private bundle contains immutable candidate evidence,
+the deterministic display mode, optional path-free assisted-model provenance,
+and explicit `decision: null`. Owner-derived review status, current revision,
+and expected previous revision are added only at read time. Region bytes live
+directly under the configured root at a filename equal to
+`region.image_sha256`, with no extension. The API rejects
 symlinks, missing or non-regular resources, hash mismatches, unknown image
 signatures, oversized data, malformed bundles, and unowned decision claims as
 unavailable evidence. The API read projection never parses a source PDF; the
@@ -103,18 +105,24 @@ applications owner may re-hash inventoried source bytes when validating an
 append.
 
 `PUT /equation-reviews/{candidate_id}/decision` validates that an acceptance
-names the exact displayed assisted-proposal hash, then delegates one optimistic
-append to the applications-owned equation-review schema `2` seam. The request
-must include `expected_previous_revision`; it never accepts a browser time. The
-control adapter generates a strict UTC receipt time and returns the owner-stored
-winning revision. An exact retry therefore returns the original receipt even
-though the adapter generated a later time. Stale proposal/evidence/revision,
-concurrent different output, partial output, and unavailable owner roots have
-stable typed classifications. Assisted text remains automated and unreviewed;
-the append creates a separate human revision and never promotes or rewrites it.
+names the exact displayed assisted-proposal hash and carries canonical reviewer
+LaTeX, display mode, renderer identity/version, and the two exact rendered-input
+hashes. The browser cannot supply Obsidian Markdown; applications schema `3`
+derives its canonical wrapper and persists both exact representations. The API
+uses the owner to recompute render hashes and distinguishes a stale wrapper from
+an edit after render. The request must include `expected_previous_revision`; it
+never accepts a browser time. The control adapter generates a strict UTC receipt
+time and returns the owner-stored revision identity, representations, hashes,
+and receipt. It reads legacy schema-2 revisions and appends corrections only as
+schema 3. Rejection and revision-required responses cannot claim accepted
+content. Stale proposal/evidence/revision/render state, concurrent different
+output, partial output, and unavailable owner roots have stable typed
+classifications. Assisted text remains automated and unreviewed; an append
+creates a separate human revision and never promotes or rewrites it.
+
 The owner adapter is declared by the `equation-review-control` optional extra
 and is imported only when this configured control capability is constructed.
-Applications follow-up `1e331a9` isolates `[pdf-corpus]` from its optional
+Applications commit `523a467` preserves `[pdf-corpus]` isolation from optional
 simulations/Physkit capabilities; the API lock therefore contains neither
 package. The exact applications commit remains unpushed, so hosted verification
 continues to report owner-source unavailability.
@@ -167,5 +175,5 @@ omission of all organizer event endpoints and schemas are documented in
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in
 [`docs/ci.md`](docs/ci.md). It currently stops with an explicit unavailable
-owner-source result because applications commit `1e331a9` is unpushed; it does
+owner-source result because applications commit `523a467` is unpushed; it does
 not present the unreachable configured checkout as passing evidence.

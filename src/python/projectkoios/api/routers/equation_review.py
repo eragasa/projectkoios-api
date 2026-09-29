@@ -13,9 +13,11 @@ from projectkoios.api.equation_review import (
 )
 from projectkoios.api.equation_review_boundary import (
     EquationReviewConcurrentDecision,
+    EquationReviewEditAfterRender,
     EquationReviewEvidenceStale,
     EquationReviewOwnerUnavailable,
     EquationReviewPartialOutput,
+    EquationReviewRenderStale,
     EquationReviewRevisionStale,
 )
 from projectkoios.api.equation_review_models import (
@@ -198,6 +200,18 @@ def create_equation_review_router(
                 status.HTTP_409_CONFLICT,
                 EquationReviewFailureCode.REVISION_STALE,
                 "equation review revision is stale",
+            )
+        except EquationReviewRenderStale:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.RENDER_STALE,
+                "equation review render confirmation is stale",
+            )
+        except EquationReviewEditAfterRender:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.EDIT_AFTER_RENDER,
+                "equation review content changed after render",
             )
         except EquationReviewConcurrentDecision:
             return _failure(

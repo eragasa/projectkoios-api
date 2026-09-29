@@ -15,8 +15,10 @@ from projectkoios.api.config import (
 from projectkoios.api.equation_review import EquationReviewRepository
 from projectkoios.api.equation_review_boundary import (
     EquationReviewConcurrentDecision,
+    EquationReviewEditAfterRender,
     EquationReviewEvidenceBinding,
     EquationReviewPartialOutput,
+    EquationReviewRenderStale,
     EquationReviewRevisionStale,
 )
 from projectkoios.api.equation_review_models import (
@@ -24,6 +26,7 @@ from projectkoios.api.equation_review_models import (
     EquationReviewDecisionRequest,
     EquationReviewDecisionResponse,
     EquationReviewDisposition,
+    EquationReviewStatus,
 )
 from projectkoios.api.routers.equation_review import (
     create_equation_review_router,
@@ -32,7 +35,34 @@ from projectkoios.api.routers.equation_review import (
 _REGION_BODY = b"\x89PNG\r\n\x1a\nsynthetic-region"
 _REGION_SHA256 = hashlib.sha256(_REGION_BODY).hexdigest()
 _PROPOSAL_SHA256 = "b" * 64
+_REVIEWER_LATEX = "E = mc^2"
+_REVIEWER_SHA256 = hashlib.sha256(_REVIEWER_LATEX.encode()).hexdigest()
+_OBSIDIAN_MARKDOWN = "$$\nE = mc^2\n$$"
+_OBSIDIAN_SHA256 = hashlib.sha256(_OBSIDIAN_MARKDOWN.encode()).hexdigest()
+_REVISION_ID = f"equation-human-revision:sha256:{'e' * 64}"
 _RECORDED_AT = datetime(2026, 9, 29, 3, 0, tzinfo=UTC)
+
+
+def _accepted_request(
+    *,
+    proposal_sha256: str | None = _PROPOSAL_SHA256,
+    note: str = "Checked against exact evidence.",
+    expected_previous_revision: int = 0,
+) -> dict[str, object]:
+    return {
+        "disposition": "ACCEPT_TRANSCRIPTION",
+        "assistance_proposal_sha256": proposal_sha256,
+        "reviewer_latex": _REVIEWER_LATEX,
+        "display_mode": "DISPLAY",
+        "render_confirmation": {
+            "renderer_id": "mathjax",
+            "renderer_version": "3.2.2",
+            "rendered_reviewer_latex_sha256": _REVIEWER_SHA256,
+            "rendered_obsidian_markdown_sha256": _OBSIDIAN_SHA256,
+        },
+        "note": note,
+        "expected_previous_revision": expected_previous_revision,
+    }
 
 
 class _DecisionStoreFixture:
@@ -65,19 +95,41 @@ class _DecisionStoreFixture:
         self.requests.append(request)
         if self.failure is not None:
             raise self.failure
+        accepting = (
+            request.disposition
+            is EquationReviewDisposition.ACCEPT_TRANSCRIPTION
+        )
         return EquationReviewDecisionResponse(
             candidate_id="pizzi2020:eq:001",
+            status=(
+                EquationReviewStatus.ACCEPTED
+                if accepting
+                else (
+                    EquationReviewStatus.REJECTED
+                    if request.disposition
+                    is EquationReviewDisposition.REJECT_CANDIDATE
+                    else EquationReviewStatus.REVISION_REQUIRED
+                )
+            ),
+            schema_version=3,
             disposition=request.disposition,
             assistance_proposal_sha256=request.assistance_proposal_sha256,
+            reviewer_latex=request.reviewer_latex,
+            reviewer_latex_sha256=(_REVIEWER_SHA256 if accepting else None),
+            obsidian_markdown=(_OBSIDIAN_MARKDOWN if accepting else None),
+            obsidian_markdown_sha256=(_OBSIDIAN_SHA256 if accepting else None),
+            display_mode=request.display_mode,
+            render_confirmation=request.render_confirmation,
             note=request.note,
-            revision=1,
-            updated_at_utc=_RECORDED_AT,
+            revision=request.expected_previous_revision + 1,
+            revision_id=_REVISION_ID,
+            recorded_at_utc=_RECORDED_AT,
         )
 
 
 def _bundle() -> dict[str, object]:
     return {
-        "schema_version": "1",
+        "schema_version": "2",
         "document_id": "pizzi2020",
         "items": [
             {
@@ -102,11 +154,26 @@ def _bundle() -> dict[str, object]:
                     "evidence_sha256": "c" * 64,
                     "extracted_text": "E = mc^2",
                 },
+                "display_mode": "DISPLAY",
                 "assistance": {
                     "status": "PROPOSED",
                     "method": "assisted-transcription-v1",
                     "proposal_sha256": _PROPOSAL_SHA256,
                     "proposed_latex": "E = mc^2",
+                    "attempt_id": (
+                        "equation-assisted-attempt:sha256:" + "f" * 64
+                    ),
+                    "model_provenance": {
+                        "model_name": "qwen3.5:9b",
+                        "model_sha256": "1" * 64,
+                        "prompt_version": "region-transcription-v1",
+                        "request_id": (
+                            "ollama-multimodal-request:sha256:" + "2" * 64
+                        ),
+                        "result_id": (
+                            "ollama-multimodal-result:sha256:" + "3" * 64
+                        ),
+                    },
                 },
                 "decision": None,
             }
@@ -165,11 +232,17 @@ def test__equation_review__serves_configured_queue_and_bound_region(
     region = client.get("/equation-reviews/pizzi2020:eq:001/region")
 
     assert queue.status_code == 200
+    expected_item = {
+        **_bundle()["items"][0],  # type: ignore[index]
+        "status": "UNREVIEWED",
+        "current_revision": 0,
+        "expected_previous_revision": 0,
+    }
     assert queue.json() == {
         "document_id": "pizzi2020",
         "total": 1,
         "decided": 0,
-        "items": _bundle()["items"],
+        "items": [expected_item],
     }
     assert "schema_version" not in queue.json()
     assert region.status_code == 200
@@ -208,7 +281,7 @@ def test__equation_review__is_controlled_by_explicit_pizzi_configuration() -> (
     "bundle_mutation",
     [
         lambda bundle: {**bundle, "document_id": "other-document"},
-        lambda bundle: {**bundle, "schema_version": "2"},
+        lambda bundle: {**bundle, "schema_version": "1"},
         lambda bundle: {
             **bundle,
             "items": [
@@ -358,31 +431,21 @@ def test__equation_review__decision_is_hash_bound_and_owner_persisted(
     before_region_names = sorted(path.name for path in regions_root.iterdir())
     binding = repository.decision_binding(
         "pizzi2020:eq:001",
-        EquationReviewDecisionRequest(
-            disposition="ACCEPT_TRANSCRIPTION",
-            assistance_proposal_sha256=_PROPOSAL_SHA256,
-            note="Checked against the displayed region.",
-            expected_previous_revision=0,
+        EquationReviewDecisionRequest.model_validate(
+            _accepted_request(note="Checked against the displayed region.")
         ),
     )
 
     unavailable = client.put(
         "/equation-reviews/pizzi2020:eq:001/decision",
-        json={
-            "disposition": "ACCEPT_TRANSCRIPTION",
-            "assistance_proposal_sha256": _PROPOSAL_SHA256,
-            "note": "Checked against the displayed region.",
-            "expected_previous_revision": 0,
-        },
+        json=_accepted_request(note="Checked against the displayed region."),
     )
     mismatched = client.put(
         "/equation-reviews/pizzi2020:eq:001/decision",
-        json={
-            "disposition": "ACCEPT_TRANSCRIPTION",
-            "assistance_proposal_sha256": "d" * 64,
-            "note": "This must not bind a different proposal.",
-            "expected_previous_revision": 0,
-        },
+        json=_accepted_request(
+            proposal_sha256="d" * 64,
+            note="This must not bind a different proposal.",
+        ),
     )
 
     assert binding.document_id == "pizzi2020"
@@ -393,11 +456,25 @@ def test__equation_review__decision_is_hash_bound_and_owner_persisted(
     assert unavailable.status_code == 200
     assert unavailable.json() == {
         "candidate_id": "pizzi2020:eq:001",
+        "status": "ACCEPTED",
+        "schema_version": 3,
         "disposition": "ACCEPT_TRANSCRIPTION",
         "assistance_proposal_sha256": _PROPOSAL_SHA256,
+        "reviewer_latex": _REVIEWER_LATEX,
+        "reviewer_latex_sha256": _REVIEWER_SHA256,
+        "obsidian_markdown": _OBSIDIAN_MARKDOWN,
+        "obsidian_markdown_sha256": _OBSIDIAN_SHA256,
+        "display_mode": "DISPLAY",
+        "render_confirmation": {
+            "renderer_id": "mathjax",
+            "renderer_version": "3.2.2",
+            "rendered_reviewer_latex_sha256": _REVIEWER_SHA256,
+            "rendered_obsidian_markdown_sha256": _OBSIDIAN_SHA256,
+        },
         "note": "Checked against the displayed region.",
         "revision": 1,
-        "updated_at_utc": "2026-09-29T03:00:00Z",
+        "revision_id": _REVISION_ID,
+        "recorded_at_utc": "2026-09-29T03:00:00Z",
     }
     assert mismatched.status_code == 409
     assert mismatched.json() == {
@@ -423,12 +500,7 @@ def test__equation_review__semantic_retry_returns_same_winning_receipt(
     store = _DecisionStoreFixture()
     repository, _, _ = _repository(tmp_path, decision_store=store)
     client = _client(repository)
-    request = {
-        "disposition": "ACCEPT_TRANSCRIPTION",
-        "assistance_proposal_sha256": _PROPOSAL_SHA256,
-        "note": "Checked exact evidence.",
-        "expected_previous_revision": 0,
-    }
+    request = _accepted_request()
 
     created = client.put(
         "/equation-reviews/pizzi2020:eq:001/decision",
@@ -456,12 +528,7 @@ def test__equation_review__cannot_accept_absent_assistance(
 
     response = _client(repository).put(
         "/equation-reviews/pizzi2020:eq:001/decision",
-        json={
-            "disposition": "ACCEPT_TRANSCRIPTION",
-            "assistance_proposal_sha256": _PROPOSAL_SHA256,
-            "note": "No displayed proposal exists.",
-            "expected_previous_revision": 0,
-        },
+        json=_accepted_request(note="No displayed proposal exists."),
     )
 
     assert response.status_code == 409
@@ -471,11 +538,20 @@ def test__equation_review__projects_latest_owner_decision_into_queue(
     tmp_path: Path,
 ) -> None:
     decision = EquationReviewDecision(
+        status=EquationReviewStatus.REJECTED,
+        schema_version=3,
         disposition=EquationReviewDisposition.REJECT_CANDIDATE,
         assistance_proposal_sha256=None,
+        reviewer_latex=None,
+        reviewer_latex_sha256=None,
+        obsidian_markdown=None,
+        obsidian_markdown_sha256=None,
+        display_mode=None,
+        render_confirmation=None,
         note="Not an equation.",
         revision=2,
-        updated_at_utc=datetime(2026, 9, 29, 2, 0, tzinfo=UTC),
+        revision_id=_REVISION_ID,
+        recorded_at_utc=datetime(2026, 9, 29, 2, 0, tzinfo=UTC),
     )
     store = _DecisionStoreFixture(decision=decision)
     repository, _, _ = _repository(tmp_path, decision_store=store)
@@ -487,12 +563,25 @@ def test__equation_review__projects_latest_owner_decision_into_queue(
 
     assert response.status_code == 200
     assert response.json()["decided"] == 1
-    assert response.json()["items"][0]["decision"] == {
+    item = response.json()["items"][0]
+    assert item["status"] == "REJECTED"
+    assert item["current_revision"] == 2
+    assert item["expected_previous_revision"] == 2
+    assert item["decision"] == {
+        "status": "REJECTED",
+        "schema_version": 3,
         "disposition": "REJECT_CANDIDATE",
         "assistance_proposal_sha256": None,
+        "reviewer_latex": None,
+        "reviewer_latex_sha256": None,
+        "obsidian_markdown": None,
+        "obsidian_markdown_sha256": None,
+        "display_mode": None,
+        "render_confirmation": None,
         "note": "Not an equation.",
         "revision": 2,
-        "updated_at_utc": "2026-09-29T02:00:00Z",
+        "revision_id": _REVISION_ID,
+        "recorded_at_utc": "2026-09-29T02:00:00Z",
     }
 
 
@@ -503,6 +592,16 @@ def test__equation_review__projects_latest_owner_decision_into_queue(
             EquationReviewRevisionStale(),
             "EQUATION_REVIEW_REVISION_STALE",
             "equation review revision is stale",
+        ),
+        (
+            EquationReviewRenderStale(),
+            "EQUATION_REVIEW_RENDER_STALE",
+            "equation review render confirmation is stale",
+        ),
+        (
+            EquationReviewEditAfterRender(),
+            "EQUATION_REVIEW_EDIT_AFTER_RENDER",
+            "equation review content changed after render",
         ),
         (
             EquationReviewConcurrentDecision(),
@@ -524,12 +623,7 @@ def test__equation_review__classifies_stale_and_concurrent_append_conflicts(
 
     response = _client(repository).put(
         "/equation-reviews/pizzi2020:eq:001/decision",
-        json={
-            "disposition": "ACCEPT_TRANSCRIPTION",
-            "assistance_proposal_sha256": _PROPOSAL_SHA256,
-            "note": "Checked exact evidence.",
-            "expected_previous_revision": 0,
-        },
+        json=_accepted_request(),
     )
 
     assert response.status_code == 409
@@ -551,6 +645,9 @@ def test__equation_review__classifies_partial_owner_output(
         json={
             "disposition": "REJECT_CANDIDATE",
             "assistance_proposal_sha256": None,
+            "reviewer_latex": None,
+            "display_mode": None,
+            "render_confirmation": None,
             "note": "Not a candidate.",
             "expected_previous_revision": 0,
         },
@@ -563,6 +660,32 @@ def test__equation_review__classifies_partial_owner_output(
     }
 
 
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        lambda request: {**request, "obsidian_markdown": _OBSIDIAN_MARKDOWN},
+        lambda request: {
+            **request,
+            "disposition": "REJECT_CANDIDATE",
+            "assistance_proposal_sha256": None,
+        },
+    ),
+)
+def test__equation_review__rejects_browser_markdown_and_nonacceptance_content(
+    tmp_path: Path,
+    mutation: object,
+) -> None:
+    repository, _, _ = _repository(tmp_path)
+    request = mutation(_accepted_request())  # type: ignore[operator]
+
+    response = _client(repository).put(
+        "/equation-reviews/pizzi2020:eq:001/decision",
+        json=request,
+    )
+
+    assert response.status_code == 422
+
+
 def test__equation_review__rejects_acceptance_without_proposal_hash(
     tmp_path: Path,
 ) -> None:
@@ -570,12 +693,10 @@ def test__equation_review__rejects_acceptance_without_proposal_hash(
 
     response = _client(repository).put(
         "/equation-reviews/pizzi2020:eq:001/decision",
-        json={
-            "disposition": "ACCEPT_TRANSCRIPTION",
-            "assistance_proposal_sha256": None,
-            "note": "No proposal binding.",
-            "expected_previous_revision": 0,
-        },
+        json=_accepted_request(
+            proposal_sha256=None,
+            note="No proposal binding.",
+        ),
     )
 
     assert response.status_code == 422
