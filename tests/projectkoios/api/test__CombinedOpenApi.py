@@ -344,11 +344,12 @@ def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
     assert "projectkoios-ingestion[pdf]==0.0.0" in development
     assert "projectkoios-simulations" not in sources
     assert not {"projectkoios-simulations", "physkit"} & locked_names
-    assert "projectkoios-applications b25ba8c is unpushed" in workflow
+    assert "Check out published applications owner" in workflow
     assert "b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f" in workflow
-    assert "2991f8506ca444f384ad950dfdfc6c76bb2c8546" in workflow
-    assert workflow.index("Report unavailable applications owner source") < (
-        workflow.index("Check out locked applications owner")
+    assert "2f32fa9d9b3a5bb452a643dbba34a7dfae461423" in workflow
+    assert "e531cff8f65422d9c0cfab5aaa903c1ebdd778c0" in workflow
+    assert workflow.index("Check out published applications owner") < (
+        workflow.index("Verify locked applications owner")
     )
     assert "projectkoios-simulations" not in workflow
 

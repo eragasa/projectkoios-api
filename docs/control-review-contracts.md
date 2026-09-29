@@ -217,8 +217,9 @@ consumer moves to this contract, it must:
 ## Declared dependency seam and hosted availability
 
 The organizer runtime remains the primary dependency
-`projectkoios-agent==0.0.0`, pinned in CI to
-`2991f8506ca444f384ad950dfdfc6c76bb2c8546`. The private equation adapter is
+`projectkoios-agent==0.0.0`, pinned in CI to merged commit
+`e531cff8f65422d9c0cfab5aaa903c1ebdd778c0` (tree
+`84b9182d5fffc594bae6520de49e77ee7e535cf8`). The private equation adapter is
 declared behind the API `equation-review-control` optional extra. Public startup
 and an unconfigured
 control profile do not import `projectkoios.applications`; only construction of
@@ -242,8 +243,6 @@ check also proves that the configured equation-review control owner can load
 through `[pdf-corpus]` while imports of simulations and Physkit are rejected.
 The API contains no copied or extracted owner persistence code.
 
-Hosted verification remains **unavailable** because applications commit
-`b25ba8c` is explicitly unpushed. CI retains the exact future checkout reference
-but stops before attempting it, so an unavailable remote commit cannot be
-mistaken for passing evidence. No installation was performed as part of this
-compatibility update.
+Hosted verification checks out public applications commit `b25ba8c`, verifies
+its exact tree, and proceeds through the pinned dependency and API checks. No
+installation was performed as part of the local compatibility update.

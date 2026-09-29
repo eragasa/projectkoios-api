@@ -63,7 +63,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-agent
-          ref: 2991f8506ca444f384ad950dfdfc6c76bb2c8546
+          ref: e531cff8f65422d9c0cfab5aaa903c1ebdd778c0
           path: projectkoios-agent
           persist-credentials: false
 

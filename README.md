@@ -177,6 +177,6 @@ authoritative generated document is
 ## Continuous integration
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in
-[`docs/ci.md`](docs/ci.md). It currently stops with an explicit unavailable
-owner-source result because applications commit `b25ba8c` is unpushed; it does
-not present unreachable checkouts as passing evidence.
+[`docs/ci.md`](docs/ci.md). It checks out the exact published owner revisions,
+verifies immutable owner identity where declared, and then runs the locked API
+validation sequence.
