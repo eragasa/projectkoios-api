@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Literal
 
@@ -10,11 +12,21 @@ from projectkoios.api.config import (
     EquationReviewDocumentConfiguration,
 )
 from projectkoios.api.equation_review_models import (
+    MAX_EQUATION_REVIEW_CANDIDATES,
     EquationReviewCandidateResponse,
+    EquationReviewDecision,
     EquationReviewDecisionRequest,
+    EquationReviewDecisionResponse,
     EquationReviewDisposition,
     EquationReviewQueueResponse,
     ProposedEquationAssistanceResponse,
+)
+from projectkoios.api.equation_review_owner import (
+    ApplicationsEquationReviewDecisionStore,
+    EquationReviewDecisionStore,
+    EquationReviewEvidenceBinding,
+    EquationReviewEvidenceStale,
+    EquationReviewOwnerUnavailable,
 )
 from pydantic import (
     BaseModel,
@@ -26,6 +38,7 @@ from pydantic import (
 
 _MAX_BUNDLE_BYTES = 20_000_000
 MAX_EQUATION_REGION_BYTES = 20_000_000
+QUEUE_OWNER_PROJECTION_BUDGET_SECONDS = 2.0
 _PIZZI2020 = "pizzi2020"
 
 
@@ -47,29 +60,17 @@ class EquationRegionResource:
     media_type: str
 
 
-@dataclass(frozen=True)
-class EquationDecisionBinding:
-    """Validated immutable evidence identities for a future owner append."""
-
-    document_id: str
-    candidate_id: str
-    source_sha256: str
-    candidate_evidence_sha256: str
-    region_image_sha256: str
-    assistance_proposal_sha256: str | None
-
-
 class _EquationReviewBundle(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     schema_version: Literal["1"]
     document_id: Literal["pizzi2020"]
     items: tuple[EquationReviewCandidateResponse, ...] = Field(
-        max_length=100_000
+        max_length=MAX_EQUATION_REVIEW_CANDIDATES
     )
 
     @model_validator(mode="after")
-    def has_only_unpersisted_unique_candidates(
+    def has_only_owner_projected_unique_candidates(
         self,
     ) -> _EquationReviewBundle:
         candidate_ids = [str(item.candidate_id) for item in self.items]
@@ -87,18 +88,70 @@ class _EquationReviewBundle(BaseModel):
 
 
 class EquationReviewRepository:
-    """Read an explicitly configured, content-addressed private projection."""
+    """Read private projections and delegate decisions to the owner seam."""
 
-    def __init__(self, configuration: EquationReviewConfiguration) -> None:
+    def __init__(
+        self,
+        configuration: EquationReviewConfiguration,
+        *,
+        decision_store: EquationReviewDecisionStore | None = None,
+        monotonic: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._configuration = configuration
+        self._monotonic = monotonic
+        configured = configuration.pizzi2020
+        self._decision_store = (
+            decision_store
+            if decision_store is not None
+            else (
+                ApplicationsEquationReviewDecisionStore(
+                    configured.document_root
+                )
+                if configured is not None
+                else None
+            )
+        )
 
     def queue(self, document_id: str) -> EquationReviewQueueResponse:
         bundle = self._bundle(document_id)
+        store = self._require_decision_store()
+        deadline = self._monotonic() + QUEUE_OWNER_PROJECTION_BUDGET_SECONDS
+        items: list[EquationReviewCandidateResponse] = []
+        for index, candidate in enumerate(bundle.items):
+            decision = _validated_latest_decision(
+                candidate,
+                store.latest(_binding(candidate)),
+            )
+            payload = candidate.model_dump(
+                mode="python",
+                round_trip=True,
+                warnings=False,
+            )
+            payload["decision"] = (
+                decision.model_dump(
+                    mode="python",
+                    round_trip=True,
+                    warnings=False,
+                )
+                if decision is not None
+                else None
+            )
+            try:
+                items.append(
+                    EquationReviewCandidateResponse.model_validate(
+                        payload,
+                        strict=True,
+                    )
+                )
+            except ValidationError as error:
+                raise EquationReviewOwnerUnavailable from error
+            if index + 1 < len(bundle.items) and self._monotonic() > deadline:
+                raise EquationReviewOwnerUnavailable
         return EquationReviewQueueResponse(
             document_id=OpaqueId(bundle.document_id),
-            total=len(bundle.items),
-            decided=0,
-            items=bundle.items,
+            total=len(items),
+            decided=sum(item.decision is not None for item in items),
+            items=tuple(items),
         )
 
     def region(self, candidate_id: str) -> EquationRegionResource:
@@ -145,11 +198,39 @@ class EquationReviewRepository:
             raise EquationReviewUnavailable
         return EquationRegionResource(body=body, media_type=media_type)
 
+    def decide(
+        self,
+        candidate_id: str,
+        request: EquationReviewDecisionRequest,
+    ) -> EquationReviewDecisionResponse:
+        binding = self.decision_binding(candidate_id, request)
+        response = self._require_decision_store().append(binding, request)
+        try:
+            validated = EquationReviewDecisionResponse.model_validate(
+                response.model_dump(
+                    mode="python",
+                    round_trip=True,
+                    warnings=False,
+                ),
+                strict=True,
+            )
+        except (AttributeError, ValidationError) as error:
+            raise EquationReviewOwnerUnavailable from error
+        if (
+            validated.candidate_id != binding.candidate_id
+            or validated.disposition is not request.disposition
+            or validated.assistance_proposal_sha256
+            != request.assistance_proposal_sha256
+            or validated.note != request.note
+        ):
+            raise EquationReviewOwnerUnavailable
+        return validated
+
     def decision_binding(
         self,
         candidate_id: str,
         request: EquationReviewDecisionRequest,
-    ) -> EquationDecisionBinding:
+    ) -> EquationReviewEvidenceBinding:
         candidate = self._candidate(candidate_id)
         assistance = candidate.assistance
         request_hash = request.assistance_proposal_sha256
@@ -167,16 +248,7 @@ class EquationReviewRepository:
             )
         ):
             raise InvalidEquationReviewDecision
-        return EquationDecisionBinding(
-            document_id=str(candidate.source.document_id),
-            candidate_id=str(candidate.candidate_id),
-            source_sha256=candidate.source.source_sha256,
-            candidate_evidence_sha256=(
-                candidate.deterministic_evidence.evidence_sha256
-            ),
-            region_image_sha256=candidate.region.image_sha256,
-            assistance_proposal_sha256=request_hash,
-        )
+        return _binding(candidate)
 
     def _candidate(self, candidate_id: str) -> EquationReviewCandidateResponse:
         bundle = self._bundle(_PIZZI2020)
@@ -223,6 +295,52 @@ class EquationReviewRepository:
         if configuration is None:
             raise EquationReviewUnavailable
         return configuration
+
+    def _require_decision_store(self) -> EquationReviewDecisionStore:
+        if self._decision_store is None:
+            raise EquationReviewOwnerUnavailable
+        return self._decision_store
+
+
+def _binding(
+    candidate: EquationReviewCandidateResponse,
+) -> EquationReviewEvidenceBinding:
+    return EquationReviewEvidenceBinding(
+        document_id=str(candidate.source.document_id),
+        candidate_id=str(candidate.candidate_id),
+        source_sha256=candidate.source.source_sha256,
+        candidate_evidence_sha256=(
+            candidate.deterministic_evidence.evidence_sha256
+        ),
+        region_image_sha256=candidate.region.image_sha256,
+    )
+
+
+def _validated_latest_decision(
+    candidate: EquationReviewCandidateResponse,
+    decision: EquationReviewDecision | None,
+) -> EquationReviewDecision | None:
+    if decision is None:
+        return None
+    try:
+        validated = EquationReviewDecision.model_validate(
+            decision.model_dump(
+                mode="python",
+                round_trip=True,
+                warnings=False,
+            ),
+            strict=True,
+        )
+    except (AttributeError, ValidationError) as error:
+        raise EquationReviewOwnerUnavailable from error
+    proposal_hash = validated.assistance_proposal_sha256
+    assistance = candidate.assistance
+    if proposal_hash is not None and (
+        not isinstance(assistance, ProposedEquationAssistanceResponse)
+        or assistance.proposal_sha256 != proposal_hash
+    ):
+        raise EquationReviewEvidenceStale
+    return validated
 
 
 def _image_media_type(body: bytes) -> str | None:

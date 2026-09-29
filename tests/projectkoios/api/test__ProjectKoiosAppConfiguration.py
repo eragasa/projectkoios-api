@@ -50,6 +50,10 @@ def test__equation_review__requires_explicit_complete_pizzi_configuration(
         "KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS",
         "/private/pizzi2020/regions",
     )
+    monkeypatch.setenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT",
+        "/private/pizzi2020/document",
+    )
 
     configuration = ProjectKoiosAppConfiguration()
 
@@ -59,6 +63,9 @@ def test__equation_review__requires_explicit_complete_pizzi_configuration(
     )
     assert configuration.equation_review.pizzi2020.regions_root == Path(
         "/private/pizzi2020/regions"
+    )
+    assert configuration.equation_review.pizzi2020.document_root == Path(
+        "/private/pizzi2020/document"
     )
 
 
@@ -76,7 +83,7 @@ def test__equation_review__rejects_partial_pizzi_configuration(
 
     with pytest.raises(
         ValueError,
-        match="pizzi2020 equation review requires both",
+        match="pizzi2020 equation review requires its bundle, regions, and",
     ):
         ProjectKoiosAppConfiguration()
 

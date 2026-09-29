@@ -11,9 +11,12 @@ authors = [
 dependencies = [
     "fastapi>=0.115",
     "projectkoios==0.0.0",
+    "projectkoios-applications[pdf-corpus]==0.1.0.dev0",
+    "projectkoios-ingestion[pdf]==0.0.0",
     "projectkoios-obsidian==0.0.0",
     "projectkoios-references==0.0.0",
     "projectkoios-search==0.0.0",
+    "projectkoios-simulations==0.1.0.dev0",
     "pydantic>=2.0",
     "python-multipart>=0.0.20",
     "uvicorn[standard]>=0.34",
@@ -60,6 +63,9 @@ indent-style = "space"
 
 [tool.uv.sources]
 projectkoios = { path = "../projectkoios", editable = true }
+projectkoios-applications = { path = "../projectkoios-applications", editable = true }
+projectkoios-ingestion = { path = "../projectkoios-ingestion", editable = true }
 projectkoios-obsidian = { path = "../projectkoios-obsidian", editable = true }
 projectkoios-references = { path = "../projectkoios-references", editable = true }
 projectkoios-search = { path = "../projectkoios-search", editable = true }
+projectkoios-simulations = { path = "../projectkoios-simulations", editable = true }

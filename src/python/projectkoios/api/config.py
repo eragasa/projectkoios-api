@@ -54,6 +54,7 @@ class LiteratureReviewConfiguration:
 class EquationReviewDocumentConfiguration:
     bundle_path: Path
     regions_root: Path
+    document_root: Path
 
 
 @dataclass(frozen=True)
@@ -122,15 +123,24 @@ def _configured_pizzi2020_equation_review() -> (
 ):
     bundle = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE")
     regions = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS")
-    if bundle is None and regions is None:
+    document_root = os.environ.get(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT"
+    )
+    values = (bundle, regions, document_root)
+    if all(value is None for value in values):
         return None
-    if not bundle or not regions:
+    if any(not value for value in values):
         raise ValueError(
-            "pizzi2020 equation review requires both its bundle and regions"
+            "pizzi2020 equation review requires its bundle, regions, and "
+            "document root"
         )
+    assert bundle is not None
+    assert regions is not None
+    assert document_root is not None
     return EquationReviewDocumentConfiguration(
         bundle_path=Path(bundle).expanduser(),
         regions_root=Path(regions).expanduser(),
+        document_root=Path(document_root).expanduser(),
     )
 
 

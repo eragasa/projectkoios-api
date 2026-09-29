@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Path, Query, Response, status
+from fastapi import APIRouter, Path, Query, Response, status
+from fastapi.responses import JSONResponse
 from projectkoios.api.boundary_models import OpaqueId
 from projectkoios.api.equation_review import (
     EquationReviewNotFound,
@@ -12,7 +13,17 @@ from projectkoios.api.equation_review import (
 )
 from projectkoios.api.equation_review_models import (
     EquationReviewDecisionRequest,
+    EquationReviewDecisionResponse,
+    EquationReviewFailureCode,
+    EquationReviewFailureResponse,
     EquationReviewQueueResponse,
+)
+from projectkoios.api.equation_review_owner import (
+    EquationReviewConcurrentDecision,
+    EquationReviewEvidenceStale,
+    EquationReviewOwnerUnavailable,
+    EquationReviewPartialOutput,
+    EquationReviewRevisionStale,
 )
 from projectkoios.api.error_models import ApiErrorResponse
 
@@ -26,13 +37,23 @@ _BINARY_RESPONSE_HEADERS: dict[str, dict[str, Any]] = {
         "schema": {"type": "string", "const": "nosniff"},
     },
 }
-_UNAVAILABLE_RESPONSE: dict[str, Any] = {
-    "model": ApiErrorResponse,
-    "description": "Configured equation-review evidence is unavailable.",
-}
 _NOT_FOUND_RESPONSE: dict[str, Any] = {
     "model": ApiErrorResponse,
     "description": "The equation-review identity is not configured.",
+}
+_CONFLICT_RESPONSE: dict[str, Any] = {
+    "model": EquationReviewFailureResponse,
+    "description": (
+        "The proposal, immutable evidence, expected revision, or concurrent "
+        "append does not match."
+    ),
+}
+_UNAVAILABLE_RESPONSE: dict[str, Any] = {
+    "model": EquationReviewFailureResponse,
+    "description": (
+        "Configured evidence, the owner root, or complete append output is "
+        "unavailable."
+    ),
 }
 
 
@@ -49,18 +70,41 @@ def create_equation_review_router(
         response_model=EquationReviewQueueResponse,
         responses={
             status.HTTP_404_NOT_FOUND: _NOT_FOUND_RESPONSE,
+            status.HTTP_409_CONFLICT: _CONFLICT_RESPONSE,
             status.HTTP_503_SERVICE_UNAVAILABLE: _UNAVAILABLE_RESPONSE,
         },
     )
     def queue(
         document_id: Annotated[OpaqueId, Query()],
-    ) -> EquationReviewQueueResponse:
+    ) -> EquationReviewQueueResponse | Response:
         try:
             return repository.queue(str(document_id))
-        except EquationReviewNotFound as error:
-            raise _document_not_found() from error
-        except EquationReviewUnavailable as error:
-            raise _evidence_unavailable() from error
+        except EquationReviewNotFound:
+            return _not_found("equation review document was not found")
+        except EquationReviewUnavailable:
+            return _failure(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                EquationReviewFailureCode.OWNER_UNAVAILABLE,
+                "equation review evidence is unavailable",
+            )
+        except EquationReviewEvidenceStale:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.EVIDENCE_STALE,
+                "equation review evidence is stale",
+            )
+        except EquationReviewPartialOutput:
+            return _failure(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                EquationReviewFailureCode.PARTIAL_OUTPUT,
+                "equation review output is partial or malformed",
+            )
+        except EquationReviewOwnerUnavailable:
+            return _failure(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                EquationReviewFailureCode.OWNER_UNAVAILABLE,
+                "equation review owner is unavailable",
+            )
 
     @router.get(
         "/{candidate_id}/region",
@@ -97,10 +141,14 @@ def create_equation_review_router(
     ) -> Response:
         try:
             resource = repository.region(str(candidate_id))
-        except EquationReviewNotFound as error:
-            raise _candidate_not_found() from error
-        except EquationReviewUnavailable as error:
-            raise _evidence_unavailable() from error
+        except EquationReviewNotFound:
+            return _not_found("equation review candidate was not found")
+        except EquationReviewUnavailable:
+            return _failure(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                EquationReviewFailureCode.OWNER_UNAVAILABLE,
+                "equation review evidence is unavailable",
+            )
         return Response(
             content=resource.body,
             media_type=resource.media_type,
@@ -112,63 +160,83 @@ def create_equation_review_router(
 
     @router.put(
         "/{candidate_id}/decision",
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        response_model=ApiErrorResponse,
-        response_description=(
-            "Equation decision persistence has no applications-owned adapter."
-        ),
+        response_model=EquationReviewDecisionResponse,
         responses={
             status.HTTP_404_NOT_FOUND: _NOT_FOUND_RESPONSE,
-            status.HTTP_409_CONFLICT: {
-                "model": ApiErrorResponse,
-                "description": (
-                    "The request is not bound to the displayed proposal."
-                ),
-            },
+            status.HTTP_409_CONFLICT: _CONFLICT_RESPONSE,
+            status.HTTP_503_SERVICE_UNAVAILABLE: _UNAVAILABLE_RESPONSE,
         },
     )
     def decide(
         candidate_id: Annotated[OpaqueId, Path()],
         request: EquationReviewDecisionRequest,
-    ) -> ApiErrorResponse:
+    ) -> EquationReviewDecisionResponse | Response:
         try:
-            repository.decision_binding(str(candidate_id), request)
-        except EquationReviewNotFound as error:
-            raise _candidate_not_found() from error
-        except EquationReviewUnavailable as error:
-            raise _evidence_unavailable() from error
-        except InvalidEquationReviewDecision as error:
-            raise _invalid_decision() from error
-        return ApiErrorResponse(
-            detail="equation review decision persistence is unavailable"
-        )
+            return repository.decide(str(candidate_id), request)
+        except EquationReviewNotFound:
+            return _not_found("equation review candidate was not found")
+        except EquationReviewUnavailable:
+            return _failure(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                EquationReviewFailureCode.OWNER_UNAVAILABLE,
+                "equation review evidence is unavailable",
+            )
+        except InvalidEquationReviewDecision:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.PROPOSAL_STALE,
+                "equation review proposal does not match candidate evidence",
+            )
+        except EquationReviewEvidenceStale:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.EVIDENCE_STALE,
+                "equation review evidence is stale",
+            )
+        except EquationReviewRevisionStale:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.REVISION_STALE,
+                "equation review revision is stale",
+            )
+        except EquationReviewConcurrentDecision:
+            return _failure(
+                status.HTTP_409_CONFLICT,
+                EquationReviewFailureCode.CONCURRENT_DECISION,
+                "a different equation review decision won concurrently",
+            )
+        except EquationReviewPartialOutput:
+            return _failure(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                EquationReviewFailureCode.PARTIAL_OUTPUT,
+                "equation review output is partial or malformed",
+            )
+        except EquationReviewOwnerUnavailable:
+            return _failure(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                EquationReviewFailureCode.OWNER_UNAVAILABLE,
+                "equation review owner is unavailable",
+            )
 
     return router
 
 
-def _document_not_found() -> HTTPException:
-    return HTTPException(
+def _not_found(detail: str) -> JSONResponse:
+    return JSONResponse(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail="equation review document was not found",
+        content=ApiErrorResponse(detail=detail).model_dump(mode="json"),
     )
 
 
-def _candidate_not_found() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_404_NOT_FOUND,
-        detail="equation review candidate was not found",
-    )
-
-
-def _evidence_unavailable() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="equation review evidence is unavailable",
-    )
-
-
-def _invalid_decision() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail="equation review decision does not match candidate evidence",
+def _failure(
+    status_code: int,
+    code: EquationReviewFailureCode,
+    detail: str,
+) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content=EquationReviewFailureResponse(
+            code=code,
+            detail=detail,
+        ).model_dump(mode="json"),
     )

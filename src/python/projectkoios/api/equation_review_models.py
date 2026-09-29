@@ -23,12 +23,23 @@ BoundedText = Annotated[str, Field(max_length=100_000)]
 BoundedLabel = Annotated[str, Field(min_length=1, max_length=500)]
 _CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_PHYSICAL_PAGES = 1_000_000
+MAX_EQUATION_REVIEW_CANDIDATES = 256
+MAX_EQUATION_REVIEW_REVISIONS = 9_999
 
 
 class EquationReviewDisposition(StrEnum):
     ACCEPT_TRANSCRIPTION = "ACCEPT_TRANSCRIPTION"
     REJECT_CANDIDATE = "REJECT_CANDIDATE"
     REVISION_REQUIRED = "REVISION_REQUIRED"
+
+
+class EquationReviewFailureCode(StrEnum):
+    PROPOSAL_STALE = "EQUATION_REVIEW_PROPOSAL_STALE"
+    EVIDENCE_STALE = "EQUATION_REVIEW_EVIDENCE_STALE"
+    REVISION_STALE = "EQUATION_REVIEW_REVISION_STALE"
+    CONCURRENT_DECISION = "EQUATION_REVIEW_CONCURRENT_DECISION"
+    PARTIAL_OUTPUT = "EQUATION_REVIEW_PARTIAL_OUTPUT"
+    OWNER_UNAVAILABLE = "EQUATION_REVIEW_OWNER_UNAVAILABLE"
 
 
 class EquationSourceIdentityResponse(BaseModel):
@@ -109,17 +120,17 @@ AssistedEquationProposalResponse = Annotated[
 ]
 
 
-class EquationReviewDecisionResponse(BaseModel):
+class EquationReviewDecision(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     disposition: EquationReviewDisposition
     assistance_proposal_sha256: Sha256 | None
     note: str = Field(max_length=10_000)
-    revision: int = Field(ge=1, le=MAX_COUNT)
+    revision: int = Field(ge=1, le=MAX_EQUATION_REVIEW_REVISIONS)
     updated_at_utc: AwareDatetime
 
     @model_validator(mode="after")
-    def is_utc_and_binds_acceptance(self) -> EquationReviewDecisionResponse:
+    def is_utc_and_binds_acceptance(self) -> EquationReviewDecision:
         offset = self.updated_at_utc.utcoffset()
         if offset is None or offset != timedelta(0):
             raise ValueError("equation decision timestamps must be UTC")
@@ -133,6 +144,17 @@ class EquationReviewDecisionResponse(BaseModel):
         return self
 
 
+class EquationReviewDecisionResponse(EquationReviewDecision):
+    candidate_id: OpaqueId
+
+
+class EquationReviewFailureResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: EquationReviewFailureCode
+    detail: str = Field(min_length=1, max_length=500)
+
+
 class EquationReviewCandidateResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
@@ -141,7 +163,7 @@ class EquationReviewCandidateResponse(BaseModel):
     region: EquationRegionEvidenceResponse
     deterministic_evidence: DeterministicEquationEvidenceResponse
     assistance: AssistedEquationProposalResponse | None
-    decision: EquationReviewDecisionResponse | None
+    decision: EquationReviewDecision | None
 
 
 class EquationReviewQueueResponse(BaseModel):
@@ -151,7 +173,7 @@ class EquationReviewQueueResponse(BaseModel):
     total: int = Field(ge=0, le=MAX_COUNT)
     decided: int = Field(ge=0, le=MAX_COUNT)
     items: tuple[EquationReviewCandidateResponse, ...] = Field(
-        max_length=100_000
+        max_length=MAX_EQUATION_REVIEW_CANDIDATES
     )
 
     @model_validator(mode="after")
@@ -179,6 +201,10 @@ class EquationReviewDecisionRequest(BaseModel):
     disposition: EquationReviewDisposition
     assistance_proposal_sha256: Sha256 | None
     note: str = Field(max_length=10_000)
+    expected_previous_revision: int = Field(
+        ge=0,
+        lt=MAX_EQUATION_REVIEW_REVISIONS,
+    )
 
     @model_validator(mode="after")
     def accepted_transcription_names_proposal(

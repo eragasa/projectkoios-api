@@ -15,7 +15,10 @@ statically with these preserved sources:
 - Web equation-review proposal
   `6e435cf2ca1b20ed129f806e1874eabed193ec41`, specifically
   `docs/equation-review-api-contract.md` and its provisional TypeScript
-  projection.
+  projection; and
+- applications equation-review schema `2` contract
+  `312f42e9b231d7aa05100ece3639ea26ea213461` (tree
+  `05a6a8433df8be4b47ddd4e2301cd8e20078b6d9`).
 
 The preserved trees were not merged. Public course/project DTOs and routes were
 reconstructed from the organizer proposal's public superset. Organizer and
@@ -29,12 +32,15 @@ The API owns only:
 - Pydantic request and response DTOs;
 - HTTP paths, query limits, status codes, and safe error envelopes;
 - narrow `Protocol` ports for owner-supplied projections;
-- the explicit, content-addressed `pizzi2020` equation read boundary; and
+- the explicit, content-addressed `pizzi2020` equation read boundary;
+- a narrow adapter to the declared applications-owned schema `2` revision
+  seam; and
 - `openapi/control.openapi.json`.
 
 It does not scan for files, classify courses, ingest transcripts, open owner
-catalogs, process PDFs, supervise daemons, persist equation review state, or
-implement lifecycle behavior. Organizer and transcript routes are registered in the control profile
+catalogs, process PDFs, supervise daemons, or reimplement equation persistence.
+The applications package alone validates and appends human revisions. Organizer
+and transcript routes are registered in the control profile
 so their contract is present, but return `503` until their owner adapters are
 explicitly injected. Public courses and projects default to explicit empty
 catalog projections; populated catalogs likewise require injected providers.
@@ -42,8 +48,9 @@ catalog projections; populated catalogs likewise require injected providers.
 Existing publication, GitHub, citation-review, literature-review, search, and
 core behavior from the selected base remains in place.
 
-Every injected owner result is revalidated into a fresh API DTO immediately
-before serialization. Provider-declared unavailability remains a fixed `503`;
+Every injected organizer/transcript owner result is revalidated into a fresh
+API DTO immediately before serialization. Provider-declared unavailability
+remains a fixed `503`;
 malformed provider data is a fixed `502`; and any other ordinary provider
 exception is a fixed `500`. Each status uses the declared JSON
 `ApiErrorResponse` envelope, and no exception text is returned. Missing
@@ -138,11 +145,14 @@ provisional JSON names. All identities, hashes, text, counts, pages, and finite
 positive-area coordinates are bounded. Source names are display-only, path-free
 values.
 
-Only `pizzi2020` is configured in this candidate. Both
-`KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE` and
-`KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS` must be set; neither has a default.
-The version `1` JSON bundle is limited to 20,000,000 bytes and 100,000
-candidates. It has this API projection shape:
+Only `pizzi2020` is configured in this candidate.
+`KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE`,
+`KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS`, and
+`KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT` must all be set; none has a
+default. The first two configure the path-free API read projection. The third
+is the exact applications-owned document-package root used for latest-decision
+validation and append. The version `1` JSON bundle is limited to 20,000,000
+bytes and 256 candidates. It has this API projection shape:
 
 ```json
 {
@@ -171,23 +181,34 @@ root/file symlinks, escapes, missing/non-regular files, empty or over-20,000,000
 byte bodies, digest mismatches, and content outside PNG/JPEG/WebP signatures.
 Responses are `inline` and `nosniff`; paths and filenames are never exposed.
 
-The reviewed Web proposal's write request is accepted for validation. An
+The API validates the reviewed Web proposal's write fields. An
 `ACCEPT_TRANSCRIPTION` request must name the exact currently displayed
-`assistance.proposal_sha256`; a missing assistance object or any hash mismatch
-is a `409`. The endpoint nevertheless has only a typed `503` success status in
-the authoritative OpenAPI because no applications-owned append-only human
-revision seam exists. It performs no write and never turns proposed LaTeX into
-accepted text.
+`assistance.proposal_sha256`; a missing hash is `422` and a different or absent
+proposal is typed `409`. The adopted schema adds required
+`expected_previous_revision` (`0` through `9998`) for owner-enforced optimistic
+concurrency. There is no request timestamp. The control adapter generates a
+strict timezone-aware UTC `recorded_at_utc`, binds document, candidate, source,
+deterministic-evidence, region-image, and proposal hashes, and invokes only
+`append_human_equation_revision`. It returns the owner-stored winning receipt as
+`200 EquationReviewDecisionResponse`. On a semantic retry the adapter may
+supply a later time, but the owner returns the original immutable receipt;
+revision number, not time, is canonical ordering.
 
-The exact missing owner contract is an atomic append operation accepting the
-validated `document_id`, `candidate_id`, `source_sha256`,
-`deterministic_evidence.evidence_sha256` (candidate evidence hash),
-`region.image_sha256`, nullable exact `assistance.proposal_sha256`, disposition,
-and note. It must reject stale or mismatched evidence, assign a monotonically
-increasing revision under a declared concurrency policy, store an immutable UTC
-timestamped revision, and project the latest decision without mutating source or
-assisted text. The API can publish a `200 EquationReviewDecisionResponse` only
-after the applications owner publishes that contract and an adapter is injected.
+The adapter maps applications-owned failures without exposing exception text:
+stale proposal/evidence/revision and different concurrent winners are typed
+`409`; partial or malformed output and an unavailable authorized root are typed
+`503`. The API does not parse or reproduce schema `2` artifacts. Queue decisions
+come only from `load_latest_human_equation_revision`, which revalidates owner
+evidence and historical proposal bindings. Assisted text remains
+`automated_unreviewed`; human acceptance is a separate append-only revision.
+
+To bound local request amplification, the API accepts at most 256 candidates
+per configured document and gives aggregate latest-decision projection a
+2-second cooperative budget checked between owner calls. One in-progress owner
+validation is not cancelled: cancellation could create an ambiguous write and
+the owner already bounds its files and bytes. The current owner exposes no
+batch latest-decision projection, so repeated whole-document validation within
+that bounded queue remains a documented performance risk.
 
 ## Deterministic OpenAPI
 
@@ -218,17 +239,22 @@ consumer moves to this contract, it must:
    browser path matching; and
 5. add organizer, transcript-review, and equation-review proxy prefixes;
 6. replace the provisional equation projection with the generated API types;
-   and
-7. treat the equation decision operation's authoritative `503` as unavailable
-   until the applications-owned append contract exists.
+7. send required `expected_previous_revision` (`0` before the first decision,
+   otherwise the displayed revision);
+8. never send `recorded_at_utc`; and
+9. handle typed `409` stale/concurrent classifications and typed `503`
+   partial/unavailable classifications.
 
 No organizer event schema or reference is retained for compatibility.
 
-## Explicitly deferred packaging scope
+## Declared dependency seam
 
-Packaging/sdist reproducibility and broader artifact-inclusion changes are
-`SAFE_TO_DEFER` for this contract correction. The current verification still
-builds the wheel twice reproducibly and exercises its API from an extracted
-wheel with the source tree absent. Revisit sdist and generalized artifact
-inclusion when packaging becomes the owning milestone; they are not broadened
-here because the API DTO/OpenAPI source remains single-source.
+The API declares `projectkoios-applications[pdf-corpus]==0.1.0.dev0`; the local
+lock also names its unpublished ingestion and simulations path dependencies so
+`uv sync --locked --all-extras` cannot silently substitute packages. Hosted CI
+pins applications `312f42e`, ingestion `024162c`, simulations `51427a0`, and
+references `b7581cb`. The applications package currently imports its broader
+PDF-corpus package initializer, so the owner-declared `pdf-corpus` extra is the
+narrowest installable seam even though this adapter itself calls only the two
+public equation-review functions. The API wheel contains no copied owner code;
+its metadata carries the declared applications dependency.

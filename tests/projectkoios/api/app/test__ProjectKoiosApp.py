@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 import pytest
 from fastapi import FastAPI
+from fastapi.testclient import TestClient
 from projectkoios.api.app import ProjectKoiosApp  # noqa: E402
 from projectkoios.api.config import (  # noqa: E402
     DeploymentProfile,
@@ -105,6 +106,16 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     assert "/citation-reviews" not in paths
     assert "/literature-review/progress" not in paths
     assert "/equation-reviews" not in paths
+    denied = TestClient(app).put(
+        "/equation-reviews/pizzi2020:eq:001/decision",
+        json={
+            "disposition": "REJECT_CANDIDATE",
+            "assistance_proposal_sha256": None,
+            "note": "No public mutation.",
+            "expected_previous_revision": 0,
+        },
+    )
+    assert denied.status_code == 404
     assert app.state.deployment_profile == "public"
 
 

@@ -83,12 +83,13 @@ restricted to filenames already present in the review bundle.
 
 The control profile exposes the bounded `pizzi2020` equation-review projection
 at `GET /equation-reviews?document_id=pizzi2020` and its content-addressed
-region images at `GET /equation-reviews/{candidate_id}/region`. Both inputs are
-required; there are no default paths or filesystem discovery:
+region images at `GET /equation-reviews/{candidate_id}/region`. All configured
+paths are required; there are no default paths or filesystem discovery:
 
 ```bash
 KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE=/private/pizzi2020/equation-review.json
 KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS=/private/pizzi2020/regions
+KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT=/private/pizzi2020/document
 ```
 
 The schema-version `1` bundle contains the queue candidates exactly as exposed
@@ -97,13 +98,20 @@ carry `decision: null`. Region bytes live directly under the configured root at
 a filename equal to `region.image_sha256`, with no extension. The API rejects
 symlinks, missing or non-regular resources, hash mismatches, unknown image
 signatures, oversized data, malformed bundles, and unowned decision claims as
-unavailable evidence. It never reads or processes a source PDF.
+unavailable evidence. The API read projection never parses a source PDF; the
+applications owner may re-hash inventoried source bytes when validating an
+append.
 
 `PUT /equation-reviews/{candidate_id}/decision` validates that an acceptance
-names the exact displayed assisted-proposal hash, but deliberately returns a
-typed `503`. No applications-owned append-only human revision contract exists
-in this candidate, so the API does not create a private substitute store or
-promote assisted text.
+names the exact displayed assisted-proposal hash, then delegates one optimistic
+append to the applications-owned equation-review schema `2` seam. The request
+must include `expected_previous_revision`; it never accepts a browser time. The
+control adapter generates a strict UTC receipt time and returns the owner-stored
+winning revision. An exact retry therefore returns the original receipt even
+though the adapter generated a later time. Stale proposal/evidence/revision,
+concurrent different output, partial output, and unavailable owner roots have
+stable typed classifications. Assisted text remains automated and unreviewed;
+the append creates a separate human revision and never promotes or rewrites it.
 
 ## Live GitHubTask projection
 
@@ -130,8 +138,10 @@ The control profile also publishes bounded organizer, transcript-review, and
 equation-review contracts. Organizer and transcript domain behavior is
 available only through explicitly injected owner adapters; without one, those
 routes return a safe `503`. Equation reads use only the explicit `pizzi2020`
-configuration described above. No organizer daemon, transcript ingestion,
-filesystem discovery, or equation-review persistence is implemented here.
+configuration described above, and writes use the declared
+`projectkoios-applications[pdf-corpus]` package seam. No organizer daemon,
+transcript ingestion, filesystem discovery, or API-owned equation-review
+persistence is implemented here.
 
 Every owner projection is runtime-validated at the API boundary. Invalid owner
 data returns a fixed `502`, unexpected ordinary owner failures return a fixed

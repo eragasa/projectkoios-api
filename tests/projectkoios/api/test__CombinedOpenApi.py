@@ -71,9 +71,12 @@ _RECONCILED_SCHEMAS = {
     "DeterministicEquationEvidenceResponse",
     "EquationRegionEvidenceResponse",
     "EquationReviewCandidateResponse",
+    "EquationReviewDecision",
     "EquationReviewDecisionRequest",
     "EquationReviewDecisionResponse",
     "EquationReviewDisposition",
+    "EquationReviewFailureCode",
+    "EquationReviewFailureResponse",
     "EquationReviewQueueResponse",
     "EquationSourceIdentityResponse",
     "LifeDomain",
@@ -270,14 +273,28 @@ def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
     assert decision["requestBody"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/EquationReviewDecisionRequest"
     }
-    assert "200" not in decision["responses"]
-    assert decision["responses"]["503"]["content"]["application/json"][
+    assert decision["responses"]["200"]["content"]["application/json"][
         "schema"
-    ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
+    ] == {"$ref": "#/components/schemas/EquationReviewDecisionResponse"}
+    request = schema["components"]["schemas"]["EquationReviewDecisionRequest"]
+    assert "recorded_at_utc" not in request["properties"]
+    assert request["properties"]["expected_previous_revision"] == {
+        "exclusiveMaximum": 9_999.0,
+        "minimum": 0,
+        "title": "Expected Previous Revision",
+        "type": "integer",
+    }
+    assert "expected_previous_revision" in request["required"]
     assert (
-        "applications-owned adapter"
-        in decision["responses"]["503"]["description"]
+        schema["components"]["schemas"]["EquationReviewQueueResponse"][
+            "properties"
+        ]["items"]["maxItems"]
+        == 256
     )
+    for code in ("409", "503"):
+        assert decision["responses"][code]["content"]["application/json"][
+            "schema"
+        ] == {"$ref": "#/components/schemas/EquationReviewFailureResponse"}
 
 
 def test__combined_openapi__declares_fixed_provider_error_envelopes() -> None:
@@ -340,7 +357,8 @@ def test__control_app__defaults_new_owner_contracts_to_unavailable() -> None:
     }
     assert equations.status_code == 503
     assert equations.json() == {
-        "detail": "equation review evidence is unavailable"
+        "code": "EQUATION_REVIEW_OWNER_UNAVAILABLE",
+        "detail": "equation review evidence is unavailable",
     }
 
 

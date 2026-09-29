@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -13,7 +14,16 @@ from projectkoios.api.config import (
 )
 from projectkoios.api.equation_review import EquationReviewRepository
 from projectkoios.api.equation_review_models import (
+    EquationReviewDecision,
     EquationReviewDecisionRequest,
+    EquationReviewDecisionResponse,
+    EquationReviewDisposition,
+)
+from projectkoios.api.equation_review_owner import (
+    EquationReviewConcurrentDecision,
+    EquationReviewEvidenceBinding,
+    EquationReviewPartialOutput,
+    EquationReviewRevisionStale,
 )
 from projectkoios.api.routers.equation_review import (
     create_equation_review_router,
@@ -22,6 +32,47 @@ from projectkoios.api.routers.equation_review import (
 _REGION_BODY = b"\x89PNG\r\n\x1a\nsynthetic-region"
 _REGION_SHA256 = hashlib.sha256(_REGION_BODY).hexdigest()
 _PROPOSAL_SHA256 = "b" * 64
+_RECORDED_AT = datetime(2026, 9, 29, 3, 0, tzinfo=UTC)
+
+
+class _DecisionStoreFixture:
+    def __init__(
+        self,
+        *,
+        decision: EquationReviewDecision | None = None,
+        failure: Exception | None = None,
+    ) -> None:
+        self.decision = decision
+        self.failure = failure
+        self.bindings: list[EquationReviewEvidenceBinding] = []
+        self.requests: list[EquationReviewDecisionRequest] = []
+
+    def latest(
+        self,
+        binding: EquationReviewEvidenceBinding,
+    ) -> EquationReviewDecision | None:
+        self.bindings.append(binding)
+        if self.failure is not None:
+            raise self.failure
+        return self.decision
+
+    def append(
+        self,
+        binding: EquationReviewEvidenceBinding,
+        request: EquationReviewDecisionRequest,
+    ) -> EquationReviewDecisionResponse:
+        self.bindings.append(binding)
+        self.requests.append(request)
+        if self.failure is not None:
+            raise self.failure
+        return EquationReviewDecisionResponse(
+            candidate_id="pizzi2020:eq:001",
+            disposition=request.disposition,
+            assistance_proposal_sha256=request.assistance_proposal_sha256,
+            note=request.note,
+            revision=1,
+            updated_at_utc=_RECORDED_AT,
+        )
 
 
 def _bundle() -> dict[str, object]:
@@ -68,6 +119,7 @@ def _repository(
     *,
     bundle: object | None = None,
     region_body: bytes | None = _REGION_BODY,
+    decision_store: _DecisionStoreFixture | None = None,
 ) -> tuple[EquationReviewRepository, Path, Path]:
     tmp_path.mkdir(parents=True, exist_ok=True)
     bundle_path = tmp_path / "pizzi2020-equation-review.json"
@@ -79,13 +131,17 @@ def _repository(
     regions_root.mkdir()
     if region_body is not None:
         (regions_root / _REGION_SHA256).write_bytes(region_body)
+    document_root = tmp_path / "document"
+    document_root.mkdir()
     repository = EquationReviewRepository(
         EquationReviewConfiguration(
             pizzi2020=EquationReviewDocumentConfiguration(
                 bundle_path=bundle_path,
                 regions_root=regions_root,
+                document_root=document_root,
             )
-        )
+        ),
+        decision_store=decision_store or _DecisionStoreFixture(),
     )
     return repository, bundle_path, regions_root
 
@@ -139,7 +195,8 @@ def test__equation_review__is_controlled_by_explicit_pizzi_configuration() -> (
 
     assert unavailable.status_code == 503
     assert unavailable.json() == {
-        "detail": "equation review evidence is unavailable"
+        "code": "EQUATION_REVIEW_OWNER_UNAVAILABLE",
+        "detail": "equation review evidence is unavailable",
     }
     assert unknown.status_code == 404
     assert unknown.json() == {
@@ -183,8 +240,29 @@ def test__equation_review__treats_malformed_or_unowned_artifacts_as_unavailable(
 
     assert response.status_code == 503
     assert response.json() == {
-        "detail": "equation review evidence is unavailable"
+        "code": "EQUATION_REVIEW_OWNER_UNAVAILABLE",
+        "detail": "equation review evidence is unavailable",
     }
+
+
+def test__equation_review__bounds_queue_owner_projection_amplification(
+    tmp_path: Path,
+) -> None:
+    bundle = _bundle()
+    original = bundle["items"][0]  # type: ignore[index]
+    bundle["items"] = [
+        {**original, "candidate_id": f"pizzi2020:eq:{index:03d}"}
+        for index in range(257)
+    ]
+    repository, _, _ = _repository(tmp_path, bundle=bundle)
+
+    response = _client(repository).get(
+        "/equation-reviews",
+        params={"document_id": "pizzi2020"},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["code"] == "EQUATION_REVIEW_OWNER_UNAVAILABLE"
 
 
 def test__equation_review__rejects_missing_mismatched_and_symlink_regions(
@@ -221,7 +299,11 @@ def test__equation_review__rejects_missing_mismatched_and_symlink_regions(
     assert not (missing_root / _REGION_SHA256).exists()
     assert all(response.status_code == 503 for response in responses)
     assert all(
-        response.json() == {"detail": "equation review evidence is unavailable"}
+        response.json()
+        == {
+            "code": "EQUATION_REVIEW_OWNER_UNAVAILABLE",
+            "detail": "equation review evidence is unavailable",
+        }
         for response in responses
     )
 
@@ -239,16 +321,20 @@ def test__equation_review__rejects_symlinked_bundle_and_region_root(
             pizzi2020=EquationReviewDocumentConfiguration(
                 bundle_path=bundle_link,
                 regions_root=regions_root,
+                document_root=tmp_path / "real/document",
             )
-        )
+        ),
+        decision_store=_DecisionStoreFixture(),
     )
     root_symlink_repository = EquationReviewRepository(
         EquationReviewConfiguration(
             pizzi2020=EquationReviewDocumentConfiguration(
                 bundle_path=bundle_path,
                 regions_root=root_link,
+                document_root=tmp_path / "real/document",
             )
-        )
+        ),
+        decision_store=_DecisionStoreFixture(),
     )
 
     queue = _client(bundle_symlink_repository).get(
@@ -263,7 +349,7 @@ def test__equation_review__rejects_symlinked_bundle_and_region_root(
     assert region.status_code == 503
 
 
-def test__equation_review__decision_is_hash_bound_but_never_persisted(
+def test__equation_review__decision_is_hash_bound_and_owner_persisted(
     tmp_path: Path,
 ) -> None:
     repository, bundle_path, regions_root = _repository(tmp_path)
@@ -276,6 +362,7 @@ def test__equation_review__decision_is_hash_bound_but_never_persisted(
             disposition="ACCEPT_TRANSCRIPTION",
             assistance_proposal_sha256=_PROPOSAL_SHA256,
             note="Checked against the displayed region.",
+            expected_previous_revision=0,
         ),
     )
 
@@ -285,6 +372,7 @@ def test__equation_review__decision_is_hash_bound_but_never_persisted(
             "disposition": "ACCEPT_TRANSCRIPTION",
             "assistance_proposal_sha256": _PROPOSAL_SHA256,
             "note": "Checked against the displayed region.",
+            "expected_previous_revision": 0,
         },
     )
     mismatched = client.put(
@@ -293,6 +381,7 @@ def test__equation_review__decision_is_hash_bound_but_never_persisted(
             "disposition": "ACCEPT_TRANSCRIPTION",
             "assistance_proposal_sha256": "d" * 64,
             "note": "This must not bind a different proposal.",
+            "expected_previous_revision": 0,
         },
     )
 
@@ -301,23 +390,59 @@ def test__equation_review__decision_is_hash_bound_but_never_persisted(
     assert binding.source_sha256 == "a" * 64
     assert binding.candidate_evidence_sha256 == "c" * 64
     assert binding.region_image_sha256 == _REGION_SHA256
-    assert binding.assistance_proposal_sha256 == _PROPOSAL_SHA256
-    assert unavailable.status_code == 503
+    assert unavailable.status_code == 200
     assert unavailable.json() == {
-        "detail": "equation review decision persistence is unavailable"
+        "candidate_id": "pizzi2020:eq:001",
+        "disposition": "ACCEPT_TRANSCRIPTION",
+        "assistance_proposal_sha256": _PROPOSAL_SHA256,
+        "note": "Checked against the displayed region.",
+        "revision": 1,
+        "updated_at_utc": "2026-09-29T03:00:00Z",
     }
     assert mismatched.status_code == 409
     assert mismatched.json() == {
-        "detail": ("equation review decision does not match candidate evidence")
+        "code": "EQUATION_REVIEW_PROPOSAL_STALE",
+        "detail": (
+            "equation review proposal does not match candidate evidence"
+        ),
     }
     assert bundle_path.read_bytes() == before_bundle
     assert sorted(path.name for path in regions_root.iterdir()) == (
         before_region_names
     )
     assert sorted(path.name for path in tmp_path.iterdir()) == [
+        "document",
         "pizzi2020-equation-review.json",
         "regions",
     ]
+
+
+def test__equation_review__semantic_retry_returns_same_winning_receipt(
+    tmp_path: Path,
+) -> None:
+    store = _DecisionStoreFixture()
+    repository, _, _ = _repository(tmp_path, decision_store=store)
+    client = _client(repository)
+    request = {
+        "disposition": "ACCEPT_TRANSCRIPTION",
+        "assistance_proposal_sha256": _PROPOSAL_SHA256,
+        "note": "Checked exact evidence.",
+        "expected_previous_revision": 0,
+    }
+
+    created = client.put(
+        "/equation-reviews/pizzi2020:eq:001/decision",
+        json=request,
+    )
+    retried = client.put(
+        "/equation-reviews/pizzi2020:eq:001/decision",
+        json=request,
+    )
+
+    assert created.status_code == 200
+    assert retried.status_code == 200
+    assert created.json() == retried.json()
+    assert len(store.requests) == 2
 
 
 def test__equation_review__cannot_accept_absent_assistance(
@@ -335,7 +460,122 @@ def test__equation_review__cannot_accept_absent_assistance(
             "disposition": "ACCEPT_TRANSCRIPTION",
             "assistance_proposal_sha256": _PROPOSAL_SHA256,
             "note": "No displayed proposal exists.",
+            "expected_previous_revision": 0,
         },
     )
 
     assert response.status_code == 409
+
+
+def test__equation_review__projects_latest_owner_decision_into_queue(
+    tmp_path: Path,
+) -> None:
+    decision = EquationReviewDecision(
+        disposition=EquationReviewDisposition.REJECT_CANDIDATE,
+        assistance_proposal_sha256=None,
+        note="Not an equation.",
+        revision=2,
+        updated_at_utc=datetime(2026, 9, 29, 2, 0, tzinfo=UTC),
+    )
+    store = _DecisionStoreFixture(decision=decision)
+    repository, _, _ = _repository(tmp_path, decision_store=store)
+
+    response = _client(repository).get(
+        "/equation-reviews",
+        params={"document_id": "pizzi2020"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["decided"] == 1
+    assert response.json()["items"][0]["decision"] == {
+        "disposition": "REJECT_CANDIDATE",
+        "assistance_proposal_sha256": None,
+        "note": "Not an equation.",
+        "revision": 2,
+        "updated_at_utc": "2026-09-29T02:00:00Z",
+    }
+
+
+@pytest.mark.parametrize(
+    ("failure", "code", "detail"),
+    [
+        (
+            EquationReviewRevisionStale(),
+            "EQUATION_REVIEW_REVISION_STALE",
+            "equation review revision is stale",
+        ),
+        (
+            EquationReviewConcurrentDecision(),
+            "EQUATION_REVIEW_CONCURRENT_DECISION",
+            "a different equation review decision won concurrently",
+        ),
+    ],
+)
+def test__equation_review__classifies_stale_and_concurrent_append_conflicts(
+    tmp_path: Path,
+    failure: Exception,
+    code: str,
+    detail: str,
+) -> None:
+    repository, _, _ = _repository(
+        tmp_path,
+        decision_store=_DecisionStoreFixture(failure=failure),
+    )
+
+    response = _client(repository).put(
+        "/equation-reviews/pizzi2020:eq:001/decision",
+        json={
+            "disposition": "ACCEPT_TRANSCRIPTION",
+            "assistance_proposal_sha256": _PROPOSAL_SHA256,
+            "note": "Checked exact evidence.",
+            "expected_previous_revision": 0,
+        },
+    )
+
+    assert response.status_code == 409
+    assert response.json() == {"code": code, "detail": detail}
+
+
+def test__equation_review__classifies_partial_owner_output(
+    tmp_path: Path,
+) -> None:
+    repository, _, _ = _repository(
+        tmp_path,
+        decision_store=_DecisionStoreFixture(
+            failure=EquationReviewPartialOutput()
+        ),
+    )
+
+    response = _client(repository).put(
+        "/equation-reviews/pizzi2020:eq:001/decision",
+        json={
+            "disposition": "REJECT_CANDIDATE",
+            "assistance_proposal_sha256": None,
+            "note": "Not a candidate.",
+            "expected_previous_revision": 0,
+        },
+    )
+
+    assert response.status_code == 503
+    assert response.json() == {
+        "code": "EQUATION_REVIEW_PARTIAL_OUTPUT",
+        "detail": "equation review output is partial or malformed",
+    }
+
+
+def test__equation_review__rejects_acceptance_without_proposal_hash(
+    tmp_path: Path,
+) -> None:
+    repository, _, _ = _repository(tmp_path)
+
+    response = _client(repository).put(
+        "/equation-reviews/pizzi2020:eq:001/decision",
+        json={
+            "disposition": "ACCEPT_TRANSCRIPTION",
+            "assistance_proposal_sha256": None,
+            "note": "No proposal binding.",
+            "expected_previous_revision": 0,
+        },
+    )
+
+    assert response.status_code == 422

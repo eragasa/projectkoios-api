@@ -551,7 +551,7 @@
           "decision": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/EquationReviewDecisionResponse"
+                "$ref": "#/components/schemas/EquationReviewDecision"
               },
               {
                 "type": "null"
@@ -579,39 +579,7 @@
         "title": "EquationReviewCandidateResponse",
         "type": "object"
       },
-      "EquationReviewDecisionRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "assistance_proposal_sha256": {
-            "anyOf": [
-              {
-                "pattern": "^[0-9a-f]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Assistance Proposal Sha256"
-          },
-          "disposition": {
-            "$ref": "#/components/schemas/EquationReviewDisposition"
-          },
-          "note": {
-            "maxLength": 10000,
-            "title": "Note",
-            "type": "string"
-          }
-        },
-        "required": [
-          "disposition",
-          "assistance_proposal_sha256",
-          "note"
-        ],
-        "title": "EquationReviewDecisionRequest",
-        "type": "object"
-      },
-      "EquationReviewDecisionResponse": {
+      "EquationReviewDecision": {
         "additionalProperties": false,
         "properties": {
           "assistance_proposal_sha256": {
@@ -635,7 +603,7 @@
             "type": "string"
           },
           "revision": {
-            "maximum": 1000000000.0,
+            "maximum": 9999.0,
             "minimum": 1.0,
             "title": "Revision",
             "type": "integer"
@@ -653,6 +621,98 @@
           "revision",
           "updated_at_utc"
         ],
+        "title": "EquationReviewDecision",
+        "type": "object"
+      },
+      "EquationReviewDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance_proposal_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance Proposal Sha256"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EquationReviewDisposition"
+          },
+          "expected_previous_revision": {
+            "exclusiveMaximum": 9999.0,
+            "minimum": 0.0,
+            "title": "Expected Previous Revision",
+            "type": "integer"
+          },
+          "note": {
+            "maxLength": 10000,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "assistance_proposal_sha256",
+          "note",
+          "expected_previous_revision"
+        ],
+        "title": "EquationReviewDecisionRequest",
+        "type": "object"
+      },
+      "EquationReviewDecisionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assistance_proposal_sha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assistance Proposal Sha256"
+          },
+          "candidate_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/EquationReviewDisposition"
+          },
+          "note": {
+            "maxLength": 10000,
+            "title": "Note",
+            "type": "string"
+          },
+          "revision": {
+            "maximum": 9999.0,
+            "minimum": 1.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "updated_at_utc": {
+            "format": "date-time",
+            "title": "Updated At Utc",
+            "type": "string"
+          }
+        },
+        "required": [
+          "disposition",
+          "assistance_proposal_sha256",
+          "note",
+          "revision",
+          "updated_at_utc",
+          "candidate_id"
+        ],
         "title": "EquationReviewDecisionResponse",
         "type": "object"
       },
@@ -664,6 +724,38 @@
         ],
         "title": "EquationReviewDisposition",
         "type": "string"
+      },
+      "EquationReviewFailureCode": {
+        "enum": [
+          "EQUATION_REVIEW_PROPOSAL_STALE",
+          "EQUATION_REVIEW_EVIDENCE_STALE",
+          "EQUATION_REVIEW_REVISION_STALE",
+          "EQUATION_REVIEW_CONCURRENT_DECISION",
+          "EQUATION_REVIEW_PARTIAL_OUTPUT",
+          "EQUATION_REVIEW_OWNER_UNAVAILABLE"
+        ],
+        "title": "EquationReviewFailureCode",
+        "type": "string"
+      },
+      "EquationReviewFailureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/EquationReviewFailureCode"
+          },
+          "detail": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "EquationReviewFailureResponse",
+        "type": "object"
       },
       "EquationReviewQueueResponse": {
         "additionalProperties": false,
@@ -685,7 +777,7 @@
             "items": {
               "$ref": "#/components/schemas/EquationReviewCandidateResponse"
             },
-            "maxItems": 100000,
+            "maxItems": 256,
             "title": "Items",
             "type": "array"
           },
@@ -3479,6 +3571,16 @@
             },
             "description": "The equation-review identity is not configured."
           },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "The proposal, immutable evidence, expected revision, or concurrent append does not match."
+          },
           "422": {
             "content": {
               "application/json": {
@@ -3493,11 +3595,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
                 }
               }
             },
-            "description": "Configured equation-review evidence is unavailable."
+            "description": "Configured evidence, the owner root, or complete append output is unavailable."
           }
         },
         "summary": "Queue",
@@ -3534,6 +3636,16 @@
           "required": true
         },
         "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewDecisionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
           "404": {
             "content": {
               "application/json": {
@@ -3548,11 +3660,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
                 }
               }
             },
-            "description": "The request is not bound to the displayed proposal."
+            "description": "The proposal, immutable evidence, expected revision, or concurrent append does not match."
           },
           "422": {
             "content": {
@@ -3568,11 +3680,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
                 }
               }
             },
-            "description": "Equation decision persistence has no applications-owned adapter."
+            "description": "Configured evidence, the owner root, or complete append output is unavailable."
           }
         },
         "summary": "Decide",
@@ -3668,11 +3780,11 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ApiErrorResponse"
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
                 }
               }
             },
-            "description": "Configured equation-review evidence is unavailable."
+            "description": "Configured evidence, the owner root, or complete append output is unavailable."
           }
         },
         "summary": "Region",
