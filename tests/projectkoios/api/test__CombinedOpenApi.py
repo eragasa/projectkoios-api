@@ -343,6 +343,10 @@ def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
     ]
     assert "projectkoios-ingestion[pdf]==0.0.0" in development
     assert "projectkoios-simulations" not in sources
+    assert sources["projectkoios-applications"] == {
+        "path": "../projectkoios-applications",
+        "editable": False,
+    }
     assert not {"projectkoios-simulations", "physkit"} & locked_names
     assert "Check out published applications owner" in workflow
     assert "b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f" in workflow

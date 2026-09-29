@@ -70,7 +70,7 @@ indent-style = "space"
 [tool.uv.sources]
 projectkoios = { path = "../projectkoios", editable = true }
 projectkoios-agent = { path = "../projectkoios-agent", editable = true }
-projectkoios-applications = { path = "../projectkoios-applications", editable = true }
+projectkoios-applications = { path = "../projectkoios-applications", editable = false }
 projectkoios-ingestion = { path = "../projectkoios-ingestion", editable = true }
 projectkoios-obsidian = { path = "../projectkoios-obsidian", editable = true }
 projectkoios-references = { path = "../projectkoios-references", editable = true }

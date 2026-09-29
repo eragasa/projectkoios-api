@@ -441,7 +441,7 @@ requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
     { name = "projectkoios", editable = "../projectkoios" },
     { name = "projectkoios-agent", editable = "../projectkoios-agent" },
-    { name = "projectkoios-applications", extras = ["pdf-corpus"], marker = "extra == 'equation-review-control'", editable = "../projectkoios-applications" },
+    { name = "projectkoios-applications", extras = ["pdf-corpus"], marker = "extra == 'equation-review-control'", directory = "../projectkoios-applications" },
     { name = "projectkoios-ingestion", extras = ["pdf"], marker = "extra == 'dev'", editable = "../projectkoios-ingestion" },
     { name = "projectkoios-obsidian", editable = "../projectkoios-obsidian" },
     { name = "projectkoios-references", editable = "../projectkoios-references" },
@@ -457,7 +457,7 @@ provides-extras = ["equation-review-control", "dev"]
 [[package]]
 name = "projectkoios-applications"
 version = "0.1.0.dev0"
-source = { editable = "../projectkoios-applications" }
+source = { directory = "../projectkoios-applications" }
 
 [package.optional-dependencies]
 pdf-corpus = [
