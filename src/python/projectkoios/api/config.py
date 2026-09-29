@@ -51,6 +51,25 @@ class LiteratureReviewConfiguration:
 
 
 @dataclass(frozen=True)
+class EquationReviewDocumentConfiguration:
+    document_root: Path
+
+
+@dataclass(frozen=True)
+class EquationReviewConfiguration:
+    pizzi2020: EquationReviewDocumentConfiguration | None = field(
+        default_factory=lambda: _configured_pizzi2020_equation_review()
+    )
+
+
+@dataclass(frozen=True)
+class OrganizerConfiguration:
+    catalog_path: Path = field(
+        default_factory=lambda: _configured_organizer_catalog()
+    )
+
+
+@dataclass(frozen=True)
 class CourseConfiguration:
     catalog_path: Path | None = field(
         default_factory=lambda: _configured_course_catalog()
@@ -98,6 +117,12 @@ class ProjectKoiosAppConfiguration:
     literature_review: LiteratureReviewConfiguration = field(
         default_factory=LiteratureReviewConfiguration
     )
+    equation_review: EquationReviewConfiguration = field(
+        default_factory=EquationReviewConfiguration
+    )
+    organizer: OrganizerConfiguration = field(
+        default_factory=OrganizerConfiguration
+    )
     courses: CourseConfiguration = field(default_factory=CourseConfiguration)
     publications: PublicationConfiguration = field(
         default_factory=PublicationConfiguration
@@ -115,6 +140,23 @@ def _configured_deployment_profile() -> DeploymentProfile:
         raise ValueError(
             f"KOIOS_DEPLOYMENT_PROFILE must be one of: {choices}"
         ) from error
+
+
+def _configured_pizzi2020_equation_review() -> (
+    EquationReviewDocumentConfiguration | None
+):
+    document_root = os.environ.get(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT"
+    )
+    if document_root is None:
+        return None
+    if not document_root:
+        raise ValueError(
+            "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT must not be empty"
+        )
+    return EquationReviewDocumentConfiguration(
+        document_root=Path(document_root).expanduser(),
+    )
 
 
 def _configured_course_catalog() -> Path | None:
@@ -161,6 +203,19 @@ def _configured_github_cli() -> str:
     if not executable or len(executable) > 4096:
         raise ValueError("KOIOS_GITHUB_CLI must name one executable")
     return executable
+
+
+def _configured_organizer_catalog() -> Path:
+    explicit = os.environ.get("KOIOS_ORGANIZER_CATALOG")
+    if explicit:
+        return Path(explicit).expanduser()
+    data_root = Path(
+        os.environ.get(
+            "KOIOS_DATA_ROOT",
+            "~/projectkoios/.koios/store-v1",
+        )
+    ).expanduser()
+    return data_root / "state" / "organizer" / "catalog.sqlite3"
 
 
 def _configured_literature_review_run() -> Path | None:

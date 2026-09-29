@@ -9,8 +9,8 @@ Repository routing is documented in `projectkoios-bootstrap/maps/repositories.md
 The API has two explicit profiles selected with `KOIOS_DEPLOYMENT_PROFILE`:
 
 - `public` is the fail-closed default. It exposes core health and the public
-  course, project, and publication catalogs, but does not construct or register search,
-  citation-review, or literature-review services.
+  course, project, and publication catalogs, but does not construct or register
+  search or control-review services.
 - `control` exposes the public endpoints plus private operational endpoints. It is
   intended for one operator on loopback or a separately protected private network.
 
@@ -103,6 +103,41 @@ Default local paths are:
 The decision database is created with `0600` permissions. Source requests are
 restricted to filenames already present in the review bundle.
 
+## Local equation review
+
+The control profile exposes the bounded `pizzi2020` equation-review queue at
+`GET /equation-reviews?document_id=pizzi2020`, content-addressed region PNGs at
+`GET /equation-reviews/{candidate_id}/region`, and human decisions at
+`PUT /equation-reviews/{candidate_id}/decision`. One completed document package
+root must be configured explicitly; there is no default path or root scanning:
+
+```bash
+KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT=/private/pizzi2020/document
+```
+
+The applications-owned `project_equation_review_queue` seam verifies the
+completed package, deterministic candidate inventory, review trees, and latest
+schema-2/schema-3 revisions. The API projects every eligible candidate in owner
+order, including explicit `NOT_STARTED` assistance, immutable assisted proposal
+identity, native evidence, accepted representation hashes and render provenance,
+a stable projection identity, and total/decided/pending counts. Output remains
+bounded and path-free. Region bytes are read through the same authorized root
+and must match the projected content hash.
+
+New decisions remain schema 3. Acceptance requires canonical NFC reviewer
+math-body LaTeX without outer delimiters, deterministic display mode, renderer
+identity/version, and exact rendered-input hashes. The browser supplies neither
+Obsidian Markdown nor receipt time. After append, the API reprojects the owner
+queue and returns the refreshed latest revision rather than trusting the earlier
+read. Assisted text remains `automated_unreviewed` until that explicit human
+revision exists.
+
+The owner adapter is declared by the `equation-review-control` optional extra
+and imported only for a configured control capability. Applications commit
+`b25ba8c` preserves `[pdf-corpus]` isolation from simulations/Physkit and owns
+the deterministic queue. That commit remains unpushed, so hosted verification
+reports owner-source unavailability.
+
 ## Live GitHubTask projection
 
 The control profile exposes `GET /github/tasks`. Configure its explicit repository
@@ -122,8 +157,26 @@ repository reports a bounded error kind instead of raw CLI output, credentials, 
 private paths. An empty allowlist produces an empty projection. The public profile does
 not construct the reader or expose the route.
 
+## Organizer and transcript review
+
+The control profile preserves the agent-backed organizer routes:
+`GET /organizer/status`, `PUT /organizer/control`,
+`GET /organizer/events`, and `GET /organizer/events/stream`. The configured
+SQLite catalog remains owned by `projectkoios-agent`; the API does not duplicate
+its state or lifecycle logic. `KOIOS_ORGANIZER_CATALOG` selects the catalog, or
+it is derived from `KOIOS_DATA_ROOT`.
+
+The transcript-review routes are bounded owner ports. Without an injected
+transcript owner they return a safe `503`. Source PDFs and PNG/JPEG/WebP previews
+are path-free, signature-checked exact bytes with explicit size limits. The
+combined control contract and provenance are documented in
+[`docs/control-review-contracts.md`](docs/control-review-contracts.md), and the
+authoritative generated document is
+[`openapi/control.openapi.json`](openapi/control.openapi.json).
+
 ## Continuous integration
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in
-[`docs/ci.md`](docs/ci.md). It uses the committed Python lock and exact sibling
-Project Koios revisions; it does not perform repository or release mutations.
+[`docs/ci.md`](docs/ci.md). It checks out the exact published owner revisions,
+verifies immutable owner identity where declared, and then runs the locked API
+validation sequence.

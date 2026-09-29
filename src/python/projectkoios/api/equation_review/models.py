@@ -1,0 +1,512 @@
+from __future__ import annotations
+
+import hashlib
+import re
+import unicodedata
+from datetime import timedelta
+from enum import StrEnum
+from typing import Annotated, Literal
+
+from projectkoios.api.boundary_models import (
+    MAX_COUNT,
+    MAX_REGION_COORDINATE,
+    OpaqueId,
+)
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    model_validator,
+)
+
+Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+BoundedText = Annotated[str, Field(max_length=100_000)]
+BoundedLabel = Annotated[str, Field(min_length=1, max_length=500)]
+AssistanceMethod = Annotated[str, Field(min_length=1, max_length=500)]
+_CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
+_MAX_PHYSICAL_PAGES = 1_000_000
+_MAX_WARNING_IDS = 1_000
+MAX_EQUATION_REVIEW_CANDIDATES = 256
+MAX_EQUATION_REVIEW_REVISIONS = 9_999
+
+
+class EquationReviewDisposition(StrEnum):
+    ACCEPT_TRANSCRIPTION = "ACCEPT_TRANSCRIPTION"
+    REJECT_CANDIDATE = "REJECT_CANDIDATE"
+    REVISION_REQUIRED = "REVISION_REQUIRED"
+
+
+class EquationDisplayMode(StrEnum):
+    INLINE = "INLINE"
+    DISPLAY = "DISPLAY"
+
+
+class EquationReviewStatus(StrEnum):
+    UNREVIEWED = "UNREVIEWED"
+    LEGACY_ACCEPTANCE = "LEGACY_ACCEPTANCE"
+    ACCEPTED = "ACCEPTED"
+    REJECTED = "REJECTED"
+    REVISION_REQUIRED = "REVISION_REQUIRED"
+
+
+class EquationReviewFailureCode(StrEnum):
+    PROPOSAL_STALE = "EQUATION_REVIEW_PROPOSAL_STALE"
+    EVIDENCE_STALE = "EQUATION_REVIEW_EVIDENCE_STALE"
+    REVISION_STALE = "EQUATION_REVIEW_REVISION_STALE"
+    REVIEWER_LATEX_NONCANONICAL = "EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL"
+    RENDER_STALE = "EQUATION_REVIEW_RENDER_STALE"
+    EDIT_AFTER_RENDER = "EQUATION_REVIEW_EDIT_AFTER_RENDER"
+    CONCURRENT_DECISION = "EQUATION_REVIEW_CONCURRENT_DECISION"
+    PARTIAL_OUTPUT = "EQUATION_REVIEW_PARTIAL_OUTPUT"
+    QUEUE_INCOMPLETE = "EQUATION_REVIEW_QUEUE_INCOMPLETE"
+    QUEUE_MALFORMED = "EQUATION_REVIEW_QUEUE_MALFORMED"
+    OWNER_UNAVAILABLE = "EQUATION_REVIEW_OWNER_UNAVAILABLE"
+
+
+class EquationSourceIdentityResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    document_id: OpaqueId
+    source_sha256: Sha256
+    page_index: int = Field(ge=0, lt=_MAX_PHYSICAL_PAGES)
+    physical_page: int = Field(ge=1, le=_MAX_PHYSICAL_PAGES)
+    printed_page_label: BoundedLabel | None
+
+    @model_validator(mode="after")
+    def has_consistent_path_free_page_identity(
+        self,
+    ) -> EquationSourceIdentityResponse:
+        if self.physical_page != self.page_index + 1:
+            raise ValueError("physical page must be the one-based page index")
+        if self.printed_page_label is not None:
+            _path_free_provenance_label(self.printed_page_label)
+        return self
+
+
+class EquationRegionEvidenceResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        allow_inf_nan=False,
+    )
+
+    coordinate_space: Literal["PDF_POINTS"]
+    x: float = Field(ge=0, le=MAX_REGION_COORDINATE)
+    y: float = Field(ge=0, le=MAX_REGION_COORDINATE)
+    width: float = Field(gt=0, le=MAX_REGION_COORDINATE)
+    height: float = Field(gt=0, le=MAX_REGION_COORDINATE)
+    image_sha256: Sha256
+
+    @model_validator(mode="after")
+    def remains_in_bounded_coordinate_space(
+        self,
+    ) -> EquationRegionEvidenceResponse:
+        if (
+            self.x + self.width > MAX_REGION_COORDINATE
+            or self.y + self.height > MAX_REGION_COORDINATE
+        ):
+            raise ValueError("equation region exceeds the coordinate bound")
+        return self
+
+
+class DeterministicEquationEvidenceResponse(BaseModel):
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        allow_inf_nan=False,
+    )
+
+    evidence_sha256: Sha256
+    candidate_sha256: Sha256
+    raw_text: BoundedText
+    source_label: BoundedLabel | None
+    confidence: float = Field(ge=0, le=1)
+    evidence_status: BoundedLabel
+    source_block_id: BoundedLabel
+    detection_input_id: BoundedLabel
+    warning_ids: tuple[BoundedLabel, ...] = Field(max_length=_MAX_WARNING_IDS)
+    processor_name: BoundedLabel
+    processor_version: BoundedLabel
+    configuration_digest: BoundedLabel
+
+    @model_validator(mode="after")
+    def has_path_free_provenance(
+        self,
+    ) -> DeterministicEquationEvidenceResponse:
+        for value in (
+            self.source_label,
+            self.evidence_status,
+            self.source_block_id,
+            self.detection_input_id,
+            self.processor_name,
+            self.processor_version,
+            self.configuration_digest,
+            *self.warning_ids,
+        ):
+            if value is not None:
+                _path_free_provenance_label(value)
+        if len(self.warning_ids) != len(set(self.warning_ids)):
+            raise ValueError("equation warning identities must be unique")
+        return self
+
+
+class UnassistedEquationProposalResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    status: Literal["NOT_STARTED"]
+    attempt_id: None
+    method: None
+    proposal_sha256: None
+    proposed_latex: None
+
+
+class ProposedEquationAssistanceResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    status: Literal["AUTOMATED_UNREVIEWED"]
+    attempt_id: OpaqueId
+    method: AssistanceMethod
+    proposal_sha256: Sha256
+    proposed_latex: str = Field(min_length=1, max_length=100_000)
+
+    @model_validator(mode="after")
+    def has_safe_opaque_method(self) -> ProposedEquationAssistanceResponse:
+        _safe_opaque_provenance_text(self.method)
+        if _text_sha256(self.proposed_latex) != self.proposal_sha256:
+            raise ValueError("assisted proposal hash is inconsistent")
+        return self
+
+
+AssistedEquationProposalResponse = Annotated[
+    UnassistedEquationProposalResponse | ProposedEquationAssistanceResponse,
+    Field(discriminator="status"),
+]
+
+
+class EquationRenderConfirmation(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    renderer_id: BoundedLabel
+    renderer_version: BoundedLabel
+    rendered_reviewer_latex_sha256: Sha256
+    rendered_obsidian_markdown_sha256: Sha256
+
+    @model_validator(mode="after")
+    def has_path_free_renderer(self) -> EquationRenderConfirmation:
+        _path_free_provenance_label(self.renderer_id)
+        _path_free_provenance_label(self.renderer_version)
+        return self
+
+
+class EquationReviewDecision(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    status: EquationReviewStatus
+    schema_version: Literal[2, 3]
+    disposition: EquationReviewDisposition
+    assistance_proposal_sha256: Sha256 | None
+    reviewer_latex: str | None = Field(max_length=100_000)
+    reviewer_latex_sha256: Sha256 | None
+    obsidian_markdown: str | None = Field(max_length=100_005)
+    obsidian_markdown_sha256: Sha256 | None
+    display_mode: EquationDisplayMode | None
+    render_confirmation: EquationRenderConfirmation | None
+    note: str = Field(max_length=10_000)
+    revision: int = Field(ge=1, le=MAX_EQUATION_REVIEW_REVISIONS)
+    revision_id: OpaqueId
+    recorded_at_utc: AwareDatetime
+
+    @model_validator(mode="after")
+    def is_exact_owner_revision(self) -> EquationReviewDecision:
+        offset = self.recorded_at_utc.utcoffset()
+        if offset is None or offset != timedelta(0):
+            raise ValueError("equation decision timestamps must be UTC")
+        accepted_values = (
+            self.reviewer_latex,
+            self.reviewer_latex_sha256,
+            self.obsidian_markdown,
+            self.obsidian_markdown_sha256,
+            self.display_mode,
+            self.render_confirmation,
+        )
+        if self.disposition is EquationReviewDisposition.ACCEPT_TRANSCRIPTION:
+            if self.assistance_proposal_sha256 is None:
+                raise ValueError(
+                    "accepted transcriptions require an assistance "
+                    "proposal hash"
+                )
+            if self.schema_version == 2:
+                if self.status is not EquationReviewStatus.LEGACY_ACCEPTANCE:
+                    raise ValueError("legacy acceptance status is inconsistent")
+                if any(value is not None for value in accepted_values):
+                    raise ValueError(
+                        "legacy acceptance cannot claim canonical "
+                        "representations"
+                    )
+                return self
+            if self.status is not EquationReviewStatus.ACCEPTED:
+                raise ValueError("accepted review status is inconsistent")
+            if any(value is None for value in accepted_values):
+                raise ValueError(
+                    "accepted schema-3 revision is missing representations"
+                )
+            assert self.reviewer_latex is not None
+            assert self.reviewer_latex_sha256 is not None
+            assert self.obsidian_markdown is not None
+            assert self.obsidian_markdown_sha256 is not None
+            assert self.display_mode is not None
+            assert self.render_confirmation is not None
+            if not self.reviewer_latex:
+                raise ValueError("reviewer LaTeX cannot be empty")
+            if _text_sha256(self.reviewer_latex) != self.reviewer_latex_sha256:
+                raise ValueError("reviewer LaTeX hash is inconsistent")
+            canonical_markdown = _canonical_obsidian_markdown(
+                self.reviewer_latex,
+                self.display_mode,
+            )
+            if self.obsidian_markdown != canonical_markdown:
+                raise ValueError("Obsidian Markdown is not canonical")
+            if (
+                _text_sha256(self.obsidian_markdown)
+                != self.obsidian_markdown_sha256
+            ):
+                raise ValueError("Obsidian Markdown hash is inconsistent")
+            if (
+                self.render_confirmation.rendered_reviewer_latex_sha256
+                != self.reviewer_latex_sha256
+                or self.render_confirmation.rendered_obsidian_markdown_sha256
+                != self.obsidian_markdown_sha256
+            ):
+                raise ValueError("render confirmation is stale")
+            return self
+        if any(value is not None for value in accepted_values):
+            raise ValueError(
+                "non-acceptance cannot claim accepted representations"
+            )
+        expected_status = (
+            EquationReviewStatus.REJECTED
+            if self.disposition is EquationReviewDisposition.REJECT_CANDIDATE
+            else EquationReviewStatus.REVISION_REQUIRED
+        )
+        if self.status is not expected_status:
+            raise ValueError("non-acceptance review status is inconsistent")
+        return self
+
+
+class EquationReviewDecisionResponse(EquationReviewDecision):
+    candidate_id: OpaqueId
+
+
+class EquationReviewFailureResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    code: EquationReviewFailureCode
+    detail: str = Field(min_length=1, max_length=500)
+
+
+class EquationReviewCandidateResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    candidate_id: OpaqueId
+    source: EquationSourceIdentityResponse
+    region: EquationRegionEvidenceResponse
+    deterministic_evidence: DeterministicEquationEvidenceResponse
+    display_mode: EquationDisplayMode
+    assistance: AssistedEquationProposalResponse
+    status: EquationReviewStatus
+    current_revision: int = Field(ge=0, le=MAX_EQUATION_REVIEW_REVISIONS)
+    expected_previous_revision: int = Field(
+        ge=0,
+        le=MAX_EQUATION_REVIEW_REVISIONS,
+    )
+    decision: EquationReviewDecision | None
+
+    @model_validator(mode="after")
+    def has_consistent_review_state(self) -> EquationReviewCandidateResponse:
+        if self.decision is None:
+            if (
+                self.status is not EquationReviewStatus.UNREVIEWED
+                or self.current_revision != 0
+                or self.expected_previous_revision != 0
+            ):
+                raise ValueError("unreviewed candidate state is inconsistent")
+            return self
+        if (
+            self.status is not self.decision.status
+            or self.current_revision != self.decision.revision
+            or self.expected_previous_revision != self.decision.revision
+        ):
+            raise ValueError("reviewed candidate state is inconsistent")
+        proposal_hash = self.decision.assistance_proposal_sha256
+        if proposal_hash is not None and (
+            not isinstance(
+                self.assistance,
+                ProposedEquationAssistanceResponse,
+            )
+            or self.assistance.proposal_sha256 != proposal_hash
+        ):
+            raise ValueError("decision proposal does not match assistance")
+        return self
+
+
+class EquationReviewQueueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    contract_id: OpaqueId
+    schema_version: Literal[1]
+    projection_id: OpaqueId
+    package_id: OpaqueId
+    document_id: OpaqueId
+    source_sha256: Sha256
+    total: int = Field(ge=0, le=MAX_COUNT)
+    decided: int = Field(ge=0, le=MAX_COUNT)
+    pending: int = Field(ge=0, le=MAX_COUNT)
+    items: tuple[EquationReviewCandidateResponse, ...] = Field(
+        max_length=MAX_EQUATION_REVIEW_CANDIDATES
+    )
+
+    @model_validator(mode="after")
+    def has_consistent_queue(self) -> EquationReviewQueueResponse:
+        if self.total != len(self.items):
+            raise ValueError("equation candidate total must match the queue")
+        decided = sum(
+            candidate.decision is not None for candidate in self.items
+        )
+        if self.decided != decided or self.pending != self.total - decided:
+            raise ValueError("equation queue counts are inconsistent")
+        candidate_ids = [str(item.candidate_id) for item in self.items]
+        if len(candidate_ids) != len(set(candidate_ids)):
+            raise ValueError("equation candidate ids must be unique")
+        if any(
+            candidate.source.document_id != self.document_id
+            or candidate.source.source_sha256 != self.source_sha256
+            for candidate in self.items
+        ):
+            raise ValueError("equation source identity must match the queue")
+        if tuple(sorted(self.items, key=_candidate_sort_key)) != self.items:
+            raise ValueError(
+                "equation candidates are not deterministically ordered"
+            )
+        return self
+
+
+class EquationReviewDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    disposition: EquationReviewDisposition
+    assistance_proposal_sha256: Sha256 | None
+    reviewer_latex: str | None = Field(max_length=100_000)
+    display_mode: EquationDisplayMode | None
+    render_confirmation: EquationRenderConfirmation | None
+    note: str = Field(max_length=10_000)
+    expected_previous_revision: int = Field(
+        ge=0,
+        lt=MAX_EQUATION_REVIEW_REVISIONS,
+    )
+
+    @model_validator(mode="after")
+    def has_disposition_specific_representations(
+        self,
+    ) -> EquationReviewDecisionRequest:
+        values = (
+            self.reviewer_latex,
+            self.display_mode,
+            self.render_confirmation,
+        )
+        if self.disposition is EquationReviewDisposition.ACCEPT_TRANSCRIPTION:
+            if self.assistance_proposal_sha256 is None:
+                raise ValueError(
+                    "accepted transcriptions require an assistance "
+                    "proposal hash"
+                )
+            if (
+                any(value is None for value in values)
+                or not self.reviewer_latex
+            ):
+                raise ValueError(
+                    "accepted transcriptions require rendered reviewer LaTeX"
+                )
+        elif any(value is not None for value in values):
+            raise ValueError(
+                "non-acceptance cannot carry accepted representations"
+            )
+        return self
+
+
+def _candidate_sort_key(
+    candidate: EquationReviewCandidateResponse,
+) -> tuple[object, ...]:
+    region = candidate.region
+    return (
+        candidate.source.page_index,
+        region.y,
+        region.x,
+        region.y + region.height,
+        region.x + region.width,
+        str(candidate.candidate_id),
+    )
+
+
+def _text_sha256(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8", errors="strict")).hexdigest()
+
+
+def _canonical_obsidian_markdown(
+    reviewer_latex: str,
+    display_mode: EquationDisplayMode,
+) -> str:
+    body = _canonical_reviewer_latex_body(reviewer_latex)
+    if display_mode is EquationDisplayMode.INLINE:
+        return f"${body}$"
+    return f"$$\n{body}\n$$"
+
+
+def _canonical_reviewer_latex_body(value: str) -> str:
+    if (
+        value != value.strip()
+        or "\r" in value
+        or unicodedata.normalize("NFC", value) != value
+        or (
+            len(value) >= 2
+            and value.startswith("$")
+            and value.endswith("$")
+            and _is_unescaped(value, len(value) - 1)
+        )
+    ):
+        raise ValueError("reviewer LaTeX is not a canonical math body")
+    return value
+
+
+def _is_unescaped(value: str, index: int) -> bool:
+    backslashes = 0
+    cursor = index - 1
+    while cursor >= 0 and value[cursor] == "\\":
+        backslashes += 1
+        cursor -= 1
+    return backslashes % 2 == 0
+
+
+def _safe_opaque_provenance_text(value: str) -> None:
+    try:
+        value.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as error:
+        raise ValueError("provenance text must be strict UTF-8") from error
+    if any(
+        unicodedata.category(character) in {"Cc", "Cf"} for character in value
+    ):
+        raise ValueError("provenance text cannot contain control characters")
+
+
+def _path_free_provenance_label(value: str) -> None:
+    if (
+        _CONTROL_CHARACTER.search(value) is not None
+        or value.startswith(("/", "\\"))
+        or "://" in value
+        or re.match(r"^[A-Za-z]:[/\\]", value) is not None
+        or "\\" in value
+        or "../" in value
+        or "/.." in value
+        or "/" in value
+    ):
+        raise ValueError("provenance labels cannot contain path syntax")
