@@ -23,6 +23,7 @@ from pydantic import (
 Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 BoundedText = Annotated[str, Field(max_length=100_000)]
 BoundedLabel = Annotated[str, Field(min_length=1, max_length=500)]
+AssistanceMethod = Annotated[str, Field(min_length=1, max_length=500)]
 _CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_PHYSICAL_PAGES = 1_000_000
 _MAX_WARNING_IDS = 1_000
@@ -165,13 +166,13 @@ class ProposedEquationAssistanceResponse(BaseModel):
 
     status: Literal["AUTOMATED_UNREVIEWED"]
     attempt_id: OpaqueId
-    method: BoundedLabel
+    method: AssistanceMethod
     proposal_sha256: Sha256
     proposed_latex: str = Field(min_length=1, max_length=100_000)
 
     @model_validator(mode="after")
-    def has_path_free_method(self) -> ProposedEquationAssistanceResponse:
-        _path_free_provenance_label(self.method)
+    def has_safe_opaque_method(self) -> ProposedEquationAssistanceResponse:
+        _safe_opaque_provenance_text(self.method)
         if _text_sha256(self.proposed_latex) != self.proposal_sha256:
             raise ValueError("assisted proposal hash is inconsistent")
         return self
@@ -484,6 +485,17 @@ def _is_unescaped(value: str, index: int) -> bool:
         backslashes += 1
         cursor -= 1
     return backslashes % 2 == 0
+
+
+def _safe_opaque_provenance_text(value: str) -> None:
+    try:
+        value.encode("utf-8", errors="strict")
+    except UnicodeEncodeError as error:
+        raise ValueError("provenance text must be strict UTF-8") from error
+    if any(
+        unicodedata.category(character) in {"Cc", "Cf"} for character in value
+    ):
+        raise ValueError("provenance text cannot contain control characters")
 
 
 def _path_free_provenance_label(value: str) -> None:

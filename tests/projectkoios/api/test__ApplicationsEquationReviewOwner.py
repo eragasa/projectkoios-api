@@ -24,6 +24,7 @@ from projectkoios.api.equation_review.boundary import (
     EquationReviewNoncanonicalLatex,
     EquationReviewOwnerUnavailable,
     EquationReviewPartialOutput,
+    EquationReviewQueueMalformed,
     EquationReviewRenderStale,
     EquationReviewRevisionStale,
 )
@@ -60,6 +61,15 @@ _REVIEWER_LATEX = r"E = mc^2"
 _REVIEWER_SHA256 = hashlib.sha256(_REVIEWER_LATEX.encode()).hexdigest()
 _OBSIDIAN_MARKDOWN = "$$\nE = mc^2\n$$"
 _OBSIDIAN_SHA256 = hashlib.sha256(_OBSIDIAN_MARKDOWN.encode()).hexdigest()
+_REAL_ASSISTANCE_METHOD = (
+    "ollama-multimodal-region-processor/1;model=qwen3.5:9b;"
+    "model_sha256="
+    "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7;"
+    "prompt=region-transcription-v1;request=ollama-multimodal-request:sha256:"
+    "7ceb7620a8851360d1f585dd5724c20499e4db846d1a1a852a0750d0a4f45bb8;"
+    "result=ollama-multimodal-result:sha256:"
+    "d7f299517f7c4e67b7137c280143ec0d4d23b7a2db1df5262dad05293141492f"
+)
 
 
 @dataclass(frozen=True)
@@ -285,7 +295,7 @@ def _document_root(
 def _attempt(binding: EquationReviewEvidenceBinding) -> AssistedEquationAttempt:
     return AssistedEquationAttempt.create(
         binding=binding,
-        method="synthetic-assistance",
+        method=_REAL_ASSISTANCE_METHOD,
         proposed_latex=r"E = mc^2",
     )
 
@@ -507,7 +517,7 @@ def test__real_owner__projects_mixed_stable_queue_and_schema2_decision(
     assert by_id["pizzi:eq:assisted"]["assistance"] == {
         "status": "AUTOMATED_UNREVIEWED",
         "attempt_id": assisted.attempt_id,
-        "method": "synthetic-assistance",
+        "method": _REAL_ASSISTANCE_METHOD,
         "proposal_sha256": assisted.proposal_sha256,
         "proposed_latex": r"E = mc^2",
     }
@@ -533,6 +543,42 @@ def test__real_owner__projects_mixed_stable_queue_and_schema2_decision(
     )
     assert str(document) not in first.text
     assert "manifest.json" not in first.text
+
+
+@pytest.mark.parametrize(
+    "method",
+    ("x" * 501, "unsafe\nmethod", "unsafe\u202emethod"),
+)
+def test__owner__rejects_unsafe_assistance_method_as_malformed_queue(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    method: str,
+) -> None:
+    root, bindings = _document_root(
+        tmp_path,
+        (_Candidate("pizzi:eq:assisted", 0, (1, 2, 3, 4)),),
+    )
+    attempt = _attempt(bindings["pizzi:eq:assisted"])
+    publish_assisted_equation_attempt(attempt, document_root=root)
+    projection = owner_adapter.project_equation_review_queue(document_root=root)
+    item = projection.items[0]
+    malformed = replace(
+        projection,
+        items=(
+            replace(
+                item,
+                assistance=replace(item.assistance, method=method),
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        owner_adapter,
+        "project_equation_review_queue",
+        lambda *, document_root: malformed,
+    )
+
+    with pytest.raises(EquationReviewQueueMalformed):
+        ApplicationsEquationReviewOwner(tmp_path / "pizzi2020").queue()
 
 
 def test__real_owner__serves_region_and_put_reloads_schema3_queue(

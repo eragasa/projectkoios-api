@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 from projectkoios.api.boundary_models import (
     MAX_COUNT,
@@ -7,6 +9,9 @@ from projectkoios.api.boundary_models import (
     MAX_REGION_COORDINATE,
     OpaqueId,
     SafeRelativePosixPath,
+)
+from projectkoios.api.equation_review.models import (
+    ProposedEquationAssistanceResponse,
 )
 from projectkoios.api.transcript_review_models import (
     TranscriptReviewDocumentResponse,
@@ -17,6 +22,18 @@ from projectkoios.api.transcript_review_models import (
     TranscriptReviewRegionResponse,
 )
 from pydantic import TypeAdapter, ValidationError
+
+_REAL_ASSISTANCE_METHOD = (
+    "ollama-multimodal-region-processor/1;model=qwen3.5:9b;"
+    "model_sha256="
+    "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7;"
+    "prompt=region-transcription-v1;request=ollama-multimodal-request:sha256:"
+    "7ceb7620a8851360d1f585dd5724c20499e4db846d1a1a852a0750d0a4f45bb8;"
+    "result=ollama-multimodal-result:sha256:"
+    "d7f299517f7c4e67b7137c280143ec0d4d23b7a2db1df5262dad05293141492f"
+)
+_PROPOSAL = r"E = mc^2"
+_PROPOSAL_SHA256 = hashlib.sha256(_PROPOSAL.encode()).hexdigest()
 
 
 def _summary() -> TranscriptReviewDocumentSummaryResponse:
@@ -96,6 +113,40 @@ def test__safe_relative_paths_are_normalized_posix_display_paths() -> None:
     ):
         with pytest.raises(ValidationError):
             adapter.validate_python(value)
+
+
+def test__assistance_method__accepts_bounded_opaque_real_provenance() -> None:
+    assistance = ProposedEquationAssistanceResponse(
+        status="AUTOMATED_UNREVIEWED",
+        attempt_id="equation-assisted-attempt:fixture",
+        method=_REAL_ASSISTANCE_METHOD,
+        proposal_sha256=_PROPOSAL_SHA256,
+        proposed_latex=_PROPOSAL,
+    )
+
+    assert assistance.method == _REAL_ASSISTANCE_METHOD
+
+
+@pytest.mark.parametrize(
+    "method",
+    (
+        "x" * 501,
+        "unsafe\nmethod",
+        "unsafe\u202emethod",
+        "unsafe\ud800method",
+    ),
+)
+def test__assistance_method__rejects_oversized_or_control_text(
+    method: str,
+) -> None:
+    with pytest.raises(ValidationError):
+        ProposedEquationAssistanceResponse(
+            status="AUTOMATED_UNREVIEWED",
+            attempt_id="equation-assisted-attempt:fixture",
+            method=method,
+            proposal_sha256=_PROPOSAL_SHA256,
+            proposed_latex=_PROPOSAL,
+        )
 
 
 def test__transcript_regions__reject_invalid_coordinates() -> None:

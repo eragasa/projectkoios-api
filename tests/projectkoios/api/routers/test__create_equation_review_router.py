@@ -54,6 +54,15 @@ _EVIDENCE_SHA = "b" * 64
 _PROPOSAL = r"E = mc^2"
 _PROPOSAL_SHA = hashlib.sha256(_PROPOSAL.encode()).hexdigest()
 _RECORDED_AT = datetime(2026, 9, 29, 12, 0, tzinfo=UTC)
+_REAL_ASSISTANCE_METHOD = (
+    "ollama-multimodal-region-processor/1;model=qwen3.5:9b;"
+    "model_sha256="
+    "6488c96fa5faab64bb65cbd30d4289e20e6130ef535a93ef9a49f42eda893ea7;"
+    "prompt=region-transcription-v1;request=ollama-multimodal-request:sha256:"
+    "7ceb7620a8851360d1f585dd5724c20499e4db846d1a1a852a0750d0a4f45bb8;"
+    "result=ollama-multimodal-result:sha256:"
+    "d7f299517f7c4e67b7137c280143ec0d4d23b7a2db1df5262dad05293141492f"
+)
 
 
 def _native(evidence_sha256: str) -> DeterministicEquationEvidenceResponse:
@@ -84,7 +93,7 @@ def _candidate(
         ProposedEquationAssistanceResponse(
             status="AUTOMATED_UNREVIEWED",
             attempt_id="equation-assisted-attempt:one",
-            method="synthetic-assistance",
+            method=_REAL_ASSISTANCE_METHOD,
             proposal_sha256=_PROPOSAL_SHA,
             proposed_latex=_PROPOSAL,
         )
@@ -288,7 +297,13 @@ def test__queue__projects_stable_identity_counts_and_unassisted_state() -> None:
     body = response.json()
     assert body["projection_id"] == "equation-review-queue:initial"
     assert (body["total"], body["decided"], body["pending"]) == (2, 0, 2)
-    assert body["items"][0]["assistance"]["status"] == ("AUTOMATED_UNREVIEWED")
+    assert body["items"][0]["assistance"] == {
+        "status": "AUTOMATED_UNREVIEWED",
+        "attempt_id": "equation-assisted-attempt:one",
+        "method": _REAL_ASSISTANCE_METHOD,
+        "proposal_sha256": _PROPOSAL_SHA,
+        "proposed_latex": _PROPOSAL,
+    }
     assert body["items"][1]["assistance"] == {
         "status": "NOT_STARTED",
         "attempt_id": None,
@@ -297,6 +312,7 @@ def test__queue__projects_stable_identity_counts_and_unassisted_state() -> None:
         "proposed_latex": None,
     }
     serialized = response.text
+    assert _REAL_ASSISTANCE_METHOD not in str(response.headers)
     assert "/explicit/unused" not in serialized
     assert "manifest.json" not in serialized
 
@@ -494,6 +510,59 @@ def test__queue__rejects_malformed_owner_projection_as_fixed_502() -> None:
         "code": "EQUATION_REVIEW_QUEUE_MALFORMED",
         "detail": "equation review owner queue is malformed",
     }
+
+
+@pytest.mark.parametrize(
+    "method",
+    ("x" * 501, "owner-secret-control\nmethod"),
+    ids=("oversized", "control"),
+)
+def test__queue__rejects_unsafe_assistance_method_without_leaking(
+    method: str,
+) -> None:
+    class _MalformedMethodOwner(_Owner):
+        def queue(self) -> EquationReviewQueueResponse:
+            candidate = _candidate(
+                _CANDIDATE,
+                page_index=0,
+                assisted=True,
+            )
+            malformed_assistance = (
+                ProposedEquationAssistanceResponse.model_construct(
+                    status="AUTOMATED_UNREVIEWED",
+                    attempt_id="equation-assisted-attempt:one",
+                    method=method,
+                    proposal_sha256=_PROPOSAL_SHA,
+                    proposed_latex=_PROPOSAL,
+                )
+            )
+            malformed_candidate = candidate.model_copy(
+                update={"assistance": malformed_assistance}
+            )
+            return _queue().model_copy(
+                update={
+                    "items": (
+                        malformed_candidate,
+                        _candidate(
+                            _UNASSISTED,
+                            page_index=1,
+                            assisted=False,
+                        ),
+                    )
+                }
+            )
+
+    response = _client(_MalformedMethodOwner()).get(
+        "/equation-reviews",
+        params={"document_id": "pizzi2020"},
+    )
+
+    assert response.status_code == 502
+    assert response.json() == {
+        "code": "EQUATION_REVIEW_QUEUE_MALFORMED",
+        "detail": "equation review owner queue is malformed",
+    }
+    assert method not in response.text
 
 
 def test__queue_and_candidate__return_fixed_not_found() -> None:
