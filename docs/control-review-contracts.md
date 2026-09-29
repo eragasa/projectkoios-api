@@ -247,14 +247,29 @@ consumer moves to this contract, it must:
 
 No organizer event schema or reference is retained for compatibility.
 
-## Declared dependency seam
+## Declared dependency seam and packaging blocker
 
-The API declares `projectkoios-applications[pdf-corpus]==0.1.0.dev0`; the local
-lock also names its unpublished ingestion and simulations path dependencies so
-`uv sync --locked --all-extras` cannot silently substitute packages. Hosted CI
-pins applications `312f42e`, ingestion `024162c`, simulations `51427a0`, and
-references `b7581cb`. The applications package currently imports its broader
-PDF-corpus package initializer, so the owner-declared `pdf-corpus` extra is the
-narrowest installable seam even though this adapter itself calls only the two
-public equation-review functions. The API wheel contains no copied owner code;
-its metadata carries the declared applications dependency.
+The private adapter is declared behind the API
+`equation-review-control` optional extra. Public startup and an unconfigured
+control profile do not import `projectkoios.applications`; only construction of
+a configured equation-review control store imports the private/scientific
+chain. The extra declares
+`projectkoios-applications[pdf-corpus]==0.1.0.dev0` and the ingestion source that
+its eager PDF-corpus initializer requires. There is no direct API dependency on
+`projectkoios-simulations`.
+
+This is not yet a standalone-installable boundary. Applications commit
+`312f42e` is explicitly unpushed, and its base metadata still mandates
+`projectkoios-simulations`, which in turn mandates Physkit. With only reviewed
+local source, `uv` cannot resolve that transitive unpublished simulations source
+without adding the redundant direct API dependency rejected by review. The
+committed lock records the locally reviewed candidate graph, but independent
+lock regeneration and standalone installation are **unavailable**, not passing
+evidence. Hosted CI stops explicitly before dependency setup for the same
+reason; it does not claim that an unpushed checkout succeeded.
+
+Applications-owner action is required: publish an installable reviewed source
+chain, or provide an equation-review install surface whose metadata and package
+initializer do not require simulations/Physkit and unrelated PDF-corpus imports.
+Only then may API CI checkout/sync be enabled and the lock independently
+regenerated. The API contains no copied or extracted owner persistence code.

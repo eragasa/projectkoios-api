@@ -849,12 +849,9 @@ source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
     { name = "projectkoios" },
-    { name = "projectkoios-applications", extra = ["pdf-corpus"] },
-    { name = "projectkoios-ingestion", extra = ["pdf"] },
     { name = "projectkoios-obsidian" },
     { name = "projectkoios-references" },
     { name = "projectkoios-search" },
-    { name = "projectkoios-simulations" },
     { name = "pydantic" },
     { name = "python-multipart" },
     { name = "uvicorn", extra = ["standard"] },
@@ -867,6 +864,10 @@ dev = [
     { name = "pytest" },
     { name = "ruff" },
 ]
+equation-review-control = [
+    { name = "projectkoios-applications", extra = ["pdf-corpus"] },
+    { name = "projectkoios-ingestion", extra = ["pdf"] },
+]
 
 [package.metadata]
 requires-dist = [
@@ -874,19 +875,18 @@ requires-dist = [
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
     { name = "projectkoios", editable = "../projectkoios" },
-    { name = "projectkoios-applications", extras = ["pdf-corpus"], editable = "../projectkoios-applications" },
-    { name = "projectkoios-ingestion", extras = ["pdf"], editable = "../projectkoios-ingestion" },
+    { name = "projectkoios-applications", extras = ["pdf-corpus"], marker = "extra == 'equation-review-control'", editable = "../projectkoios-applications" },
+    { name = "projectkoios-ingestion", extras = ["pdf"], marker = "extra == 'equation-review-control'", editable = "../projectkoios-ingestion" },
     { name = "projectkoios-obsidian", editable = "../projectkoios-obsidian" },
     { name = "projectkoios-references", editable = "../projectkoios-references" },
     { name = "projectkoios-search", editable = "../projectkoios-search" },
-    { name = "projectkoios-simulations", editable = "../projectkoios-simulations" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "python-multipart", specifier = ">=0.0.20" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.34" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["dev", "equation-review-control"]
 
 [[package]]
 name = "projectkoios-applications"

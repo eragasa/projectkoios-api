@@ -112,6 +112,11 @@ though the adapter generated a later time. Stale proposal/evidence/revision,
 concurrent different output, partial output, and unavailable owner roots have
 stable typed classifications. Assisted text remains automated and unreviewed;
 the append creates a separate human revision and never promotes or rewrites it.
+The owner adapter is declared by the `equation-review-control` optional extra
+and is imported only when this configured control capability is constructed.
+Applications commit `312f42e` remains unpushed and still mandates
+simulations/Physkit, so standalone installation of that extra is currently
+unavailable; see the documented packaging blocker.
 
 ## Live GitHubTask projection
 
@@ -138,7 +143,7 @@ The control profile also publishes bounded organizer, transcript-review, and
 equation-review contracts. Organizer and transcript domain behavior is
 available only through explicitly injected owner adapters; without one, those
 routes return a safe `503`. Equation reads use only the explicit `pizzi2020`
-configuration described above, and writes use the declared
+configuration described above, and writes use the optional declared
 `projectkoios-applications[pdf-corpus]` package seam. No organizer daemon,
 transcript ingestion, filesystem discovery, or API-owned equation-review
 persistence is implemented here.
@@ -160,5 +165,6 @@ omission of all organizer event endpoints and schemas are documented in
 ## Continuous integration
 
 Hosted verification is an ordered, read-only GitHubTask sequence documented in
-[`docs/ci.md`](docs/ci.md). It uses the committed Python lock and exact sibling
-Project Koios revisions; it does not perform repository or release mutations.
+[`docs/ci.md`](docs/ci.md). It currently stops with an explicit unavailable
+owner-source result because applications commit `312f42e` is unpushed; it does
+not present a configured checkout or standalone install as passing evidence.

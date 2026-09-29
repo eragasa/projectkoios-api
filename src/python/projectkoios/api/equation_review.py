@@ -11,6 +11,12 @@ from projectkoios.api.config import (
     EquationReviewConfiguration,
     EquationReviewDocumentConfiguration,
 )
+from projectkoios.api.equation_review_boundary import (
+    EquationReviewDecisionStore,
+    EquationReviewEvidenceBinding,
+    EquationReviewEvidenceStale,
+    EquationReviewOwnerUnavailable,
+)
 from projectkoios.api.equation_review_models import (
     MAX_EQUATION_REVIEW_CANDIDATES,
     EquationReviewCandidateResponse,
@@ -20,13 +26,6 @@ from projectkoios.api.equation_review_models import (
     EquationReviewDisposition,
     EquationReviewQueueResponse,
     ProposedEquationAssistanceResponse,
-)
-from projectkoios.api.equation_review_owner import (
-    ApplicationsEquationReviewDecisionStore,
-    EquationReviewDecisionStore,
-    EquationReviewEvidenceBinding,
-    EquationReviewEvidenceStale,
-    EquationReviewOwnerUnavailable,
 )
 from pydantic import (
     BaseModel,
@@ -99,18 +98,7 @@ class EquationReviewRepository:
     ) -> None:
         self._configuration = configuration
         self._monotonic = monotonic
-        configured = configuration.pizzi2020
-        self._decision_store = (
-            decision_store
-            if decision_store is not None
-            else (
-                ApplicationsEquationReviewDecisionStore(
-                    configured.document_root
-                )
-                if configured is not None
-                else None
-            )
-        )
+        self._decision_store = decision_store
 
     def queue(self, document_id: str) -> EquationReviewQueueResponse:
         bundle = self._bundle(document_id)

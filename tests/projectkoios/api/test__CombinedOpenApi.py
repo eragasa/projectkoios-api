@@ -2,6 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
+import sys
+import tomllib
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -382,6 +386,67 @@ def test__public_openapi__keeps_control_contracts_absent() -> None:
     )
 
 
+def test__equation_owner__has_no_direct_simulations_dependency() -> None:
+    project = tomllib.loads(
+        (_REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    )
+    dependencies = project["project"]["dependencies"]
+    extra = project["project"]["optional-dependencies"][
+        "equation-review-control"
+    ]
+    workflow = (_REPOSITORY_ROOT / ".github/workflows/ci.yml").read_text(
+        encoding="utf-8"
+    )
+
+    assert not any(
+        dependency.startswith("projectkoios-simulations")
+        for dependency in dependencies
+    )
+    assert extra == [
+        "projectkoios-applications[pdf-corpus]==0.1.0.dev0",
+        "projectkoios-ingestion[pdf]==0.0.0",
+    ]
+    assert "projectkoios-applications 312f42e is unpushed" in workflow
+    assert "Check out locked applications owner" not in workflow
+
+
+def test__public_startup__does_not_import_applications_owner_chain() -> None:
+    source_root = _REPOSITORY_ROOT / "src" / "python"
+    environment = dict(os.environ)
+    environment["PYTHONPATH"] = str(source_root)
+    script = """
+import sys
+from projectkoios.api.app import ProjectKoiosApp
+from projectkoios.api.config import (
+    DeploymentProfile,
+    ProjectKoiosAppConfiguration,
+)
+app = ProjectKoiosApp.create_app(
+    configuration=ProjectKoiosAppConfiguration(
+        deployment_profile=DeploymentProfile.PUBLIC,
+    )
+)
+assert app.state.deployment_profile == "public"
+assert not any(
+    name == "projectkoios.applications"
+    or name.startswith("projectkoios.applications.")
+    for name in sys.modules
+)
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=_REPOSITORY_ROOT,
+        env=environment,
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
 def test__review_contracts__have_no_agent_or_owner_runtime_imports() -> None:
     source_root = _REPOSITORY_ROOT / "src" / "python" / "projectkoios" / "api"
     all_api_source = "\n".join(
@@ -390,6 +455,7 @@ def test__review_contracts__have_no_agent_or_owner_runtime_imports() -> None:
     )
     boundary_paths = [
         source_root / "course_models.py",
+        source_root / "equation_review_boundary.py",
         source_root / "equation_review_models.py",
         source_root / "organizer_models.py",
         source_root / "project_models.py",

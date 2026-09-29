@@ -11,19 +11,19 @@ from projectkoios.api.equation_review import (
     EquationReviewUnavailable,
     InvalidEquationReviewDecision,
 )
+from projectkoios.api.equation_review_boundary import (
+    EquationReviewConcurrentDecision,
+    EquationReviewEvidenceStale,
+    EquationReviewOwnerUnavailable,
+    EquationReviewPartialOutput,
+    EquationReviewRevisionStale,
+)
 from projectkoios.api.equation_review_models import (
     EquationReviewDecisionRequest,
     EquationReviewDecisionResponse,
     EquationReviewFailureCode,
     EquationReviewFailureResponse,
     EquationReviewQueueResponse,
-)
-from projectkoios.api.equation_review_owner import (
-    EquationReviewConcurrentDecision,
-    EquationReviewEvidenceStale,
-    EquationReviewOwnerUnavailable,
-    EquationReviewPartialOutput,
-    EquationReviewRevisionStale,
 )
 from projectkoios.api.error_models import ApiErrorResponse
 

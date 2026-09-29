@@ -7,6 +7,9 @@ from projectkoios.api.config import (
     ProjectKoiosAppConfiguration,
 )
 from projectkoios.api.equation_review import EquationReviewRepository
+from projectkoios.api.equation_review_boundary import (
+    EquationReviewDecisionStore,
+)
 from projectkoios.api.github_tasks import GitHubTaskReader
 from projectkoios.api.literature_review import LiteratureReviewRepository
 from projectkoios.api.public_catalogs import (
@@ -110,8 +113,19 @@ class ProjectKoiosApp:
         literature_reviews = LiteratureReviewRepository(
             self.configuration.literature_review.run_path
         )
+        equation_review = self.configuration.equation_review
+        equation_decision_store: EquationReviewDecisionStore | None = None
+        if equation_review.pizzi2020 is not None:
+            from projectkoios.api.equation_review_owner import (
+                ApplicationsEquationReviewDecisionStore,
+            )
+
+            equation_decision_store = ApplicationsEquationReviewDecisionStore(
+                equation_review.pizzi2020.document_root
+            )
         equation_reviews = EquationReviewRepository(
-            self.configuration.equation_review
+            equation_review,
+            decision_store=equation_decision_store,
         )
 
         github_task_provider = github_tasks or GitHubTaskReader(

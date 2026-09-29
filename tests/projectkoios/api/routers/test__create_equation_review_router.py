@@ -13,17 +13,17 @@ from projectkoios.api.config import (
     EquationReviewDocumentConfiguration,
 )
 from projectkoios.api.equation_review import EquationReviewRepository
+from projectkoios.api.equation_review_boundary import (
+    EquationReviewConcurrentDecision,
+    EquationReviewEvidenceBinding,
+    EquationReviewPartialOutput,
+    EquationReviewRevisionStale,
+)
 from projectkoios.api.equation_review_models import (
     EquationReviewDecision,
     EquationReviewDecisionRequest,
     EquationReviewDecisionResponse,
     EquationReviewDisposition,
-)
-from projectkoios.api.equation_review_owner import (
-    EquationReviewConcurrentDecision,
-    EquationReviewEvidenceBinding,
-    EquationReviewPartialOutput,
-    EquationReviewRevisionStale,
 )
 from projectkoios.api.routers.equation_review import (
     create_equation_review_router,

@@ -1,12 +1,18 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Protocol
 
 from projectkoios.api.boundary_models import OpaqueId
+from projectkoios.api.equation_review_boundary import (
+    EquationReviewConcurrentDecision,
+    EquationReviewEvidenceBinding,
+    EquationReviewEvidenceStale,
+    EquationReviewOwnerUnavailable,
+    EquationReviewPartialOutput,
+    EquationReviewRevisionStale,
+)
 from projectkoios.api.equation_review_models import (
     EquationReviewDecision,
     EquationReviewDecisionRequest,
@@ -39,57 +45,13 @@ from projectkoios.applications.pdf_corpus_ingestion import (
 )
 from projectkoios.applications.pdf_corpus_ingestion import (
     HumanEquationRevision,
+    HumanEquationRevisionAppendResult,
     HumanEquationRevisionRequest,
     append_human_equation_revision,
     load_latest_human_equation_revision,
 )
 from projectkoios.references import AuthorizedRoot, RootStorageClass
-
-
-class EquationReviewOwnerFailure(RuntimeError):
-    """The applications-owned equation-review seam could not complete."""
-
-
-class EquationReviewEvidenceStale(EquationReviewOwnerFailure):
-    """The immutable candidate evidence no longer matches."""
-
-
-class EquationReviewRevisionStale(EquationReviewOwnerFailure):
-    """The browser's expected previous revision is stale."""
-
-
-class EquationReviewConcurrentDecision(EquationReviewOwnerFailure):
-    """A different writer won the same append position."""
-
-
-class EquationReviewPartialOutput(EquationReviewOwnerFailure):
-    """Applications found partial or malformed review output."""
-
-
-class EquationReviewOwnerUnavailable(EquationReviewOwnerFailure):
-    """The configured applications-owned document root is unavailable."""
-
-
-@dataclass(frozen=True)
-class EquationReviewEvidenceBinding:
-    document_id: str
-    candidate_id: str
-    source_sha256: str
-    candidate_evidence_sha256: str
-    region_image_sha256: str
-
-
-class EquationReviewDecisionStore(Protocol):
-    def latest(
-        self,
-        binding: EquationReviewEvidenceBinding,
-    ) -> EquationReviewDecision | None: ...
-
-    def append(
-        self,
-        binding: EquationReviewEvidenceBinding,
-        request: EquationReviewDecisionRequest,
-    ) -> EquationReviewDecisionResponse: ...
+from pydantic import ValidationError
 
 
 def _utc_now() -> datetime:
@@ -130,7 +92,15 @@ class ApplicationsEquationReviewDecisionStore:
             raise EquationReviewOwnerUnavailable from error
         if revision is None:
             return None
-        return _decision(revision)
+        try:
+            return _decision(revision)
+        except (
+            AttributeError,
+            TypeError,
+            ValueError,
+            ValidationError,
+        ) as error:
+            raise EquationReviewPartialOutput from error
 
     def append(
         self,
@@ -168,10 +138,21 @@ class ApplicationsEquationReviewDecisionStore:
             raise EquationReviewOwnerUnavailable from error
         except Exception as error:
             raise EquationReviewOwnerUnavailable from error
-        return EquationReviewDecisionResponse(
-            candidate_id=OpaqueId(binding.candidate_id),
-            **_decision(result.revision).model_dump(),
-        )
+        try:
+            if not isinstance(result, HumanEquationRevisionAppendResult):
+                raise TypeError("owner result type is invalid")
+            decision = _decision(result.revision)
+            return EquationReviewDecisionResponse(
+                candidate_id=OpaqueId(binding.candidate_id),
+                **decision.model_dump(),
+            )
+        except (
+            AttributeError,
+            TypeError,
+            ValueError,
+            ValidationError,
+        ) as error:
+            raise EquationReviewPartialOutput from error
 
     def _root(self) -> AuthorizedRoot:
         try:
@@ -205,7 +186,9 @@ def _owner_binding(
         raise EquationReviewOwnerUnavailable from error
 
 
-def _decision(revision: HumanEquationRevision) -> EquationReviewDecision:
+def _decision(revision: object) -> EquationReviewDecision:
+    if not isinstance(revision, HumanEquationRevision):
+        raise TypeError("owner revision type is invalid")
     return EquationReviewDecision(
         disposition=EquationReviewDisposition(revision.disposition.value),
         assistance_proposal_sha256=revision.assistance_proposal_sha256,
