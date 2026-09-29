@@ -52,8 +52,6 @@ class LiteratureReviewConfiguration:
 
 @dataclass(frozen=True)
 class EquationReviewDocumentConfiguration:
-    bundle_path: Path
-    regions_root: Path
     document_root: Path
 
 
@@ -147,25 +145,16 @@ def _configured_deployment_profile() -> DeploymentProfile:
 def _configured_pizzi2020_equation_review() -> (
     EquationReviewDocumentConfiguration | None
 ):
-    bundle = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE")
-    regions = os.environ.get("KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS")
     document_root = os.environ.get(
         "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT"
     )
-    values = (bundle, regions, document_root)
-    if all(value is None for value in values):
+    if document_root is None:
         return None
-    if any(not value for value in values):
+    if not document_root:
         raise ValueError(
-            "pizzi2020 equation review requires its bundle, regions, and "
-            "document root"
+            "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT must not be empty"
         )
-    assert bundle is not None
-    assert regions is not None
-    assert document_root is not None
     return EquationReviewDocumentConfiguration(
-        bundle_path=Path(bundle).expanduser(),
-        regions_root=Path(regions).expanduser(),
         document_root=Path(document_root).expanduser(),
     )
 

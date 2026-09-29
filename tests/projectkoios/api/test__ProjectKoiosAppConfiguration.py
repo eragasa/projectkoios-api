@@ -39,17 +39,9 @@ def test__deployment_profile__rejects_unknown_value(
         ProjectKoiosAppConfiguration()
 
 
-def test__equation_review__requires_explicit_complete_pizzi_configuration(
+def test__equation_review__reads_one_explicit_document_root(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv(
-        "KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE",
-        "/private/pizzi2020/bundle.json",
-    )
-    monkeypatch.setenv(
-        "KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS",
-        "/private/pizzi2020/regions",
-    )
     monkeypatch.setenv(
         "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT",
         "/private/pizzi2020/document",
@@ -58,32 +50,43 @@ def test__equation_review__requires_explicit_complete_pizzi_configuration(
     configuration = ProjectKoiosAppConfiguration()
 
     assert configuration.equation_review.pizzi2020 is not None
-    assert configuration.equation_review.pizzi2020.bundle_path == Path(
-        "/private/pizzi2020/bundle.json"
-    )
-    assert configuration.equation_review.pizzi2020.regions_root == Path(
-        "/private/pizzi2020/regions"
-    )
     assert configuration.equation_review.pizzi2020.document_root == Path(
         "/private/pizzi2020/document"
     )
 
 
-def test__equation_review__rejects_partial_pizzi_configuration(
+def test__equation_review__has_no_default_or_legacy_bundle_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT",
+        raising=False,
+    )
+    monkeypatch.setenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE",
+        "/obsolete/bundle.json",
+    )
+    monkeypatch.setenv(
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS",
+        "/obsolete/regions",
+    )
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert configuration.equation_review.pizzi2020 is None
+
+
+def test__equation_review__rejects_empty_explicit_document_root(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv(
-        "KOIOS_EQUATION_REVIEW_PIZZI2020_BUNDLE",
-        "/private/pizzi2020/bundle.json",
-    )
-    monkeypatch.delenv(
-        "KOIOS_EQUATION_REVIEW_PIZZI2020_REGIONS",
-        raising=False,
+        "KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT",
+        "",
     )
 
     with pytest.raises(
         ValueError,
-        match="pizzi2020 equation review requires its bundle, regions, and",
+        match="KOIOS_EQUATION_REVIEW_PIZZI2020_DOCUMENT_ROOT must not be empty",
     ):
         ProjectKoiosAppConfiguration()
 

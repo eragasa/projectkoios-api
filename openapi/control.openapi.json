@@ -416,16 +416,27 @@
       "DeterministicEquationEvidenceResponse": {
         "additionalProperties": false,
         "properties": {
-          "detector": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Detector",
+          "candidate_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidate Sha256",
             "type": "string"
           },
-          "detector_version": {
+          "confidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "type": "number"
+          },
+          "configuration_digest": {
             "maxLength": 500,
             "minLength": 1,
-            "title": "Detector Version",
+            "title": "Configuration Digest",
+            "type": "string"
+          },
+          "detection_input_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detection Input Id",
             "type": "string"
           },
           "evidence_sha256": {
@@ -433,24 +444,72 @@
             "title": "Evidence Sha256",
             "type": "string"
           },
-          "extracted_text": {
+          "evidence_status": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Evidence Status",
+            "type": "string"
+          },
+          "processor_name": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Processor Name",
+            "type": "string"
+          },
+          "processor_version": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Processor Version",
+            "type": "string"
+          },
+          "raw_text": {
+            "maxLength": 100000,
+            "title": "Raw Text",
+            "type": "string"
+          },
+          "source_block_id": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Source Block Id",
+            "type": "string"
+          },
+          "source_label": {
             "anyOf": [
               {
-                "maxLength": 100000,
+                "maxLength": 500,
+                "minLength": 1,
                 "type": "string"
               },
               {
                 "type": "null"
               }
             ],
-            "title": "Extracted Text"
+            "title": "Source Label"
+          },
+          "warning_ids": {
+            "items": {
+              "maxLength": 500,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 1000,
+            "title": "Warning Ids",
+            "type": "array"
           }
         },
         "required": [
-          "detector",
-          "detector_version",
           "evidence_sha256",
-          "extracted_text"
+          "candidate_sha256",
+          "raw_text",
+          "source_label",
+          "confidence",
+          "evidence_status",
+          "source_block_id",
+          "detection_input_id",
+          "warning_ids",
+          "processor_name",
+          "processor_version",
+          "configuration_digest"
         ],
         "title": "DeterministicEquationEvidenceResponse",
         "type": "object"
@@ -462,51 +521,6 @@
         ],
         "title": "EquationDisplayMode",
         "type": "string"
-      },
-      "EquationModelProvenanceResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "model_name": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Model Name",
-            "type": "string"
-          },
-          "model_sha256": {
-            "pattern": "^[0-9a-f]{64}$",
-            "title": "Model Sha256",
-            "type": "string"
-          },
-          "prompt_version": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Prompt Version",
-            "type": "string"
-          },
-          "request_id": {
-            "maxLength": 256,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
-            "title": "Request Id",
-            "type": "string"
-          },
-          "result_id": {
-            "maxLength": 256,
-            "minLength": 1,
-            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
-            "title": "Result Id",
-            "type": "string"
-          }
-        },
-        "required": [
-          "model_name",
-          "model_sha256",
-          "prompt_version",
-          "request_id",
-          "result_id"
-        ],
-        "title": "EquationModelProvenanceResponse",
-        "type": "object"
       },
       "EquationRegionEvidenceResponse": {
         "additionalProperties": false,
@@ -596,27 +610,19 @@
         "additionalProperties": false,
         "properties": {
           "assistance": {
-            "anyOf": [
+            "discriminator": {
+              "mapping": {
+                "AUTOMATED_UNREVIEWED": "#/components/schemas/ProposedEquationAssistanceResponse",
+                "NOT_STARTED": "#/components/schemas/UnassistedEquationProposalResponse"
+              },
+              "propertyName": "status"
+            },
+            "oneOf": [
               {
-                "discriminator": {
-                  "mapping": {
-                    "FAILED": "#/components/schemas/PendingEquationAssistanceResponse",
-                    "PENDING": "#/components/schemas/PendingEquationAssistanceResponse",
-                    "PROPOSED": "#/components/schemas/ProposedEquationAssistanceResponse"
-                  },
-                  "propertyName": "status"
-                },
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/PendingEquationAssistanceResponse"
-                  },
-                  {
-                    "$ref": "#/components/schemas/ProposedEquationAssistanceResponse"
-                  }
-                ]
+                "$ref": "#/components/schemas/UnassistedEquationProposalResponse"
               },
               {
-                "type": "null"
+                "$ref": "#/components/schemas/ProposedEquationAssistanceResponse"
               }
             ],
             "title": "Assistance"
@@ -1062,6 +1068,8 @@
           "EQUATION_REVIEW_EDIT_AFTER_RENDER",
           "EQUATION_REVIEW_CONCURRENT_DECISION",
           "EQUATION_REVIEW_PARTIAL_OUTPUT",
+          "EQUATION_REVIEW_QUEUE_INCOMPLETE",
+          "EQUATION_REVIEW_QUEUE_MALFORMED",
           "EQUATION_REVIEW_OWNER_UNAVAILABLE"
         ],
         "title": "EquationReviewFailureCode",
@@ -1090,6 +1098,13 @@
       "EquationReviewQueueResponse": {
         "additionalProperties": false,
         "properties": {
+          "contract_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Contract Id",
+            "type": "string"
+          },
           "decided": {
             "maximum": 1000000000.0,
             "minimum": 0.0,
@@ -1111,6 +1126,36 @@
             "title": "Items",
             "type": "array"
           },
+          "package_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Package Id",
+            "type": "string"
+          },
+          "pending": {
+            "maximum": 1000000000.0,
+            "minimum": 0.0,
+            "title": "Pending",
+            "type": "integer"
+          },
+          "projection_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Projection Id",
+            "type": "string"
+          },
+          "schema_version": {
+            "const": 1,
+            "title": "Schema Version",
+            "type": "integer"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
           "total": {
             "maximum": 1000000000.0,
             "minimum": 0.0,
@@ -1119,9 +1164,15 @@
           }
         },
         "required": [
+          "contract_id",
+          "schema_version",
+          "projection_id",
+          "package_id",
           "document_id",
+          "source_sha256",
           "total",
           "decided",
+          "pending",
           "items"
         ],
         "title": "EquationReviewQueueResponse",
@@ -1148,17 +1199,30 @@
             "title": "Document Id",
             "type": "string"
           },
+          "page_index": {
+            "exclusiveMaximum": 1000000.0,
+            "minimum": 0.0,
+            "title": "Page Index",
+            "type": "integer"
+          },
           "physical_page": {
             "maximum": 1000000.0,
             "minimum": 1.0,
             "title": "Physical Page",
             "type": "integer"
           },
-          "source_name": {
-            "maxLength": 500,
-            "minLength": 1,
-            "title": "Source Name",
-            "type": "string"
+          "printed_page_label": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Printed Page Label"
           },
           "source_sha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -1168,9 +1232,10 @@
         },
         "required": [
           "document_id",
-          "source_name",
           "source_sha256",
-          "physical_page"
+          "page_index",
+          "physical_page",
+          "printed_page_label"
         ],
         "title": "EquationSourceIdentityResponse",
         "type": "object"
@@ -2047,80 +2112,21 @@
         "title": "OrganizerStatusResponse",
         "type": "object"
       },
-      "PendingEquationAssistanceResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "method": {
-            "anyOf": [
-              {
-                "maxLength": 500,
-                "minLength": 1,
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Method"
-          },
-          "proposal_sha256": {
-            "title": "Proposal Sha256",
-            "type": "null"
-          },
-          "proposed_latex": {
-            "title": "Proposed Latex",
-            "type": "null"
-          },
-          "status": {
-            "enum": [
-              "PENDING",
-              "FAILED"
-            ],
-            "title": "Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "status",
-          "method",
-          "proposal_sha256",
-          "proposed_latex"
-        ],
-        "title": "PendingEquationAssistanceResponse",
-        "type": "object"
-      },
       "ProposedEquationAssistanceResponse": {
         "additionalProperties": false,
         "properties": {
           "attempt_id": {
-            "anyOf": [
-              {
-                "maxLength": 256,
-                "minLength": 1,
-                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Attempt Id"
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Attempt Id",
+            "type": "string"
           },
           "method": {
             "maxLength": 500,
             "minLength": 1,
             "title": "Method",
             "type": "string"
-          },
-          "model_provenance": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/EquationModelProvenanceResponse"
-              },
-              {
-                "type": "null"
-              }
-            ]
           },
           "proposal_sha256": {
             "pattern": "^[0-9a-f]{64}$",
@@ -2134,13 +2140,14 @@
             "type": "string"
           },
           "status": {
-            "const": "PROPOSED",
+            "const": "AUTOMATED_UNREVIEWED",
             "title": "Status",
             "type": "string"
           }
         },
         "required": [
           "status",
+          "attempt_id",
           "method",
           "proposal_sha256",
           "proposed_latex"
@@ -3390,6 +3397,41 @@
         "title": "TranscriptReviewStatus",
         "type": "string"
       },
+      "UnassistedEquationProposalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "attempt_id": {
+            "title": "Attempt Id",
+            "type": "null"
+          },
+          "method": {
+            "title": "Method",
+            "type": "null"
+          },
+          "proposal_sha256": {
+            "title": "Proposal Sha256",
+            "type": "null"
+          },
+          "proposed_latex": {
+            "title": "Proposed Latex",
+            "type": "null"
+          },
+          "status": {
+            "const": "NOT_STARTED",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "attempt_id",
+          "method",
+          "proposal_sha256",
+          "proposed_latex"
+        ],
+        "title": "UnassistedEquationProposalResponse",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -3722,7 +3764,7 @@
                 }
               }
             },
-            "description": "The proposal, immutable evidence, expected revision, or concurrent append does not match."
+            "description": "The proposal, immutable evidence, expected revision, render, or concurrent append does not match."
           },
           "422": {
             "content": {
@@ -3734,6 +3776,16 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "The applications-owned queue projection is malformed."
+          },
           "503": {
             "content": {
               "application/json": {
@@ -3742,7 +3794,7 @@
                 }
               }
             },
-            "description": "Configured evidence, the owner root, or complete append output is unavailable."
+            "description": "The configured owner root, complete queue evidence, or append output is unavailable."
           }
         },
         "summary": "Queue",
@@ -3807,7 +3859,7 @@
                 }
               }
             },
-            "description": "The proposal, immutable evidence, expected revision, or concurrent append does not match."
+            "description": "The proposal, immutable evidence, expected revision, render, or concurrent append does not match."
           },
           "422": {
             "content": {
@@ -3819,6 +3871,16 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "The applications-owned queue projection is malformed."
+          },
           "503": {
             "content": {
               "application/json": {
@@ -3827,7 +3889,7 @@
                 }
               }
             },
-            "description": "Configured evidence, the owner root, or complete append output is unavailable."
+            "description": "The configured owner root, complete queue evidence, or append output is unavailable."
           }
         },
         "summary": "Decide",
@@ -3856,23 +3918,7 @@
         "responses": {
           "200": {
             "content": {
-              "image/jpeg": {
-                "schema": {
-                  "format": "binary",
-                  "minLength": 1,
-                  "type": "string",
-                  "x-maximum-bytes": 20000000
-                }
-              },
               "image/png": {
-                "schema": {
-                  "format": "binary",
-                  "minLength": 1,
-                  "type": "string",
-                  "x-maximum-bytes": 20000000
-                }
-              },
-              "image/webp": {
                 "schema": {
                   "format": "binary",
                   "minLength": 1,
@@ -3881,7 +3927,7 @@
                 }
               }
             },
-            "description": "Content-addressed PNG, JPEG, or WebP evidence, fully buffered and limited to exactly 20,000,000 bytes.",
+            "description": "Content-addressed PNG evidence, fully buffered and limited to exactly 20,000,000 bytes.",
             "headers": {
               "Content-Disposition": {
                 "description": "Always `inline`; artifact filenames are never exposed.",
@@ -3919,6 +3965,16 @@
             },
             "description": "Validation Error"
           },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EquationReviewFailureResponse"
+                }
+              }
+            },
+            "description": "The applications-owned queue projection is malformed."
+          },
           "503": {
             "content": {
               "application/json": {
@@ -3927,7 +3983,7 @@
                 }
               }
             },
-            "description": "Configured evidence, the owner root, or complete append output is unavailable."
+            "description": "The configured owner root, complete queue evidence, or append output is unavailable."
           }
         },
         "summary": "Region",

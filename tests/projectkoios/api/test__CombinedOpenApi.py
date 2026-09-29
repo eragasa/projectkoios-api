@@ -152,11 +152,7 @@ def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
     assert queue["responses"]["200"]["content"]["application/json"][
         "schema"
     ] == {"$ref": "#/components/schemas/EquationReviewQueueResponse"}
-    assert set(region["responses"]["200"]["content"]) == {
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-    }
+    assert set(region["responses"]["200"]["content"]) == {"image/png"}
     for media in region["responses"]["200"]["content"].values():
         assert media["schema"]["x-maximum-bytes"] == 20_000_000
     assert decision["requestBody"]["content"]["application/json"]["schema"] == {
@@ -215,21 +211,40 @@ def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
     proposed = schema["components"]["schemas"][
         "ProposedEquationAssistanceResponse"
     ]
-    assert "attempt_id" in proposed["properties"]
-    assert "model_provenance" in proposed["properties"]
+    assert {
+        "attempt_id",
+        "method",
+        "proposal_sha256",
+        "proposed_latex",
+    } <= set(proposed["required"])
+    assert "model_provenance" not in proposed["properties"]
+    unassisted = schema["components"]["schemas"][
+        "UnassistedEquationProposalResponse"
+    ]
+    assert unassisted["properties"]["status"]["const"] == "NOT_STARTED"
     failures = schema["components"]["schemas"]["EquationReviewFailureCode"]
     assert {
         "EQUATION_REVIEW_REVIEWER_LATEX_NONCANONICAL",
         "EQUATION_REVIEW_RENDER_STALE",
         "EQUATION_REVIEW_EDIT_AFTER_RENDER",
+        "EQUATION_REVIEW_QUEUE_INCOMPLETE",
+        "EQUATION_REVIEW_QUEUE_MALFORMED",
     } <= set(failures["enum"])
-    assert (
-        schema["components"]["schemas"]["EquationReviewQueueResponse"][
-            "properties"
-        ]["items"]["maxItems"]
-        == 256
-    )
-    for code in ("409", "503"):
+    queue_response = schema["components"]["schemas"][
+        "EquationReviewQueueResponse"
+    ]
+    assert queue_response["properties"]["items"]["maxItems"] == 256
+    assert {
+        "contract_id",
+        "schema_version",
+        "projection_id",
+        "package_id",
+        "source_sha256",
+        "total",
+        "decided",
+        "pending",
+    } <= set(queue_response["required"])
+    for code in ("409", "502", "503"):
         assert decision["responses"][code]["content"]["application/json"][
             "schema"
         ] == {"$ref": "#/components/schemas/EquationReviewFailureResponse"}
@@ -276,7 +291,7 @@ def test__control_app__preserves_organizer_and_defaults_new_ports_unavailable(
     assert equations.status_code == 503
     assert equations.json() == {
         "code": "EQUATION_REVIEW_OWNER_UNAVAILABLE",
-        "detail": "equation review evidence is unavailable",
+        "detail": "equation review owner is unavailable",
     }
 
 
@@ -329,8 +344,8 @@ def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
     assert "projectkoios-ingestion[pdf]==0.0.0" in development
     assert "projectkoios-simulations" not in sources
     assert not {"projectkoios-simulations", "physkit"} & locked_names
-    assert "projectkoios-applications 436d3da is unpushed" in workflow
-    assert "436d3daa286d66528ea04957eb0908c572535406" in workflow
+    assert "projectkoios-applications b25ba8c is unpushed" in workflow
+    assert "b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f" in workflow
     assert "2991f8506ca444f384ad950dfdfc6c76bb2c8546" in workflow
     assert workflow.index("Report unavailable applications owner source") < (
         workflow.index("Check out locked applications owner")
@@ -367,15 +382,13 @@ app = ProjectKoiosApp.create_app(
         deployment_profile=DeploymentProfile.CONTROL,
         equation_review=EquationReviewConfiguration(
             pizzi2020=EquationReviewDocumentConfiguration(
-                bundle_path=root / "bundle.json",
-                regions_root=root / "regions",
                 document_root=root / "document",
             )
         ),
     )
 )
 assert app.state.deployment_profile == "control"
-assert "projectkoios.api.equation_review_owner" in sys.modules
+assert "projectkoios.api.equation_review.owner" in sys.modules
 assert "projectkoios.applications.pdf_corpus_ingestion" in sys.modules
 assert "physkit" not in sys.modules
 assert not any(
@@ -450,8 +463,10 @@ def test__equation_and_transcript_boundaries_have_no_owner_imports() -> None:
     source_root = _REPOSITORY_ROOT / "src" / "python" / "projectkoios" / "api"
     boundary_paths = [
         source_root / "boundary_models.py",
-        source_root / "equation_review_boundary.py",
-        source_root / "equation_review_models.py",
+        source_root / "equation_review" / "boundary.py",
+        source_root / "equation_review" / "models.py",
+        source_root / "equation_review" / "repository.py",
+        source_root / "equation_review" / "router.py",
         source_root / "transcript_review.py",
         source_root / "transcript_review_models.py",
         source_root / "routers" / "equation_review.py",

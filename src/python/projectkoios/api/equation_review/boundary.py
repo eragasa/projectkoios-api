@@ -3,10 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Protocol
 
-from projectkoios.api.equation_review_models import (
-    EquationReviewDecision,
+from projectkoios.api.equation_review.models import (
     EquationReviewDecisionRequest,
     EquationReviewDecisionResponse,
+    EquationReviewQueueResponse,
 )
 
 
@@ -39,7 +39,15 @@ class EquationReviewConcurrentDecision(EquationReviewOwnerFailure):
 
 
 class EquationReviewPartialOutput(EquationReviewOwnerFailure):
-    """Applications found partial, malformed, or invalid review output."""
+    """Applications found partial or invalid append output."""
+
+
+class EquationReviewQueueIncomplete(EquationReviewOwnerFailure):
+    """The explicit completed document package is incomplete."""
+
+
+class EquationReviewQueueMalformed(EquationReviewOwnerFailure):
+    """The package, candidate evidence, or review tree is malformed."""
 
 
 class EquationReviewOwnerUnavailable(EquationReviewOwnerFailure):
@@ -55,11 +63,20 @@ class EquationReviewEvidenceBinding:
     region_image_sha256: str
 
 
-class EquationReviewDecisionStore(Protocol):
-    def latest(
+@dataclass(frozen=True)
+class EquationRegionResource:
+    body: bytes
+    media_type: str
+
+
+class EquationReviewOwner(Protocol):
+    def queue(self) -> EquationReviewQueueResponse: ...
+
+    def region(
         self,
-        binding: EquationReviewEvidenceBinding,
-    ) -> EquationReviewDecision | None: ...
+        candidate_id: str,
+        expected_sha256: str,
+    ) -> EquationRegionResource: ...
 
     def append(
         self,

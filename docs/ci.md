@@ -12,7 +12,7 @@ formatting and Ruff; runs strict mypy; verifies deterministic OpenAPI; and runs
 the full API test suite.
 
 Hosted execution is currently **unavailable** at GitHubTask 02. Reviewed
-applications schema-3 owner `436d3daa286d66528ea04957eb0908c572535406` is
+applications queue owner `b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f` is
 explicitly unpushed, so the workflow reports that blocker and exits before
 attempting its exact checkout. The later checkouts are retained as unreachable
 pins for review and must not be treated as execution evidence. Once that commit
@@ -25,7 +25,7 @@ pull request or branch. A failed task stops later tasks through normal GitHub
 Actions behavior.
 
 The lock is regenerated offline against applications tree
-`3f7d08efa469dd6d1a5bc8e83f0f342ada88123c` and the preserved organizer owner
+`2f32fa9d9b3a5bb452a643dbba34a7dfae461423` and the preserved organizer owner
 commit `2991f8506ca444f384ad950dfdfc6c76bb2c8546`. The selected applications
 `[pdf-corpus]` capability resolves without a simulations or Physkit package
 record; only applications, ingestion, and references participate in the

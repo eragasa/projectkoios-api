@@ -25,6 +25,7 @@ BoundedText = Annotated[str, Field(max_length=100_000)]
 BoundedLabel = Annotated[str, Field(min_length=1, max_length=500)]
 _CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
 _MAX_PHYSICAL_PAGES = 1_000_000
+_MAX_WARNING_IDS = 1_000
 MAX_EQUATION_REVIEW_CANDIDATES = 256
 MAX_EQUATION_REVIEW_REVISIONS = 9_999
 
@@ -57,6 +58,8 @@ class EquationReviewFailureCode(StrEnum):
     EDIT_AFTER_RENDER = "EQUATION_REVIEW_EDIT_AFTER_RENDER"
     CONCURRENT_DECISION = "EQUATION_REVIEW_CONCURRENT_DECISION"
     PARTIAL_OUTPUT = "EQUATION_REVIEW_PARTIAL_OUTPUT"
+    QUEUE_INCOMPLETE = "EQUATION_REVIEW_QUEUE_INCOMPLETE"
+    QUEUE_MALFORMED = "EQUATION_REVIEW_QUEUE_MALFORMED"
     OWNER_UNAVAILABLE = "EQUATION_REVIEW_OWNER_UNAVAILABLE"
 
 
@@ -64,18 +67,19 @@ class EquationSourceIdentityResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
     document_id: OpaqueId
-    source_name: str = Field(min_length=1, max_length=500)
     source_sha256: Sha256
+    page_index: int = Field(ge=0, lt=_MAX_PHYSICAL_PAGES)
     physical_page: int = Field(ge=1, le=_MAX_PHYSICAL_PAGES)
+    printed_page_label: BoundedLabel | None
 
     @model_validator(mode="after")
-    def has_path_free_source_name(self) -> EquationSourceIdentityResponse:
-        if (
-            "/" in self.source_name
-            or "\\" in self.source_name
-            or _CONTROL_CHARACTER.search(self.source_name) is not None
-        ):
-            raise ValueError("equation source names cannot contain path syntax")
+    def has_consistent_path_free_page_identity(
+        self,
+    ) -> EquationSourceIdentityResponse:
+        if self.physical_page != self.page_index + 1:
+            raise ValueError("physical page must be the one-based page index")
+        if self.printed_page_label is not None:
+            _path_free_provenance_label(self.printed_page_label)
         return self
 
 
@@ -106,35 +110,52 @@ class EquationRegionEvidenceResponse(BaseModel):
 
 
 class DeterministicEquationEvidenceResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(
+        extra="forbid",
+        strict=True,
+        allow_inf_nan=False,
+    )
 
-    detector: BoundedLabel
-    detector_version: BoundedLabel
     evidence_sha256: Sha256
-    extracted_text: BoundedText | None
-
-
-class EquationModelProvenanceResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-
-    model_name: BoundedLabel
-    model_sha256: Sha256
-    prompt_version: BoundedLabel
-    request_id: OpaqueId
-    result_id: OpaqueId
+    candidate_sha256: Sha256
+    raw_text: BoundedText
+    source_label: BoundedLabel | None
+    confidence: float = Field(ge=0, le=1)
+    evidence_status: BoundedLabel
+    source_block_id: BoundedLabel
+    detection_input_id: BoundedLabel
+    warning_ids: tuple[BoundedLabel, ...] = Field(max_length=_MAX_WARNING_IDS)
+    processor_name: BoundedLabel
+    processor_version: BoundedLabel
+    configuration_digest: BoundedLabel
 
     @model_validator(mode="after")
-    def has_path_free_labels(self) -> EquationModelProvenanceResponse:
-        _path_free_provenance_label(self.model_name)
-        _path_free_provenance_label(self.prompt_version)
+    def has_path_free_provenance(
+        self,
+    ) -> DeterministicEquationEvidenceResponse:
+        for value in (
+            self.source_label,
+            self.evidence_status,
+            self.source_block_id,
+            self.detection_input_id,
+            self.processor_name,
+            self.processor_version,
+            self.configuration_digest,
+            *self.warning_ids,
+        ):
+            if value is not None:
+                _path_free_provenance_label(value)
+        if len(self.warning_ids) != len(set(self.warning_ids)):
+            raise ValueError("equation warning identities must be unique")
         return self
 
 
-class PendingEquationAssistanceResponse(BaseModel):
+class UnassistedEquationProposalResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    status: Literal["PENDING", "FAILED"]
-    method: BoundedLabel | None
+    status: Literal["NOT_STARTED"]
+    attempt_id: None
+    method: None
     proposal_sha256: None
     proposed_latex: None
 
@@ -142,21 +163,22 @@ class PendingEquationAssistanceResponse(BaseModel):
 class ProposedEquationAssistanceResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
-    status: Literal["PROPOSED"]
+    status: Literal["AUTOMATED_UNREVIEWED"]
+    attempt_id: OpaqueId
     method: BoundedLabel
     proposal_sha256: Sha256
     proposed_latex: str = Field(min_length=1, max_length=100_000)
-    attempt_id: OpaqueId | None = None
-    model_provenance: EquationModelProvenanceResponse | None = None
 
     @model_validator(mode="after")
-    def has_non_path_method(self) -> ProposedEquationAssistanceResponse:
-        _path_free_provenance_label(self.method, allow_separator=True)
+    def has_path_free_method(self) -> ProposedEquationAssistanceResponse:
+        _path_free_provenance_label(self.method)
+        if _text_sha256(self.proposed_latex) != self.proposal_sha256:
+            raise ValueError("assisted proposal hash is inconsistent")
         return self
 
 
 AssistedEquationProposalResponse = Annotated[
-    PendingEquationAssistanceResponse | ProposedEquationAssistanceResponse,
+    UnassistedEquationProposalResponse | ProposedEquationAssistanceResponse,
     Field(discriminator="status"),
 ]
 
@@ -290,7 +312,7 @@ class EquationReviewCandidateResponse(BaseModel):
     region: EquationRegionEvidenceResponse
     deterministic_evidence: DeterministicEquationEvidenceResponse
     display_mode: EquationDisplayMode
-    assistance: AssistedEquationProposalResponse | None
+    assistance: AssistedEquationProposalResponse
     status: EquationReviewStatus
     current_revision: int = Field(ge=0, le=MAX_EQUATION_REVIEW_REVISIONS)
     expected_previous_revision: int = Field(
@@ -315,15 +337,30 @@ class EquationReviewCandidateResponse(BaseModel):
             or self.expected_previous_revision != self.decision.revision
         ):
             raise ValueError("reviewed candidate state is inconsistent")
+        proposal_hash = self.decision.assistance_proposal_sha256
+        if proposal_hash is not None and (
+            not isinstance(
+                self.assistance,
+                ProposedEquationAssistanceResponse,
+            )
+            or self.assistance.proposal_sha256 != proposal_hash
+        ):
+            raise ValueError("decision proposal does not match assistance")
         return self
 
 
 class EquationReviewQueueResponse(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
 
+    contract_id: OpaqueId
+    schema_version: Literal[1]
+    projection_id: OpaqueId
+    package_id: OpaqueId
     document_id: OpaqueId
+    source_sha256: Sha256
     total: int = Field(ge=0, le=MAX_COUNT)
     decided: int = Field(ge=0, le=MAX_COUNT)
+    pending: int = Field(ge=0, le=MAX_COUNT)
     items: tuple[EquationReviewCandidateResponse, ...] = Field(
         max_length=MAX_EQUATION_REVIEW_CANDIDATES
     )
@@ -332,18 +369,24 @@ class EquationReviewQueueResponse(BaseModel):
     def has_consistent_queue(self) -> EquationReviewQueueResponse:
         if self.total != len(self.items):
             raise ValueError("equation candidate total must match the queue")
-        if self.decided != sum(
+        decided = sum(
             candidate.decision is not None for candidate in self.items
-        ):
-            raise ValueError("equation decided count must match the queue")
+        )
+        if self.decided != decided or self.pending != self.total - decided:
+            raise ValueError("equation queue counts are inconsistent")
         candidate_ids = [str(item.candidate_id) for item in self.items]
         if len(candidate_ids) != len(set(candidate_ids)):
             raise ValueError("equation candidate ids must be unique")
         if any(
             candidate.source.document_id != self.document_id
+            or candidate.source.source_sha256 != self.source_sha256
             for candidate in self.items
         ):
-            raise ValueError("equation source document must match the queue")
+            raise ValueError("equation source identity must match the queue")
+        if tuple(sorted(self.items, key=_candidate_sort_key)) != self.items:
+            raise ValueError(
+                "equation candidates are not deterministically ordered"
+            )
         return self
 
 
@@ -390,6 +433,20 @@ class EquationReviewDecisionRequest(BaseModel):
         return self
 
 
+def _candidate_sort_key(
+    candidate: EquationReviewCandidateResponse,
+) -> tuple[object, ...]:
+    region = candidate.region
+    return (
+        candidate.source.page_index,
+        region.y,
+        region.x,
+        region.y + region.height,
+        region.x + region.width,
+        str(candidate.candidate_id),
+    )
+
+
 def _text_sha256(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8", errors="strict")).hexdigest()
 
@@ -429,11 +486,7 @@ def _is_unescaped(value: str, index: int) -> bool:
     return backslashes % 2 == 0
 
 
-def _path_free_provenance_label(
-    value: str,
-    *,
-    allow_separator: bool = False,
-) -> None:
+def _path_free_provenance_label(value: str) -> None:
     if (
         _CONTROL_CHARACTER.search(value) is not None
         or value.startswith(("/", "\\"))
@@ -442,6 +495,6 @@ def _path_free_provenance_label(
         or "\\" in value
         or "../" in value
         or "/.." in value
-        or (not allow_separator and "/" in value)
+        or "/" in value
     ):
         raise ValueError("provenance labels cannot contain path syntax")

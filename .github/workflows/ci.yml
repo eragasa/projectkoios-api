@@ -31,7 +31,7 @@ jobs:
 
       - name: GitHubTask 02 · Report unavailable applications owner source
         run: |
-          echo "::error::projectkoios-applications 436d3da is unpushed; hosted equation-review verification is unavailable"
+          echo "::error::projectkoios-applications b25ba8c is unpushed; hosted equation-review verification is unavailable"
           exit 1
 
       # These exact checkouts are intentionally unreachable until Task 02 is
@@ -40,7 +40,7 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-applications
-          ref: 436d3daa286d66528ea04957eb0908c572535406
+          ref: b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f
           path: projectkoios-applications
           persist-credentials: false
 
