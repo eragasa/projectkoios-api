@@ -2899,6 +2899,158 @@
         "title": "SearchResult",
         "type": "object"
       },
+      "TranscriptCollectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "documents": {
+            "description": "Configured documents in authoritative owner order.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptDocumentSummaryResponse"
+            },
+            "maxItems": 1,
+            "title": "Documents",
+            "type": "array"
+          }
+        },
+        "required": [
+          "documents"
+        ],
+        "title": "TranscriptCollectionResponse",
+        "type": "object"
+      },
+      "TranscriptDocumentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "pages": {
+            "description": "Complete authoritative owner page order. Page indexes are contiguous and zero-based.",
+            "items": {
+              "$ref": "#/components/schemas/TranscriptPageResponse"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Pages",
+            "type": "array"
+          },
+          "physical_page_count": {
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Physical Page Count",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TranscriptStatus"
+          }
+        },
+        "required": [
+          "document_id",
+          "display_name",
+          "status",
+          "physical_page_count",
+          "pages"
+        ],
+        "title": "TranscriptDocumentResponse",
+        "type": "object"
+      },
+      "TranscriptDocumentSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "physical_page_count": {
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Physical Page Count",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TranscriptStatus"
+          }
+        },
+        "required": [
+          "document_id",
+          "display_name",
+          "status",
+          "physical_page_count"
+        ],
+        "title": "TranscriptDocumentSummaryResponse",
+        "type": "object"
+      },
+      "TranscriptPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "page_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Page Id",
+            "type": "string"
+          },
+          "page_index": {
+            "exclusiveMaximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Page Index",
+            "type": "integer"
+          },
+          "physical_page": {
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Physical Page",
+            "type": "integer"
+          },
+          "printed_page_label": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Printed Page Label"
+          },
+          "text": {
+            "description": "Exact owner-supplied parsed page transcript, including whitespace and newlines. Empty text is valid.",
+            "maxLength": 1000000,
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "page_id",
+          "page_index",
+          "physical_page",
+          "printed_page_label",
+          "text"
+        ],
+        "title": "TranscriptPageResponse",
+        "type": "object"
+      },
       "TranscriptReviewCategory": {
         "enum": [
           "TRANSCRIPT_DIFF",
@@ -3395,6 +3547,13 @@
           "AUTOMATED_UNREVIEWED"
         ],
         "title": "TranscriptReviewStatus",
+        "type": "string"
+      },
+      "TranscriptStatus": {
+        "enum": [
+          "AUTOMATED_UNREVIEWED"
+        ],
+        "title": "TranscriptStatus",
         "type": "string"
       },
       "UnassistedEquationProposalResponse": {
@@ -4676,6 +4835,142 @@
         "summary": "Read Source",
         "tags": [
           "transcript-reviews"
+        ]
+      }
+    },
+    "/transcripts": {
+      "get": {
+        "operationId": "read_collection_transcripts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptCollectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript provider failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript provider returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The configured transcript owner is unavailable."
+          }
+        },
+        "summary": "Read Collection",
+        "tags": [
+          "transcripts"
+        ]
+      }
+    },
+    "/transcripts/{document_id}": {
+      "get": {
+        "operationId": "read_document_transcripts__document_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "document_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Document Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscriptDocumentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The requested configured transcript was not found."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript provider failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The transcript provider returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiErrorResponse"
+                }
+              }
+            },
+            "description": "The configured transcript owner is unavailable."
+          }
+        },
+        "summary": "Read Document",
+        "tags": [
+          "transcripts"
         ]
       }
     }

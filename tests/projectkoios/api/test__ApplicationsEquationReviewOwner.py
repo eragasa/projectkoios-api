@@ -42,6 +42,7 @@ from projectkoios.api.routers.equation_review import (
     create_equation_review_router,
 )
 from projectkoios.applications.pdf_corpus_ingestion import (
+    DOCUMENT_PACKAGE_SCHEMA_VERSION,
     AssistedEquationAttempt,
     EquationReviewConcurrencyError,
     EquationReviewDisposition,
@@ -253,7 +254,7 @@ def _document_root(
         "document_key": document_id,
         "equation_detection_result_id": detection_id,
         "extraction_bundle_id": extraction_id,
-        "schema_version": 1,
+        "schema_version": DOCUMENT_PACKAGE_SCHEMA_VERSION,
         "source_byte_size": len(source),
         "source_sha256": source_sha256,
         "stages": {

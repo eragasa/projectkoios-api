@@ -68,7 +68,7 @@ quote-style = "double"
 indent-style = "space"
 
 [tool.uv.sources]
-projectkoios = { path = "../projectkoios", editable = true }
+projectkoios = { git = "https://github.com/eragasa/projectkoios.git", rev = "88c37990fd37650b3091b2cb2f605a589ab624f4" }
 projectkoios-agent = { path = "../projectkoios-agent", editable = true }
 projectkoios-applications = { path = "../projectkoios-applications", editable = false }
 projectkoios-ingestion = { path = "../projectkoios-ingestion", editable = true }
