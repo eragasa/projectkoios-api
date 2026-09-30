@@ -33,15 +33,15 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-applications
-          ref: 97df0f342cb87fcbf8071f30f13f740e43a3388e
+          ref: f926778101e3d74b420f8e1e4189cf2f5d939b6a
           path: projectkoios-applications
           persist-credentials: false
 
       - name: GitHubTask 03 · Verify locked applications owner
         working-directory: projectkoios-applications
         run: |
-          test "$(git rev-parse HEAD)" = "97df0f342cb87fcbf8071f30f13f740e43a3388e"
-          test "$(git rev-parse HEAD^{tree})" = "42bab8dc5e7d03fcd19ee7c7a03c890b0656ecd2"
+          test "$(git rev-parse HEAD)" = "f926778101e3d74b420f8e1e4189cf2f5d939b6a"
+          test "$(git rev-parse HEAD^{tree})" = "eeb8563adc6b631443e748473a08aee00583758c"
 
       - name: GitHubTask 04 · Check out locked ingestion dependency
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6

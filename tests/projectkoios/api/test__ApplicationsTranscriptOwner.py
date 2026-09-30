@@ -18,14 +18,12 @@ from projectkoios.api.transcript_owner import ApplicationsTranscriptOwner
 from projectkoios.api.transcripts import TranscriptUnavailable
 from projectkoios.applications.pdf_corpus_ingestion import (
     DOCUMENT_TRANSCRIPT_CONTRACT_ID,
-    DOCUMENT_TRANSCRIPT_SCHEMA_VERSION,
     DocumentTranscriptIncompleteError,
     DocumentTranscriptMalformedError,
     DocumentTranscriptPage,
     DocumentTranscriptProjection,
     DocumentTranscriptStatus,
     DocumentTranscriptUnavailableError,
-    DocumentTranscriptUnsupportedPackageError,
 )
 from projectkoios.references import AuthorizedRoot
 from pytest import MonkeyPatch
@@ -34,7 +32,6 @@ from pytest import MonkeyPatch
 def _projection() -> DocumentTranscriptProjection:
     return DocumentTranscriptProjection(
         contract_id=DOCUMENT_TRANSCRIPT_CONTRACT_ID,
-        schema_version=DOCUMENT_TRANSCRIPT_SCHEMA_VERSION,
         document_id="document-001",
         display_name="Synthetic document",
         status=DocumentTranscriptStatus.AUTOMATED_UNREVIEWED,
@@ -146,18 +143,11 @@ def test__applications_transcript_owner__maps_unavailable_failures(
     assert caught.value.__cause__ is owner_error
 
 
-@pytest.mark.parametrize(
-    "owner_error",
-    [
-        DocumentTranscriptMalformedError("private malformed detail"),
-        DocumentTranscriptUnsupportedPackageError("private schema detail"),
-    ],
-)
 def test__applications_transcript_owner__maps_malformed_owner_failure(
     tmp_path: Path,
     monkeypatch: MonkeyPatch,
-    owner_error: Exception,
 ) -> None:
+    owner_error = DocumentTranscriptMalformedError("private malformed detail")
     owner = _owner(tmp_path, monkeypatch, owner_error)
 
     with pytest.raises(MalformedProviderProjection) as caught:

@@ -17,9 +17,9 @@ snapshot `7454c022a0844496a87032c7fa728087a78ef662` (tree
   projection; and
 - applications exact transcript projection plus the retained deterministic
   equation queue and schema `3` owner at
-  `97df0f342cb87fcbf8071f30f13f740e43a3388e` (tree
-  `42bab8dc5e7d03fcd19ee7c7a03c890b0656ecd2`, parent
-  `b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f`).
+  `f926778101e3d74b420f8e1e4189cf2f5d939b6a` (tree
+  `eeb8563adc6b631443e748473a08aee00583758c`, parent
+  `0cbc74ff234b8c463f29de98dcd15d3599952ba6`).
 
 The primary course/project repositories and the working organizer owner
 integration are retained unchanged in behavior. The equation-review and
@@ -271,18 +271,19 @@ prior CI core tree without changing core behavior. These lock aids do not
 broaden the control runtime extra. There is no API dependency or source mapping
 for `projectkoios-simulations` or Physkit.
 
-Applications commit `97df0f3` retains separate simulation, example, and
-development capabilities while owning the exact transcript projection,
-deterministic equation queue, and canonical schema-3 reviewer math bodies. Lock
-consistency against tree `42bab8dc5e7d03fcd19ee7c7a03c890b0656ecd2`
-resolves 47 packages (including the preserved organizer owner) and produces no
-`projectkoios-simulations` or Physkit package record. A guarded import/startup
+Applications commit `f926778` retains separate simulation, example, and
+development capabilities while owning the canonical unversioned transcript
+projection, deterministic equation queue, and canonical schema-3 reviewer math
+bodies. Lock consistency against tree
+`eeb8563adc6b631443e748473a08aee00583758c` resolves 47 packages (including the
+preserved organizer owner) and produces no `projectkoios-simulations` or Physkit
+package record. A guarded import/startup
 check also proves that the configured equation-review and transcript control
 owners can load through `[pdf-corpus]` while imports of simulations and Physkit
 are rejected. The API contains no copied or extracted owner persistence or
 artifact-parsing code.
 
-Hosted verification is pinned to applications commit `97df0f3` and ingestion
+Hosted verification is pinned to applications commit `f926778` and ingestion
 commit `be60640`, verifies the Applications tree, and proceeds through the
 locked dependency and API checks. Both owner commits remain unpushed, so hosted
 checkout is expected to report owner-source unavailability until they are

@@ -424,8 +424,8 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     }
     assert not {"projectkoios-simulations", "physkit"} & locked_names
     assert "Check out published applications owner" in workflow
-    assert "97df0f342cb87fcbf8071f30f13f740e43a3388e" in workflow
-    assert "42bab8dc5e7d03fcd19ee7c7a03c890b0656ecd2" in workflow
+    assert "f926778101e3d74b420f8e1e4189cf2f5d939b6a" in workflow
+    assert "eeb8563adc6b631443e748473a08aee00583758c" in workflow
     assert "be60640bec4fe15cc88b24161545eb1027ffbd2e" in workflow
     assert "88c37990fd37650b3091b2cb2f605a589ab624f4" in workflow
     assert "b102469ba33bc6c677ac93d1186a72b1496f5bc8" in workflow

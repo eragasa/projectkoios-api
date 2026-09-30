@@ -134,10 +134,11 @@ revision exists.
 
 The owner adapters are declared by the retained `equation-review-control`
 optional extra and imported only for configured PDF-corpus control capabilities.
-Applications commit `97df0f3` preserves `[pdf-corpus]` isolation from
-simulations/Physkit and owns the exact transcript projection plus deterministic
-equation queue. That commit and ingestion replay owner `be60640` remain unpushed,
-so hosted verification reports owner-source unavailability.
+Applications commit `f926778` preserves `[pdf-corpus]` isolation from
+simulations/Physkit and owns the canonical unversioned transcript projection
+plus deterministic equation queue. That commit and ingestion replay owner
+`be60640` remain unpushed, so hosted verification reports owner-source
+unavailability.
 
 ## Parsed transcript display
 

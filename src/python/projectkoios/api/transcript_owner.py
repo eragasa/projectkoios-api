@@ -14,9 +14,6 @@ from projectkoios.applications.pdf_corpus_ingestion import (
     DOCUMENT_TRANSCRIPT_CONTRACT_ID as OWNER_CONTRACT_ID,
 )
 from projectkoios.applications.pdf_corpus_ingestion import (
-    DOCUMENT_TRANSCRIPT_SCHEMA_VERSION as OWNER_SCHEMA_VERSION,
-)
-from projectkoios.applications.pdf_corpus_ingestion import (
     MAX_DOCUMENT_TRANSCRIPT_DISPLAY_NAME_BYTES as OWNER_MAX_DISPLAY_NAME_BYTES,
 )
 from projectkoios.applications.pdf_corpus_ingestion import (
@@ -49,7 +46,6 @@ from pydantic import ValidationError
 _EXPECTED_CONTRACT_ID = (
     "projectkoios.applications.pdf-corpus-document-transcript"
 )
-_EXPECTED_SCHEMA_VERSION = 1
 _EXPECTED_MAX_DISPLAY_NAME_BYTES = 1_024
 
 
@@ -91,7 +87,6 @@ class ApplicationsTranscriptOwner:
 def _require_owner_contract() -> None:
     if (
         OWNER_CONTRACT_ID != _EXPECTED_CONTRACT_ID
-        or OWNER_SCHEMA_VERSION != _EXPECTED_SCHEMA_VERSION
         or OWNER_MAX_DISPLAY_NAME_BYTES != _EXPECTED_MAX_DISPLAY_NAME_BYTES
     ):
         raise TranscriptUnavailable
@@ -102,7 +97,6 @@ def _response(projection: object) -> TranscriptDocumentResponse:
         raise TypeError("owner transcript projection type is invalid")
     if (
         projection.contract_id != OWNER_CONTRACT_ID
-        or projection.schema_version != OWNER_SCHEMA_VERSION
         or projection.status is not OwnerTranscriptStatus.AUTOMATED_UNREVIEWED
     ):
         raise ValueError("owner transcript contract is inconsistent")

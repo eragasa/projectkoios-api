@@ -12,8 +12,8 @@ formatting and Ruff; runs strict mypy; verifies deterministic OpenAPI; and runs
 the full API test suite.
 
 Hosted execution is pinned to the Applications equation/transcript owner at
-`97df0f342cb87fcbf8071f30f13f740e43a3388e`, verifies its exact tree
-`42bab8dc5e7d03fcd19ee7c7a03c890b0656ecd2`, and checks out the transcript
+`f926778101e3d74b420f8e1e4189cf2f5d939b6a`, verifies its exact tree
+`eeb8563adc6b631443e748473a08aee00583758c`, and checks out the transcript
 replay owner at ingestion commit
 `be60640bec4fe15cc88b24161545eb1027ffbd2e`. It then continues through the
 remaining pinned owners and validation tasks. A checkout or identity mismatch
@@ -27,7 +27,7 @@ pull request or branch. A failed task stops later tasks through normal GitHub
 Actions behavior.
 
 The lock is regenerated offline against applications tree
-`42bab8dc5e7d03fcd19ee7c7a03c890b0656ecd2` and the merged organizer owner
+`eeb8563adc6b631443e748473a08aee00583758c` and the merged organizer owner
 commit `e531cff8f65422d9c0cfab5aaa903c1ebdd778c0` (tree
 `84b9182d5fffc594bae6520de49e77ee7e535cf8`). Project Koios core is pinned to
 commit `88c37990fd37650b3091b2cb2f605a589ab624f4` (tree
