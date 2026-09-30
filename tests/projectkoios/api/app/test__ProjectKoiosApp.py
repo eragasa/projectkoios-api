@@ -108,6 +108,7 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     assert "/citation-reviews" not in paths
     assert "/literature-review/progress" not in paths
     assert "/equation-reviews" not in paths
+    assert "/transcripts" not in paths
     denied = TestClient(app).put(
         "/equation-reviews/pizzi2020:eq:001/decision",
         json={
@@ -137,4 +138,6 @@ def test__create_app__control_profile_includes_control_routes() -> None:
     assert "/citation-reviews" in paths
     assert "/literature-review/progress" in paths
     assert "/equation-reviews" in paths
+    assert "/transcripts" in paths
+    assert "/transcripts/{document_id}" in paths
     assert app.state.deployment_profile == "control"

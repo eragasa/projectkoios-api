@@ -41,7 +41,13 @@ from projectkoios.api.routers.search import create_search_router
 from projectkoios.api.routers.transcript_review import (
     create_transcript_review_router,
 )
+from projectkoios.api.routers.transcripts import create_transcripts_router
 from projectkoios.api.transcript_review import TranscriptReviewProvider
+from projectkoios.api.transcripts import (
+    TranscriptOwner,
+    TranscriptProvider,
+    TranscriptRepository,
+)
 from projectkoios.runtime import ProjectKoiosServices, create_services
 
 
@@ -53,6 +59,7 @@ class ProjectKoiosApp:
         github_tasks: GitHubTaskProvider | None = None,
         organizer: OrganizerProvider | None = None,
         transcript_reviews: TranscriptReviewProvider | None = None,
+        transcripts: TranscriptProvider | None = None,
     ) -> None:
         self.configuration = configuration or ProjectKoiosAppConfiguration()
         self.courses = PublicCourseRepository(
@@ -85,6 +92,7 @@ class ProjectKoiosApp:
                 github_tasks,
                 organizer,
                 transcript_reviews,
+                transcripts,
             )
 
     def _register_control_routes(
@@ -93,6 +101,7 @@ class ProjectKoiosApp:
         github_tasks: GitHubTaskProvider | None,
         organizer: OrganizerProvider | None,
         transcript_reviews: TranscriptReviewProvider | None,
+        transcripts: TranscriptProvider | None,
     ) -> None:
         control_services = services or create_services(self.configuration)
         citation_review = self.configuration.citation_review
@@ -126,6 +135,20 @@ class ProjectKoiosApp:
         organizer_provider = organizer or OrganizerCatalog(
             self.configuration.organizer.catalog_path
         )
+        transcript_provider = transcripts
+        if transcript_provider is None:
+            transcript_owner: TranscriptOwner | None = None
+            transcript_root = self.configuration.transcripts.document_root
+            if transcript_root is not None:
+                from projectkoios.api.transcript_owner import (
+                    ApplicationsTranscriptOwner,
+                )
+
+                transcript_owner = ApplicationsTranscriptOwner(transcript_root)
+            transcript_provider = TranscriptRepository(
+                self.configuration.transcripts,
+                owner=transcript_owner,
+            )
 
         self.app.include_router(create_search_router(control_services.search))
         self.app.include_router(
@@ -137,6 +160,7 @@ class ProjectKoiosApp:
         )
         self.app.include_router(create_equation_review_router(equation_reviews))
         self.app.include_router(create_organizer_router(organizer_provider))
+        self.app.include_router(create_transcripts_router(transcript_provider))
         self.app.include_router(
             create_transcript_review_router(transcript_reviews)
         )
@@ -149,6 +173,7 @@ class ProjectKoiosApp:
         github_tasks: GitHubTaskProvider | None = None,
         organizer: OrganizerProvider | None = None,
         transcript_reviews: TranscriptReviewProvider | None = None,
+        transcripts: TranscriptProvider | None = None,
     ) -> FastAPI:
         projectkoios_app = cls(
             configuration=configuration,
@@ -156,5 +181,6 @@ class ProjectKoiosApp:
             github_tasks=github_tasks,
             organizer=organizer,
             transcript_reviews=transcript_reviews,
+            transcripts=transcripts,
         )
         return projectkoios_app.app

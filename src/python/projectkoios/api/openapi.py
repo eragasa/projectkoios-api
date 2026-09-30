@@ -10,6 +10,7 @@ from projectkoios.api.app import ProjectKoiosApp
 from projectkoios.api.config import (
     DeploymentProfile,
     ProjectKoiosAppConfiguration,
+    TranscriptConfiguration,
 )
 
 _DEFAULT_OUTPUT = Path("openapi/control.openapi.json")
@@ -24,6 +25,7 @@ def combined_openapi_schema() -> dict[str, Any]:
             version="0.0.0",
             debug=False,
             deployment_profile=DeploymentProfile.CONTROL,
+            transcripts=TranscriptConfiguration(document_root=None),
         )
     )
     return app.openapi()

@@ -91,6 +91,44 @@ def test__equation_review__rejects_empty_explicit_document_root(
         ProjectKoiosAppConfiguration()
 
 
+def test__transcripts__read_one_explicit_document_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOIOS_TRANSCRIPT_DOCUMENT_ROOT",
+        "~/koios/transcripts/document",
+    )
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert (
+        configuration.transcripts.document_root
+        == Path("~/koios/transcripts/document").expanduser()
+    )
+
+
+def test__transcripts__have_no_default_document_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("KOIOS_TRANSCRIPT_DOCUMENT_ROOT", raising=False)
+
+    configuration = ProjectKoiosAppConfiguration()
+
+    assert configuration.transcripts.document_root is None
+
+
+def test__transcripts__reject_an_empty_document_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KOIOS_TRANSCRIPT_DOCUMENT_ROOT", "")
+
+    with pytest.raises(
+        ValueError,
+        match="KOIOS_TRANSCRIPT_DOCUMENT_ROOT must not be empty",
+    ):
+        ProjectKoiosAppConfiguration()
+
+
 def test__course_catalog__reads_explicit_path(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

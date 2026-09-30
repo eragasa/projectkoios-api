@@ -22,7 +22,12 @@ def invoke_provider[ValueT](call: Callable[[], ValueT]) -> ValueT:
 
     try:
         return call()
-    except ProjectionNotFound, ProviderUnavailable:
+    except (
+        ProjectionNotFound,
+        ProviderUnavailable,
+        MalformedProviderProjection,
+        UnexpectedProviderFailure,
+    ):
         raise
     except ValidationError as error:
         raise MalformedProviderProjection from error

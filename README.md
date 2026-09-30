@@ -132,11 +132,32 @@ queue and returns the refreshed latest revision rather than trusting the earlier
 read. Assisted text remains `automated_unreviewed` until that explicit human
 revision exists.
 
-The owner adapter is declared by the `equation-review-control` optional extra
-and imported only for a configured control capability. Applications commit
-`b25ba8c` preserves `[pdf-corpus]` isolation from simulations/Physkit and owns
-the deterministic queue. That commit remains unpushed, so hosted verification
-reports owner-source unavailability.
+The owner adapters are declared by the retained `equation-review-control`
+optional extra and imported only for configured PDF-corpus control capabilities.
+Applications commit `f926778` preserves `[pdf-corpus]` isolation from
+simulations/Physkit and owns the canonical unversioned transcript projection
+plus deterministic equation queue. That commit and ingestion replay owner
+`be60640` remain unpushed, so hosted verification reports owner-source
+unavailability.
+
+## Parsed transcript display
+
+The control profile exposes a minimal read-only transcript display at
+`GET /transcripts` and `GET /transcripts/{document_id}`. Configure one completed
+document package explicitly; there is no default path or directory discovery:
+
+```bash
+KOIOS_TRANSCRIPT_DOCUMENT_ROOT=/private/document-package
+```
+
+The applications-owned transcript projection verifies the configured completed
+package before the API returns it. Responses contain only opaque document/page
+identities, a display name, explicit `AUTOMATED_UNREVIEWED` status, exact ordered
+page identity, exact nullable printed labels, and exact page text. Empty page text
+is preserved. Paths, extraction configuration, manifests, hashes, and artifact
+semantics are not exposed. An unconfigured collection is empty; a missing opaque
+document identity is `404`, while unavailable or invalid owner projections use
+sanitized provider errors.
 
 ## Live GitHubTask projection
 

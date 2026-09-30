@@ -5,7 +5,10 @@ import asyncio
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from projectkoios.api.provider_boundary import invoke_provider
+from projectkoios.api.provider_boundary import (
+    MalformedProviderProjection,
+    invoke_provider,
+)
 from projectkoios.api.routers.transcript_review import (
     create_transcript_review_router,
 )
@@ -57,6 +60,19 @@ def test__provider_boundary__does_not_catch_cancellation_or_system_exit() -> (
 
 
 def _raise_base(error: BaseException) -> None:
+    raise error
+
+
+def test__provider_boundary__preserves_declared_malformed_projection() -> None:
+    error = MalformedProviderProjection("private malformed detail")
+
+    with pytest.raises(MalformedProviderProjection) as caught:
+        invoke_provider(lambda: _raise_error(error))
+
+    assert caught.value is error
+
+
+def _raise_error(error: Exception) -> None:
     raise error
 
 

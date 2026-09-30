@@ -15,10 +15,11 @@ snapshot `7454c022a0844496a87032c7fa728087a78ef662` (tree
   `6e435cf2ca1b20ed129f806e1874eabed193ec41`, specifically
   `docs/equation-review-api-contract.md` and its provisional TypeScript
   projection; and
-- applications deterministic equation queue and schema `3` owner
-  `b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f` (tree
-  `2f32fa9d9b3a5bb452a643dbba34a7dfae461423`, parent
-  `436d3daa286d66528ea04957eb0908c572535406`).
+- applications exact transcript projection plus the retained deterministic
+  equation queue and schema `3` owner at
+  `f926778101e3d74b420f8e1e4189cf2f5d939b6a` (tree
+  `eeb8563adc6b631443e748473a08aee00583758c`, parent
+  `0cbc74ff234b8c463f29de98dcd15d3599952ba6`).
 
 The primary course/project repositories and the working organizer owner
 integration are retained unchanged in behavior. The equation-review and
@@ -32,6 +33,8 @@ The API owns only:
 - Pydantic request and response DTOs;
 - HTTP paths, query limits, status codes, and safe error envelopes;
 - narrow `Protocol` ports for owner-supplied projections;
+- a minimal path-free display projection for one explicitly configured parsed
+  transcript;
 - the explicit, content-addressed `pizzi2020` equation read boundary;
 - a narrow adapter to the applications-owned deterministic queue and schema `3`
   append seams, with read compatibility for legacy schema-2 revisions; and
@@ -70,6 +73,40 @@ when no event is available, polls once per second, and ends after client
 disconnection. Control accepts only `on`, `pause`, or `off` and delegates mode
 and lifecycle behavior to the configured `OrganizerCatalog`. No organizer
 proposal route is introduced by this integration.
+
+## Parsed transcript display surface
+
+The read-only control endpoints are:
+
+```text
+GET /transcripts
+GET /transcripts/{document_id}
+```
+
+`KOIOS_TRANSCRIPT_DOCUMENT_ROOT` may bind one completed document package. It has
+no default, and neither the API nor Applications scans for package roots. An
+unconfigured collection is the valid empty response `{"documents": []}`; an
+unconfigured or nonmatching opaque detail identity is a fixed `404`.
+
+The API calls the Applications-owned transcript projection and deliberately omits
+its package, manifest, source, hash, and extraction evidence. The collection and
+detail expose only opaque document/page identities, a bounded display name,
+explicit `AUTOMATED_UNREVIEWED` status, physical page count, exact nullable
+printed labels, and exact page text. Page IDs are owner-supplied operator-visible
+opaque identities and are never client-derived. Empty text is valid and
+preserved. Detail contains every physical page in the owner's authoritative
+order: `page_index` is contiguous from zero, `physical_page` equals
+`page_index + 1`, page identities
+are unique, and the number of pages exactly equals `physical_page_count`.
+
+One collection contains at most one configured document. A document contains
+1–10,000 pages, each page contains at most 1,000,000 text characters, and total
+page text is limited to 10,000,000 characters. All DTOs reject extra fields and
+all identities use the shared 256-character path-free opaque-ID contract.
+Provider unavailability maps to a fixed `503`, malformed owner projections to a
+fixed `502`, and unexpected failures to a fixed `500`; private exception text is
+never returned. This display surface does not mutate or claim human review and
+is separate from the richer `/transcript-reviews` evidence surface below.
 
 ## Transcript review surface
 
@@ -219,30 +256,35 @@ consumer moves to this contract, it must:
 The organizer runtime remains the primary dependency
 `projectkoios-agent==0.0.0`, pinned in CI to merged commit
 `e531cff8f65422d9c0cfab5aaa903c1ebdd778c0` (tree
-`84b9182d5fffc594bae6520de49e77ee7e535cf8`). The private equation adapter is
-declared behind the API `equation-review-control` optional extra. Public startup
-and an unconfigured
-control profile do not import `projectkoios.applications`; only construction of
-a configured equation-review control owner imports the owner chain. The only
-applications capability selected by that runtime extra is
+`84b9182d5fffc594bae6520de49e77ee7e535cf8`). The private PDF-corpus owner
+adapters are declared behind the retained API `equation-review-control` optional
+extra. Public startup and an unconfigured control profile do not import
+`projectkoios.applications`; only construction of a configured equation-review
+or transcript control owner imports the owner chain. The only applications
+capability selected by that runtime extra is
 `projectkoios-applications[pdf-corpus]==0.1.0.dev0`. The development extra also
 names `projectkoios-ingestion[pdf]` so `uv` can bind that unpublished transitive
 requirement to the reviewed local source; dependency sources are not inherited
-from another package. This local lock aid does not broaden the control runtime
-extra. There is no API dependency or source mapping for
-`projectkoios-simulations` or Physkit.
+from another package. The API maps Project Koios core to exact commit
+`88c37990fd37650b3091b2cb2f605a589ab624f4`, matching ingestion's source and the
+prior CI core tree without changing core behavior. These lock aids do not
+broaden the control runtime extra. There is no API dependency or source mapping
+for `projectkoios-simulations` or Physkit.
 
-Applications commit `b25ba8c` retains separate simulation, example, and
-development capabilities while owning the deterministic queue and canonical
-schema-3 reviewer math bodies. Lock consistency against tree
-`2f32fa9d9b3a5bb452a643dbba34a7dfae461423` resolves
-47 packages (including the preserved organizer owner) and produces no
-`projectkoios-simulations` or Physkit package
-record. A guarded import/startup
-check also proves that the configured equation-review control owner can load
-through `[pdf-corpus]` while imports of simulations and Physkit are rejected.
-The API contains no copied or extracted owner persistence code.
+Applications commit `f926778` retains separate simulation, example, and
+development capabilities while owning the canonical unversioned transcript
+projection, deterministic equation queue, and canonical schema-3 reviewer math
+bodies. Lock consistency against tree
+`eeb8563adc6b631443e748473a08aee00583758c` resolves 47 packages (including the
+preserved organizer owner) and produces no `projectkoios-simulations` or Physkit
+package record. A guarded import/startup
+check also proves that the configured equation-review and transcript control
+owners can load through `[pdf-corpus]` while imports of simulations and Physkit
+are rejected. The API contains no copied or extracted owner persistence or
+artifact-parsing code.
 
-Hosted verification checks out public applications commit `b25ba8c`, verifies
-its exact tree, and proceeds through the pinned dependency and API checks. No
-installation was performed as part of the local compatibility update.
+Hosted verification is pinned to applications commit `f926778` and ingestion
+commit `be60640`, verifies the Applications tree, and proceeds through the
+locked dependency and API checks. Both owner commits remain unpushed, so hosted
+checkout is expected to report owner-source unavailability until they are
+published. No push or installation was performed by this change.

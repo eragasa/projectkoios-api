@@ -56,6 +56,13 @@ class EquationReviewDocumentConfiguration:
 
 
 @dataclass(frozen=True)
+class TranscriptConfiguration:
+    document_root: Path | None = field(
+        default_factory=lambda: _configured_transcript_document_root()
+    )
+
+
+@dataclass(frozen=True)
 class EquationReviewConfiguration:
     pizzi2020: EquationReviewDocumentConfiguration | None = field(
         default_factory=lambda: _configured_pizzi2020_equation_review()
@@ -120,6 +127,9 @@ class ProjectKoiosAppConfiguration:
     equation_review: EquationReviewConfiguration = field(
         default_factory=EquationReviewConfiguration
     )
+    transcripts: TranscriptConfiguration = field(
+        default_factory=TranscriptConfiguration
+    )
     organizer: OrganizerConfiguration = field(
         default_factory=OrganizerConfiguration
     )
@@ -157,6 +167,15 @@ def _configured_pizzi2020_equation_review() -> (
     return EquationReviewDocumentConfiguration(
         document_root=Path(document_root).expanduser(),
     )
+
+
+def _configured_transcript_document_root() -> Path | None:
+    document_root = os.environ.get("KOIOS_TRANSCRIPT_DOCUMENT_ROOT")
+    if document_root is None:
+        return None
+    if not document_root:
+        raise ValueError("KOIOS_TRANSCRIPT_DOCUMENT_ROOT must not be empty")
+    return Path(document_root).expanduser()
 
 
 def _configured_course_catalog() -> Path | None:

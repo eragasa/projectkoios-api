@@ -7,6 +7,7 @@ import sys
 import tomllib
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 from projectkoios.api.app import ProjectKoiosApp
 from projectkoios.api.config import (
@@ -45,6 +46,8 @@ _EXPECTED_PATHS = {
     "/transcript-reviews/{document_id}",
     "/transcript-reviews/{document_id}/source",
     "/transcript-reviews/{document_id}/assets/{asset_id}",
+    "/transcripts",
+    "/transcripts/{document_id}",
 }
 
 
@@ -130,6 +133,53 @@ def test__combined_openapi__documents_transcript_binary_errors_and_limits() -> (
             "nosniff"
         )
         for code in ("404", "500", "502", "503"):
+            assert operation["responses"][code]["content"]["application/json"][
+                "schema"
+            ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
+
+
+def test__combined_openapi__publishes_transcript_display_contract() -> None:
+    schema = combined_openapi_schema()
+    collection = schema["paths"]["/transcripts"]["get"]
+    detail = schema["paths"]["/transcripts/{document_id}"]["get"]
+    models = schema["components"]["schemas"]
+
+    assert collection["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/TranscriptCollectionResponse"}
+    assert detail["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/TranscriptDocumentResponse"}
+    assert models["TranscriptStatus"]["enum"] == ["AUTOMATED_UNREVIEWED"]
+    assert (
+        models["TranscriptCollectionResponse"]["properties"]["documents"][
+            "maxItems"
+        ]
+        == 1
+    )
+    document = models["TranscriptDocumentResponse"]
+    assert document["properties"]["physical_page_count"] == {
+        "maximum": 10_000.0,
+        "minimum": 1,
+        "title": "Physical Page Count",
+        "type": "integer",
+    }
+    assert document["properties"]["pages"]["minItems"] == 1
+    assert document["properties"]["pages"]["maxItems"] == 10_000
+    page = models["TranscriptPageResponse"]
+    assert set(page["required"]) == {
+        "page_id",
+        "page_index",
+        "physical_page",
+        "printed_page_label",
+        "text",
+    }
+    assert page["properties"]["text"]["maxLength"] == 1_000_000
+    for operation, codes in (
+        (collection, ("500", "502", "503")),
+        (detail, ("404", "500", "502", "503")),
+    ):
+        for code in codes:
             assert operation["responses"][code]["content"]["application/json"][
                 "schema"
             ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
@@ -262,6 +312,18 @@ def test__combined_openapi__is_deterministic_and_committed() -> None:
     assert json.loads(generated)["openapi"].startswith("3.")
 
 
+def test__combined_openapi__ignores_runtime_transcript_root(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    expected = combined_openapi_bytes()
+    monkeypatch.setenv(
+        "KOIOS_TRANSCRIPT_DOCUMENT_ROOT",
+        "/private/runtime-only-document",
+    )
+
+    assert combined_openapi_bytes() == expected
+
+
 def test__control_app__preserves_organizer_and_defaults_new_ports_unavailable(
     tmp_path: Path,
 ) -> None:
@@ -276,7 +338,9 @@ def test__control_app__preserves_organizer_and_defaults_new_ports_unavailable(
     client = TestClient(app)
 
     organizer = client.get("/organizer/status")
-    transcripts = client.get("/transcript-reviews")
+    transcript_reviews = client.get("/transcript-reviews")
+    transcripts = client.get("/transcripts")
+    missing_transcript = client.get("/transcripts/not-configured")
     equations = client.get(
         "/equation-reviews",
         params={"document_id": "pizzi2020"},
@@ -284,9 +348,15 @@ def test__control_app__preserves_organizer_and_defaults_new_ports_unavailable(
 
     assert organizer.status_code == 200
     assert organizer.json()["desired_mode"] == "off"
-    assert transcripts.status_code == 503
-    assert transcripts.json() == {
+    assert transcript_reviews.status_code == 503
+    assert transcript_reviews.json() == {
         "detail": "transcript review provider is unavailable"
+    }
+    assert transcripts.status_code == 200
+    assert transcripts.json() == {"documents": []}
+    assert missing_transcript.status_code == 404
+    assert missing_transcript.json() == {
+        "detail": "transcript document was not found"
     }
     assert equations.status_code == 503
     assert equations.json() == {
@@ -310,12 +380,13 @@ def test__public_openapi__keeps_control_contracts_absent() -> None:
             "/github/tasks",
             "/organizer/status",
             "/transcript-reviews",
+            "/transcripts",
         }
         & paths
     )
 
 
-def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
+def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     project = tomllib.loads(
         (_REPOSITORY_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     )
@@ -343,14 +414,21 @@ def test__equation_owner__has_narrow_locked_dependency_seam() -> None:
     ]
     assert "projectkoios-ingestion[pdf]==0.0.0" in development
     assert "projectkoios-simulations" not in sources
+    assert sources["projectkoios"] == {
+        "git": "https://github.com/eragasa/projectkoios.git",
+        "rev": "88c37990fd37650b3091b2cb2f605a589ab624f4",
+    }
     assert sources["projectkoios-applications"] == {
         "path": "../projectkoios-applications",
         "editable": False,
     }
     assert not {"projectkoios-simulations", "physkit"} & locked_names
     assert "Check out published applications owner" in workflow
-    assert "b25ba8cc828b2d67bb8b8e20dd6bc5b28515547f" in workflow
-    assert "2f32fa9d9b3a5bb452a643dbba34a7dfae461423" in workflow
+    assert "f926778101e3d74b420f8e1e4189cf2f5d939b6a" in workflow
+    assert "eeb8563adc6b631443e748473a08aee00583758c" in workflow
+    assert "be60640bec4fe15cc88b24161545eb1027ffbd2e" in workflow
+    assert "88c37990fd37650b3091b2cb2f605a589ab624f4" in workflow
+    assert "b102469ba33bc6c677ac93d1186a72b1496f5bc8" in workflow
     assert "e531cff8f65422d9c0cfab5aaa903c1ebdd778c0" in workflow
     assert workflow.index("Check out published applications owner") < (
         workflow.index("Verify locked applications owner")
@@ -380,6 +458,7 @@ from projectkoios.api.config import (
     EquationReviewConfiguration,
     EquationReviewDocumentConfiguration,
     ProjectKoiosAppConfiguration,
+    TranscriptConfiguration,
 )
 root = Path.cwd() / "deliberately-unavailable-test-root"
 app = ProjectKoiosApp.create_app(
@@ -390,10 +469,14 @@ app = ProjectKoiosApp.create_app(
                 document_root=root / "document",
             )
         ),
+        transcripts=TranscriptConfiguration(
+            document_root=root / "document",
+        ),
     )
 )
 assert app.state.deployment_profile == "control"
 assert "projectkoios.api.equation_review.owner" in sys.modules
+assert "projectkoios.api.transcript_owner" in sys.modules
 assert "projectkoios.applications.pdf_corpus_ingestion" in sys.modules
 assert "physkit" not in sys.modules
 assert not any(
@@ -474,8 +557,11 @@ def test__equation_and_transcript_boundaries_have_no_owner_imports() -> None:
         source_root / "equation_review" / "router.py",
         source_root / "transcript_review.py",
         source_root / "transcript_review_models.py",
+        source_root / "transcript_models.py",
+        source_root / "transcripts.py",
         source_root / "routers" / "equation_review.py",
         source_root / "routers" / "transcript_review.py",
+        source_root / "routers" / "transcripts.py",
     ]
     boundary_source = "\n".join(
         path.read_text(encoding="utf-8") for path in boundary_paths

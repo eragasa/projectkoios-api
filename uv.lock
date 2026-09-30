@@ -382,16 +382,7 @@ wheels = [
 [[package]]
 name = "projectkoios"
 version = "0.0.0"
-source = { editable = "../projectkoios" }
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", marker = "extra == 'dev'", specifier = ">=0.27" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
-]
-provides-extras = ["dev"]
+source = { git = "https://github.com/eragasa/projectkoios.git?rev=88c37990fd37650b3091b2cb2f605a589ab624f4#88c37990fd37650b3091b2cb2f605a589ab624f4" }
 
 [[package]]
 name = "projectkoios-agent"
@@ -439,7 +430,7 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
-    { name = "projectkoios", editable = "../projectkoios" },
+    { name = "projectkoios", git = "https://github.com/eragasa/projectkoios.git?rev=88c37990fd37650b3091b2cb2f605a589ab624f4" },
     { name = "projectkoios-agent", editable = "../projectkoios-agent" },
     { name = "projectkoios-applications", extras = ["pdf-corpus"], marker = "extra == 'equation-review-control'", directory = "../projectkoios-applications" },
     { name = "projectkoios-ingestion", extras = ["pdf"], marker = "extra == 'dev'", editable = "../projectkoios-ingestion" },
@@ -504,7 +495,7 @@ requires-dist = [
     { name = "latex2mathml", marker = "extra == 'dev'", specifier = ">=3.81" },
     { name = "latex2mathml", marker = "extra == 'mathml'", specifier = ">=3.81" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
-    { name = "projectkoios", specifier = "==0.0.0" },
+    { name = "projectkoios", git = "https://github.com/eragasa/projectkoios.git?rev=88c37990fd37650b3091b2cb2f605a589ab624f4" },
     { name = "pymupdf", marker = "extra == 'dev'", specifier = ">=1.24" },
     { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.24" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },

@@ -155,7 +155,6 @@ def _document_root(
             "image_path": image_path,
             "image_sha256": image_sha256,
             "region": region,
-            "schema_version": 1,
             "source_sha256": source_sha256,
             "status": "immutable-source-evidence",
         }
@@ -189,7 +188,6 @@ def _document_root(
             "candidate": candidate,
             "detection_result_id": detection_id,
             "document_key": document_id,
-            "schema_version": 1,
             "status": "deterministic-proposal",
         }
         deterministic = _canonical(
@@ -231,7 +229,6 @@ def _document_root(
                 ),
                 "detection_result_id": detection_id,
                 "document_key": document_id,
-                "schema_version": 1,
                 "source_sha256": source_sha256,
                 "status": "deterministic-unreviewed",
             }
@@ -253,7 +250,6 @@ def _document_root(
         "document_key": document_id,
         "equation_detection_result_id": detection_id,
         "extraction_bundle_id": extraction_id,
-        "schema_version": 1,
         "source_byte_size": len(source),
         "source_sha256": source_sha256,
         "stages": {
