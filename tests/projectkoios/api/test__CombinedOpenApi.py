@@ -227,16 +227,41 @@ def test__combined_openapi__publishes_citation_document_control_contract() -> (
         "FAILED",
         "INDETERMINATE",
     ]
+    assert models["CitationDocumentTechnicalIngestionStatus"]["enum"] == [
+        "NOT_REQUESTED",
+        "SUCCEEDED",
+        "FAILED",
+        "INDETERMINATE",
+    ]
+    assert models["CitationDocumentTranscriptStatus"]["enum"] == [
+        "NOT_AVAILABLE",
+        "AUTOMATED_UNREVIEWED",
+    ]
     projection = models["CitationDocumentProjectionResponse"]
     assert "source_gaps" in projection["properties"]
     assert "source_documents" in projection["properties"]
-    upload_body = upload["requestBody"]["content"]["multipart/form-data"][
+    item = models["CitationDocumentItemResponse"]["properties"]
+    assert {
+        "private_receipt_status",
+        "private_processing_admission_status",
+        "technical_ingestion_status",
+        "technical_ingestion_statuses",
+        "processing_results",
+        "transcript_status",
+        "transcript_document_id",
+        "search_indexing_status",
+        "human_scientific_acceptance_status",
+        "allowed_actions",
+    } <= set(item)
+    upload_body = upload["requestBody"]["content"]["application/pdf"]["schema"]
+    assert upload_body["format"] == "binary"
+    assert upload_body["x-maximum-bytes"] == 50_000_000
+    process_body = process["requestBody"]["content"]["application/json"][
         "schema"
-    ]["$ref"].rsplit("/", 1)[-1]
-    assert (
-        models[upload_body]["properties"]["source_pdf"]["x-maximum-bytes"]
-        == 50_000_000
-    )
+    ]
+    assert process_body["type"] == "object"
+    assert process_body["x-maximum-bytes"] == 64_000
+    assert "$ref" not in json.dumps(process_body)
     assert set(upload["responses"]) >= {
         "200",
         "404",
@@ -253,11 +278,22 @@ def test__combined_openapi__publishes_citation_document_control_contract() -> (
         "400",
         "404",
         "409",
+        "413",
+        "415",
         "422",
         "500",
         "502",
         "503",
     }
+    for operation in (catalog, upload, process):
+        for code, response in operation["responses"].items():
+            if code == "200":
+                continue
+            content = response.get("content", {})
+            if "application/json" in content:
+                assert content["application/json"]["schema"] != {
+                    "$ref": "#/components/schemas/HTTPValidationError"
+                }
     encoded = json.dumps(
         {
             "paths": {
@@ -492,6 +528,7 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     workflow = (_REPOSITORY_ROOT / ".github/workflows/ci.yml").read_text(
         encoding="utf-8"
     )
+    ci_document = (_REPOSITORY_ROOT / "docs/ci.md").read_text(encoding="utf-8")
 
     assert "projectkoios-agent==0.0.0" in dependencies
     assert not any(
@@ -525,6 +562,21 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     assert "b7c3ffd23086e7ef184c990267d48a56dd87282b" in workflow
     assert "f1ca7b4aee552af131ff7af7d1408d33dd338c93" in workflow
     assert "b37672e36af13014dc25170be725fbf3f909c2d7" in workflow
+    for identity in (
+        "781bdb58ce8ce7a4860edc66abaf190b42c91236",
+        "de6257c720fa73caff21b393af4a3fb4858fd617",
+        "30db4756049b762ec6ea9962d205424a66d699e3",
+        "dd171a3ea215d70bd0852fa4c50ff6e26291ded5",
+        "233f36900b9b44c943ecc5e27f2968ad4bee97ad",
+        "b7c3ffd23086e7ef184c990267d48a56dd87282b",
+        "f1ca7b4aee552af131ff7af7d1408d33dd338c93",
+        "b37672e36af13014dc25170be725fbf3f909c2d7",
+        "be60640bec4fe15cc88b24161545eb1027ffbd2e",
+        "d386a1744f79463fd7cd0b3087ee5fc361e0f7d5",
+    ):
+        assert identity in ci_document
+    assert "f926778101e3d74b420f8e1e4189cf2f5d939b6a" not in ci_document
+    assert "88c37990fd37650b3091b2cb2f605a589ab624f4" not in ci_document
     assert "e531cff8f65422d9c0cfab5aaa903c1ebdd778c0" in workflow
     assert workflow.index("Check out published applications owner") < (
         workflow.index("Verify locked applications owner")

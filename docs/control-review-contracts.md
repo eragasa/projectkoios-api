@@ -147,12 +147,13 @@ Opaque owner identities are preserved verbatim. `not-observed` after completed
 evaluation is the only missing-document state; `not-evaluated` is not treated as
 missing. Responses expose neither filenames nor private paths.
 
-Source receipt accepts exactly one multipart `application/pdf` stream. The
-client filename is ignored. Applications-owned private custody enforces PDF
-magic, immutable content-addressed receipt, private atomic storage, bounded
-reads, partial-file cleanup, and the exact **50,000,000-byte** limit. Receipt
-creation does not imply citation linkage, admission, rights, extraction, or
-processing.
+Source receipt accepts exactly one raw `application/pdf` request body; there is
+no multipart filename or extra-part surface. The API counts every received chunk
+and spools only up to the exact **50,000,000-byte** transport limit before calling
+the owner. Applications-owned private custody independently enforces PDF magic,
+immutable content-addressed receipt, private atomic storage, bounded reads, and
+partial-file cleanup. Receipt creation does not imply citation linkage,
+admission, rights, extraction, or processing.
 
 `process-private` is a separate, explicit local-operator command. It binds the
 current projection, selected identity item, immutable receipt, and configured
@@ -163,13 +164,24 @@ workflow identity, Search lifecycle, automatic retry, overwrite, or repair.
 `INDETERMINATE` means publication may be partial or unknown and requires manual
 reconciliation; it exposes no transcript projection.
 
-Only a registry-verified `SUCCEEDED` result is resolvable through the existing
+The catalog replays every retained registry link into a fresh References
+projection and preserves every matching terminal result in registry order. It
+projects receipt/admission evidence, `NOT_REQUESTED|SUCCEEDED|FAILED|INDETERMINATE`
+technical states, `NOT_AVAILABLE|AUTOMATED_UNREVIEWED` transcript state, fixed
+`NOT_EVALUATED` Search and human/scientific axes, and exact permitted actions.
+Competing results are retained rather than selected by last-write-wins; the
+single technical-ingestion status is nullable in that ambiguous case while the
+ordered `technical_ingestion_statuses` and result summaries remain complete.
+
+Only one unambiguous registry-verified `SUCCEEDED` result receives a nullable
+`transcript_document_id` and `OPEN_TRANSCRIPT` action through the existing
 `GET /transcripts/{document_id}` projection. Citation routes do not create a
-nested transcript route. The API owns only DTO translation, strict provider
-revalidation, safe fixed error envelopes, and HTTP behavior; References owns the
-catalog/link projection and Applications owns custody, processing, persistence,
-and the successful-transcript registry. Until a citation owner is explicitly
-injected, citation routes return fixed `503` owner-unavailable responses.
+nested transcript route. The API owns only bounded transport, DTO translation,
+strict provider revalidation, safe fixed error envelopes, and HTTP behavior;
+References owns the catalog/link projection and Applications owns custody,
+processing, persistence, and the successful-transcript registry. Until a
+citation owner is explicitly injected, citation routes return fixed `503`
+owner-unavailable responses.
 
 ## Transcript review surface
 

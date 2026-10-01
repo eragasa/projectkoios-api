@@ -7,15 +7,22 @@ from projectkoios.api.boundary_models import OpaqueId
 from projectkoios.api.citation_document_models import (
     CitationBibliographyMembershipStatus,
     CitationContentIdentityResponse,
+    CitationDocumentAllowedAction,
     CitationDocumentAvailabilityStatus,
     CitationDocumentCatalogResponse,
+    CitationDocumentDeferredEvaluationStatus,
     CitationDocumentFailureCode,
     CitationDocumentItemResponse,
+    CitationDocumentPrivateReceiptStatus,
+    CitationDocumentProcessingAdmissionStatus,
+    CitationDocumentProcessingSummaryResponse,
     CitationDocumentProcessRequest,
     CitationDocumentProcessResponse,
     CitationDocumentProjectionResponse,
     CitationDocumentReceiptResponse,
+    CitationDocumentTechnicalIngestionStatus,
     CitationDocumentTerminalStatus,
+    CitationDocumentTranscriptStatus,
     CitationIdentityItemResponse,
     CitationIdentityStatus,
     CitationKeyResolutionStatus,
@@ -58,6 +65,7 @@ from projectkoios.applications.pdf_corpus_ingestion import (
     CitationDocumentIngestionService,
     CitationDocumentReceipt,
     CitationDocumentRegistryError,
+    CitationDocumentRegistryProjection,
     DocumentTranscriptPage,
     DocumentTranscriptProjection,
     DocumentTranscriptStatus,
@@ -76,6 +84,8 @@ from projectkoios.references.citation_document import (
     CitationDocumentProjectionResult,
     CitationDocumentProjector,
     CitationSourceDocumentDescriptor,
+    CitationSourceDocumentLinker,
+    CitationSourceDocumentLinkRequest,
 )
 from projectkoios.references.citations import CitationTargetSourceGap
 from pydantic import ValidationError
@@ -145,11 +155,24 @@ class ApplicationsCitationDocumentOwner:
     def read_catalog(self) -> CitationDocumentCatalogResponse:
         try:
             self.projection_result.validate_identity()
-            return _catalog_response(self.projection_result)
-        except ValidationError as error:
-            raise MalformedProviderProjection from error
-        except (TypeError, ValueError) as error:
+            registry = self.service.registry.project()
+            registry.validate_identity()
+            projection = self._projection_with_registry(registry)
+            verified_successful_documents = frozenset(
+                result.document_id
+                for result in registry.results
+                if result.status.value == "SUCCEEDED"
+                and self._owner_transcript(result.document_id) is not None
+            )
+            return _catalog_response(
+                projection,
+                registry,
+                verified_successful_documents,
+            )
+        except CitationDocumentRegistryError as error:
             raise CitationDocumentUnavailable from error
+        except (ValidationError, TypeError, ValueError) as error:
+            raise MalformedProviderProjection from error
 
     def receive_source(
         self,
@@ -158,14 +181,22 @@ class ApplicationsCitationDocumentOwner:
         *,
         media_type: str,
     ) -> CitationDocumentReceiptResponse:
-        self._missing_item(item_id)
+        base_item = self._missing_item(item_id)
         try:
+            registry = self.service.registry.project()
+            if any(
+                _result_matches_base_item(item, base_item)
+                for item in registry.results
+            ):
+                raise CitationDocumentProjectionConflict
             receipt = self.custody.receive(source, media_type=media_type)
             return _receipt_response(receipt)
+        except CitationDocumentRegistryError as error:
+            raise CitationDocumentUnavailable from error
         except CitationDocumentCustodyLimitError as error:
             raise CitationDocumentPdfTooLarge from error
         except CitationDocumentCustodyError as error:
-            raise InvalidCitationDocumentRequest from error
+            raise CitationDocumentUnavailable from error
         except ValidationError as error:
             raise MalformedProviderProjection from error
 
@@ -205,6 +236,16 @@ class ApplicationsCitationDocumentOwner:
                 artifact_limits=self.artifact_limits,
             )
             owner_request = self.service.request(intent)
+            registry = self.service.registry.project()
+            related_request_ids = {
+                item.request_id
+                for item in registry.results
+                if _result_matches_base_item(item, base_item)
+            }
+            if related_request_ids and owner_request.request_id not in (
+                related_request_ids
+            ):
+                raise CitationDocumentProjectionConflict
             result = self.service.action(request=owner_request)
             return _process_response(result)
         except CitationDocumentRegistryError as error:
@@ -212,13 +253,13 @@ class ApplicationsCitationDocumentOwner:
         except CitationDocumentCustodyLimitError as error:
             raise CitationDocumentPdfTooLarge from error
         except CitationDocumentCustodyError as error:
-            raise InvalidCitationDocumentRequest from error
+            raise CitationDocumentUnavailable from error
         except InvalidCitationDocumentRequest:
             raise
-        except (StopIteration, TypeError, ValueError) as error:
-            raise CitationDocumentProjectionConflict from error
         except ValidationError as error:
             raise MalformedProviderProjection from error
+        except (StopIteration, TypeError, ValueError) as error:
+            raise CitationDocumentProjectionConflict from error
 
     def read_transcript_collection(self) -> TranscriptCollectionResponse:
         try:
@@ -304,6 +345,82 @@ class ApplicationsCitationDocumentOwner:
         )
         return CitationDocumentProjector().project(request=request)
 
+    def _projection_with_registry(
+        self,
+        registry: CitationDocumentRegistryProjection,
+    ) -> CitationDocumentProjectionResult:
+        if not registry.results:
+            return self.projection_result
+        base_request = self.projection_result.request
+        observations = {
+            item.observation_id: item
+            for item in base_request.document_observations
+        }
+        link_results = {
+            item.link.link_id: item
+            for item in base_request.source_document_link_results
+        }
+        linker = CitationSourceDocumentLinker()
+        for result in registry.results:
+            result.validate_identity()
+            base_item = _base_item_for_result(
+                self.projection_result,
+                result,
+            )
+            receipt = CitationDocumentReceipt(
+                source_document=result.source_document_link.source_document
+            )
+            if receipt.receipt_id != result.receipt_id:
+                raise ValueError("registry receipt correlation is invalid")
+            projected = self._projection_with_receipt(base_item, receipt)
+            projected_item = next(
+                item
+                for item in projected.projection.items
+                if item.literal_citekey == base_item.literal_citekey
+            )
+            link_request = CitationSourceDocumentLinkRequest(
+                projection_result=projected,
+                item_id=projected_item.item_id,
+                identity_item_id=result.source_document_link.identity_item_id,
+                source_document_id=(
+                    result.source_document_link.source_document.source_document_id
+                ),
+                pre_effect_intent_id=result.intent_id,
+            )
+            link_result = linker.link(request=link_request)
+            if (
+                link_result.result_id != result.link_result_id
+                or link_result.link != result.source_document_link
+            ):
+                raise ValueError("registry link correlation is invalid")
+            observation = receipt.observation(
+                target_snapshot_id=base_item.target_snapshot_id,
+                literal_citekey=base_item.literal_citekey,
+            )
+            observations[observation.observation_id] = observation
+            link_results[link_result.link.link_id] = link_result
+        request = CitationDocumentProjectionRequest(
+            target_snapshot=base_request.target_snapshot,
+            bibliography_bindings=base_request.bibliography_bindings,
+            identity_projection=base_request.identity_projection,
+            document_observations=tuple(
+                sorted(
+                    observations.values(),
+                    key=lambda item: (
+                        item.literal_citekey,
+                        item.observation_id,
+                    ),
+                )
+            ),
+            source_document_link_results=tuple(
+                sorted(
+                    link_results.values(),
+                    key=lambda item: item.link.link_id,
+                )
+            ),
+        )
+        return CitationDocumentProjector().project(request=request)
+
 
 def _require_owner_contracts() -> None:
     if (
@@ -340,13 +457,47 @@ def _bounded_owner_id(value: object, label: str) -> str:
     return value
 
 
+def _base_item_for_result(
+    projection: CitationDocumentProjectionResult,
+    result: CitationDocumentIngestionResult,
+) -> CitationDocumentProjectionItem:
+    matches = tuple(
+        item
+        for item in projection.projection.items
+        if _result_matches_base_item(result, item)
+    )
+    if len(matches) != 1:
+        raise ValueError("registry result has no exact catalog item")
+    return matches[0]
+
+
+def _result_matches_base_item(
+    result: CitationDocumentIngestionResult,
+    item: CitationDocumentProjectionItem,
+) -> bool:
+    link = result.source_document_link
+    return (
+        link.target_snapshot_id == item.target_snapshot_id
+        and link.identity_projection_id == item.identity_projection_id
+        and link.literal_citekey == item.literal_citekey
+        and any(
+            identity.item_id == link.identity_item_id
+            and identity.requested_identity_id == link.requested_identity_id
+            for identity in item.identity_items
+        )
+    )
+
+
 def _catalog_response(
     result: CitationDocumentProjectionResult,
+    registry: CitationDocumentRegistryProjection,
+    verified_successful_documents: frozenset[str],
 ) -> CitationDocumentCatalogResponse:
     projection = result.projection
     return CitationDocumentCatalogResponse(
         request_id=result.request.request_id,
         result_id=result.result_id,
+        processing_registry_projection_id=registry.projection_id,
         projection=CitationDocumentProjectionResponse(
             contract_id=projection.contract_id,
             target_snapshot_id=projection.target_snapshot_id,
@@ -359,7 +510,18 @@ def _catalog_response(
                 _source_document_response(item)
                 for item in projection.source_documents
             ),
-            items=tuple(_item_response(item) for item in projection.items),
+            items=tuple(
+                _item_response(
+                    item,
+                    tuple(
+                        owner_result
+                        for owner_result in registry.results
+                        if _result_matches_base_item(owner_result, item)
+                    ),
+                    verified_successful_documents,
+                )
+                for item in projection.items
+            ),
             source_gaps=tuple(
                 _source_gap_response(item) for item in projection.source_gaps
             ),
@@ -371,6 +533,8 @@ def _catalog_response(
 
 def _item_response(
     item: CitationDocumentProjectionItem,
+    processing_results: tuple[CitationDocumentIngestionResult, ...],
+    verified_successful_documents: frozenset[str],
 ) -> CitationDocumentItemResponse:
     if type(item) is not CitationDocumentProjectionItem:
         raise TypeError("citation document item type is invalid")
@@ -404,7 +568,112 @@ def _item_response(
         ),
         source_document_ids=item.source_document_ids,
         source_document_link_ids=item.source_document_link_ids,
+        private_receipt_status=(
+            CitationDocumentPrivateReceiptStatus.RECEIVED
+            if processing_results
+            else CitationDocumentPrivateReceiptStatus.NOT_RECEIVED
+        ),
+        private_processing_admission_status=(
+            CitationDocumentProcessingAdmissionStatus.AUTHORIZED
+            if processing_results
+            else CitationDocumentProcessingAdmissionStatus.NOT_AUTHORIZED
+        ),
+        technical_ingestion_status=(
+            CitationDocumentTechnicalIngestionStatus(
+                processing_results[0].status.value
+            )
+            if len(processing_results) == 1
+            else (
+                CitationDocumentTechnicalIngestionStatus.NOT_REQUESTED
+                if not processing_results
+                else None
+            )
+        ),
+        technical_ingestion_statuses=(
+            tuple(
+                CitationDocumentTechnicalIngestionStatus(value.status.value)
+                for value in processing_results
+            )
+            if processing_results
+            else (CitationDocumentTechnicalIngestionStatus.NOT_REQUESTED,)
+        ),
+        processing_results=tuple(
+            CitationDocumentProcessingSummaryResponse(
+                request_id=value.request_id,
+                result_id=value.result_id,
+                receipt_id=value.receipt_id,
+                source_document_descriptor_id=(
+                    value.source_document_descriptor_id
+                ),
+                source_document_link_id=value.source_document_link.link_id,
+                document_id=OpaqueId(value.document_id),
+                status=CitationDocumentTerminalStatus(value.status.value),
+                failure_code=(
+                    None
+                    if value.failure_code is None
+                    else CitationDocumentFailureCode(value.failure_code.value)
+                ),
+                transcript_projection_id=value.transcript_projection_id,
+            )
+            for value in processing_results
+        ),
+        transcript_status=(
+            CitationDocumentTranscriptStatus.AUTOMATED_UNREVIEWED
+            if any(
+                value.document_id in verified_successful_documents
+                for value in processing_results
+            )
+            else CitationDocumentTranscriptStatus.NOT_AVAILABLE
+        ),
+        transcript_document_id=_sole_verified_document_id(
+            processing_results,
+            verified_successful_documents,
+        ),
+        search_indexing_status=(
+            CitationDocumentDeferredEvaluationStatus.NOT_EVALUATED
+        ),
+        human_scientific_acceptance_status=(
+            CitationDocumentDeferredEvaluationStatus.NOT_EVALUATED
+        ),
+        allowed_actions=_allowed_actions(
+            item,
+            processing_results,
+            verified_successful_documents,
+        ),
     )
+
+
+def _sole_verified_document_id(
+    processing_results: tuple[CitationDocumentIngestionResult, ...],
+    verified_successful_documents: frozenset[str],
+) -> OpaqueId | None:
+    documents = tuple(
+        value.document_id
+        for value in processing_results
+        if value.document_id in verified_successful_documents
+    )
+    return OpaqueId(documents[0]) if len(documents) == 1 else None
+
+
+def _allowed_actions(
+    item: CitationDocumentProjectionItem,
+    processing_results: tuple[CitationDocumentIngestionResult, ...],
+    verified_successful_documents: frozenset[str],
+) -> tuple[CitationDocumentAllowedAction, ...]:
+    if (
+        _sole_verified_document_id(
+            processing_results,
+            verified_successful_documents,
+        )
+        is not None
+    ):
+        return (CitationDocumentAllowedAction.OPEN_TRANSCRIPT,)
+    if (
+        not processing_results
+        and item.document_status is OwnerDocumentAvailabilityStatus.NOT_OBSERVED
+    ):
+        return (CitationDocumentAllowedAction.PROVIDE_PDF,)
+    return ()
 
 
 def _source_document_response(

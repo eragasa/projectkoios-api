@@ -1,16 +1,13 @@
 from __future__ import annotations
 
-from typing import Annotated, Any
+import tempfile
+from collections.abc import Callable, Coroutine
+from typing import Any, BinaryIO, cast
 
-from fastapi import (
-    APIRouter,
-    File,
-    HTTPException,
-    Path,
-    Request,
-    UploadFile,
-    status,
-)
+from fastapi import APIRouter, HTTPException, Request, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import Response
+from fastapi.routing import APIRoute
 from projectkoios.api.boundary_models import OpaqueId
 from projectkoios.api.citation_document_models import (
     MAX_CITATION_DOCUMENT_PDF_BYTES,
@@ -35,10 +32,46 @@ from projectkoios.api.provider_boundary import (
     validated_provider_projection,
 )
 from projectkoios.api.provider_errors import ProviderUnavailable
+from pydantic import TypeAdapter, ValidationError
 from starlette.concurrency import run_in_threadpool
-from starlette.datastructures import UploadFile as StarletteUploadFile
 
+MAX_CITATION_DOCUMENT_PROCESS_REQUEST_BYTES = 64_000
+_PDF_MAGIC = b"%PDF-"
+_ITEM_ID_ADAPTER = TypeAdapter(OpaqueId)
+
+
+def _inline_process_request_schema() -> dict[str, Any]:
+    schema = CitationDocumentProcessRequest.model_json_schema()
+    definitions = cast(dict[str, Any], schema.pop("$defs", {}))
+
+    def dereference(value: object) -> object:
+        if isinstance(value, list):
+            return [dereference(item) for item in value]
+        if not isinstance(value, dict):
+            return value
+        reference = value.get("$ref")
+        if isinstance(reference, str) and reference.startswith("#/$defs/"):
+            name = reference.rsplit("/", 1)[-1]
+            resolved = dict(definitions[name])
+            resolved.update(
+                {key: item for key, item in value.items() if key != "$ref"}
+            )
+            return dereference(resolved)
+        return {key: dereference(item) for key, item in value.items()}
+
+    inlined = cast(dict[str, Any], dereference(schema))
+    inlined["x-maximum-bytes"] = MAX_CITATION_DOCUMENT_PROCESS_REQUEST_BYTES
+    return inlined
+
+
+_PROCESS_REQUEST_SCHEMA = _inline_process_request_schema()
 _ERROR_RESPONSE: dict[str, Any] = {"model": CitationDocumentApiErrorEnvelope}
+_VALIDATION_RESPONSE: dict[int | str, dict[str, Any]] = {
+    status.HTTP_422_UNPROCESSABLE_CONTENT: {
+        **_ERROR_RESPONSE,
+        "description": "Request validation failed without reflecting input.",
+    }
+}
 _PROVIDER_RESPONSES: dict[int | str, dict[str, Any]] = {
     status.HTTP_500_INTERNAL_SERVER_ERROR: {
         **_ERROR_RESPONSE,
@@ -52,6 +85,7 @@ _PROVIDER_RESPONSES: dict[int | str, dict[str, Any]] = {
         **_ERROR_RESPONSE,
         "description": "The citation-document owner is unavailable.",
     },
+    **_VALIDATION_RESPONSE,
 }
 _MUTATION_RESPONSES: dict[int | str, dict[str, Any]] = {
     status.HTTP_400_BAD_REQUEST: {
@@ -72,12 +106,30 @@ _MUTATION_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 
+class CitationDocumentRoute(APIRoute):
+    """Sanitize every framework validation failure on this private surface."""
+
+    def get_route_handler(
+        self,
+    ) -> Callable[[Request], Coroutine[Any, Any, Response]]:
+        original = super().get_route_handler()
+
+        async def sanitized(request: Request) -> Response:
+            try:
+                return await original(request)
+            except RequestValidationError as error:
+                raise _validation_error() from error
+
+        return sanitized
+
+
 def create_citation_documents_router(
     provider: CitationDocumentProvider | None,
 ) -> APIRouter:
     router = APIRouter(
         prefix="/citation-documents",
         tags=["citation-documents"],
+        route_class=CitationDocumentRoute,
     )
 
     @router.get(
@@ -107,66 +159,58 @@ def create_citation_documents_router(
         "/{item_id}/source",
         response_model=CitationDocumentReceiptResponse,
         description=(
-            "Local/private immutable PDF custody receipt only. Receipt does "
-            "not authorize or start processing."
+            "Local/private immutable raw PDF custody receipt only. Receipt "
+            "does not authorize or start processing."
         ),
         responses={
             status.HTTP_413_CONTENT_TOO_LARGE: {
                 **_ERROR_RESPONSE,
                 "description": (
-                    "The PDF exceeds the exact 50,000,000-byte custody limit."
+                    "The PDF exceeds the exact 50,000,000-byte transport and "
+                    "custody limit."
                 ),
             },
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: {
                 **_ERROR_RESPONSE,
-                "description": "The upload is not declared application/pdf.",
+                "description": "The body is not application/pdf.",
             },
             **_MUTATION_RESPONSES,
+        },
+        openapi_extra={
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/pdf": {
+                        "schema": {
+                            "type": "string",
+                            "format": "binary",
+                            "minLength": len(_PDF_MAGIC),
+                            "x-maximum-bytes": (
+                                MAX_CITATION_DOCUMENT_PDF_BYTES
+                            ),
+                        }
+                    }
+                },
+            }
         },
     )
     async def receive_source(
         request: Request,
-        item_id: Annotated[OpaqueId, Path()],
-        source_pdf: Annotated[
-            list[UploadFile],
-            File(
-                description=(
-                    "Exactly one immutable PDF stream. The client filename is "
-                    "ignored."
-                ),
-                json_schema_extra={
-                    "minItems": 1,
-                    "maxItems": 1,
-                    "x-maximum-bytes": MAX_CITATION_DOCUMENT_PDF_BYTES,
-                },
-            ),
-        ],
+        item_id: str,
     ) -> CitationDocumentReceiptResponse:
-        form_items = list((await request.form()).multi_items())
-        if (
-            len(form_items) != 1
-            or form_items[0][0] != "source_pdf"
-            or len(source_pdf) != 1
-        ):
-            for _, form_value in form_items:
-                if isinstance(form_value, StarletteUploadFile):
-                    await form_value.close()
-            raise _invalid_request()
+        validated_item_id = _validated_item_id(item_id)
         owner = _require_provider(provider)
-        upload = source_pdf[0]
-        if upload.content_type != "application/pdf":
-            await upload.close()
-            raise _unsupported_media_type()
+        source = await _receive_bounded_pdf(request)
         try:
-            value = await run_in_threadpool(
+            provider_value = await run_in_threadpool(
                 lambda: owner.receive_source(
-                    str(item_id),
-                    upload.file,
+                    validated_item_id,
+                    source,
                     media_type="application/pdf",
                 )
             )
             return validate_provider_projection(
-                value,
+                provider_value,
                 CitationDocumentReceiptResponse,
             )
         except CitationDocumentNotFound as error:
@@ -186,7 +230,7 @@ def create_citation_documents_router(
         except Exception as error:
             raise _unexpected_failure() from error
         finally:
-            await upload.close()
+            source.close()
 
     @router.post(
         "/{item_id}/process-private",
@@ -195,19 +239,45 @@ def create_citation_documents_router(
             "Explicit local-operator private processing command. Execution is "
             "synchronous and returns one terminal result; no retry is implied."
         ),
-        responses=_MUTATION_RESPONSES,
+        responses={
+            status.HTTP_413_CONTENT_TOO_LARGE: {
+                **_ERROR_RESPONSE,
+                "description": (
+                    "The JSON request exceeds the exact 64,000-byte transport "
+                    "limit."
+                ),
+            },
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: {
+                **_ERROR_RESPONSE,
+                "description": "The body is not application/json.",
+            },
+            **_MUTATION_RESPONSES,
+        },
+        openapi_extra={
+            "requestBody": {
+                "required": True,
+                "content": {
+                    "application/json": {"schema": _PROCESS_REQUEST_SCHEMA}
+                },
+            }
+        },
     )
     async def process_private(
-        item_id: Annotated[OpaqueId, Path()],
-        request: CitationDocumentProcessRequest,
+        request: Request,
+        item_id: str,
     ) -> CitationDocumentProcessResponse:
+        validated_item_id = _validated_item_id(item_id)
         owner = _require_provider(provider)
+        process_request = await _receive_process_request(request)
         try:
-            value = await run_in_threadpool(
-                lambda: owner.process_private(str(item_id), request)
+            provider_value = await run_in_threadpool(
+                lambda: owner.process_private(
+                    validated_item_id,
+                    process_request,
+                )
             )
             return validate_provider_projection(
-                value,
+                provider_value,
                 CitationDocumentProcessResponse,
             )
         except CitationDocumentNotFound as error:
@@ -226,6 +296,94 @@ def create_citation_documents_router(
             raise _unexpected_failure() from error
 
     return router
+
+
+async def _receive_bounded_pdf(request: Request) -> BinaryIO:
+    if request.headers.get("content-type") != "application/pdf":
+        raise _unsupported_media_type()
+    declared_length = _declared_length(request)
+    if (
+        declared_length is not None
+        and declared_length > MAX_CITATION_DOCUMENT_PDF_BYTES
+    ):
+        raise _pdf_too_large()
+
+    source = cast(BinaryIO, tempfile.TemporaryFile(mode="w+b"))
+    observed_length = 0
+    leading = bytearray()
+    try:
+        async for chunk in request.stream():
+            observed_length += len(chunk)
+            if observed_length > MAX_CITATION_DOCUMENT_PDF_BYTES:
+                raise _pdf_too_large()
+            if len(leading) < len(_PDF_MAGIC):
+                required = len(_PDF_MAGIC) - len(leading)
+                leading.extend(chunk[:required])
+            source.write(chunk)
+        if declared_length is not None and declared_length != observed_length:
+            raise _invalid_request()
+        if bytes(leading) != _PDF_MAGIC:
+            raise _invalid_request()
+        source.seek(0)
+        return source
+    except BaseException:
+        source.close()
+        raise
+
+
+async def _receive_process_request(
+    request: Request,
+) -> CitationDocumentProcessRequest:
+    content_type = request.headers.get("content-type", "").partition(";")[0]
+    if content_type.strip().lower() != "application/json":
+        raise _unsupported_media_type()
+    content = await _receive_bounded_bytes(
+        request,
+        maximum=MAX_CITATION_DOCUMENT_PROCESS_REQUEST_BYTES,
+    )
+    try:
+        return CitationDocumentProcessRequest.model_validate_json(
+            content,
+            strict=True,
+        )
+    except (ValidationError, ValueError) as error:
+        raise _invalid_request() from error
+
+
+async def _receive_bounded_bytes(request: Request, *, maximum: int) -> bytes:
+    declared_length = _declared_length(request)
+    if declared_length is not None and declared_length > maximum:
+        raise _request_too_large()
+    content = bytearray()
+    async for chunk in request.stream():
+        if len(content) + len(chunk) > maximum:
+            raise _request_too_large()
+        content.extend(chunk)
+    if declared_length is not None and declared_length != len(content):
+        raise _invalid_request()
+    if not content:
+        raise _invalid_request()
+    return bytes(content)
+
+
+def _declared_length(request: Request) -> int | None:
+    value = request.headers.get("content-length")
+    if value is None:
+        return None
+    try:
+        result = int(value)
+    except ValueError as error:
+        raise _invalid_request() from error
+    if result < 0:
+        raise _invalid_request()
+    return result
+
+
+def _validated_item_id(value: str) -> str:
+    try:
+        return str(_ITEM_ID_ADAPTER.validate_python(value, strict=True))
+    except ValidationError as error:
+        raise _validation_error() from error
 
 
 def _require_provider(
@@ -255,6 +413,14 @@ def _invalid_request() -> HTTPException:
     )
 
 
+def _validation_error() -> HTTPException:
+    return _error(
+        status.HTTP_422_UNPROCESSABLE_CONTENT,
+        CitationDocumentApiErrorCode.INVALID_REQUEST,
+        "citation-document request validation failed",
+    )
+
+
 def _item_not_found() -> HTTPException:
     return _error(
         status.HTTP_404_NOT_FOUND,
@@ -279,11 +445,19 @@ def _pdf_too_large() -> HTTPException:
     )
 
 
+def _request_too_large() -> HTTPException:
+    return _error(
+        status.HTTP_413_CONTENT_TOO_LARGE,
+        CitationDocumentApiErrorCode.INVALID_REQUEST,
+        "citation-document request exceeds its byte limit",
+    )
+
+
 def _unsupported_media_type() -> HTTPException:
     return _error(
         status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
         CitationDocumentApiErrorCode.UNSUPPORTED_MEDIA_TYPE,
-        "citation-document upload must use application/pdf",
+        "citation-document request uses an unsupported media type",
     )
 
 

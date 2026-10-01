@@ -97,6 +97,38 @@ class CitationDocumentTerminalStatus(StrEnum):
     INDETERMINATE = "INDETERMINATE"
 
 
+class CitationDocumentTechnicalIngestionStatus(StrEnum):
+    NOT_REQUESTED = "NOT_REQUESTED"
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    INDETERMINATE = "INDETERMINATE"
+
+
+class CitationDocumentPrivateReceiptStatus(StrEnum):
+    NOT_RECEIVED = "NOT_RECEIVED"
+    RECEIVED = "RECEIVED"
+
+
+class CitationDocumentProcessingAdmissionStatus(StrEnum):
+    NOT_AUTHORIZED = "NOT_AUTHORIZED"
+    AUTHORIZED = "AUTHORIZED"
+
+
+class CitationDocumentTranscriptStatus(StrEnum):
+    NOT_AVAILABLE = "NOT_AVAILABLE"
+    AUTOMATED_UNREVIEWED = "AUTOMATED_UNREVIEWED"
+
+
+class CitationDocumentDeferredEvaluationStatus(StrEnum):
+    NOT_EVALUATED = "NOT_EVALUATED"
+
+
+class CitationDocumentAllowedAction(StrEnum):
+    PROVIDE_PDF = "PROVIDE_PDF"
+    PROCESS_PRIVATELY = "PROCESS_PRIVATELY"
+    OPEN_TRANSCRIPT = "OPEN_TRANSCRIPT"
+
+
 class CitationDocumentFailureCode(StrEnum):
     EXTRACTION_FAILED = "EXTRACTION_FAILED"
     PACKAGE_BUILD_FAILED = "PACKAGE_BUILD_FAILED"
@@ -214,6 +246,39 @@ class CitationSourceDocumentResponse(BaseModel):
     descriptor_id: OwnerOpaqueId
 
 
+class CitationDocumentProcessingSummaryResponse(BaseModel):
+    """Path-free retained terminal evidence for one exact processing request."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    request_id: OwnerOpaqueId
+    result_id: OwnerOpaqueId
+    receipt_id: OwnerOpaqueId
+    source_document_descriptor_id: OwnerOpaqueId
+    source_document_link_id: OwnerOpaqueId
+    document_id: OpaqueId
+    status: CitationDocumentTerminalStatus
+    failure_code: CitationDocumentFailureCode | None = None
+    transcript_projection_id: OwnerOpaqueId | None = None
+
+    @model_validator(mode="after")
+    def has_exact_terminal_claims(
+        self,
+    ) -> CitationDocumentProcessingSummaryResponse:
+        if self.status is CitationDocumentTerminalStatus.SUCCEEDED:
+            if (
+                self.failure_code is not None
+                or self.transcript_projection_id is None
+            ):
+                raise ValueError("successful processing summary is incomplete")
+        elif (
+            self.failure_code is None
+            or self.transcript_projection_id is not None
+        ):
+            raise ValueError("non-success processing summary claims readiness")
+        return self
+
+
 class CitationDocumentItemResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -238,6 +303,24 @@ class CitationDocumentItemResponse(BaseModel):
     )
     source_document_link_ids: tuple[OwnerOpaqueId, ...] = Field(
         max_length=MAX_CITATION_DOCUMENT_IDS_PER_ITEM
+    )
+    private_receipt_status: CitationDocumentPrivateReceiptStatus
+    private_processing_admission_status: (
+        CitationDocumentProcessingAdmissionStatus
+    )
+    technical_ingestion_status: CitationDocumentTechnicalIngestionStatus | None
+    technical_ingestion_statuses: tuple[
+        CitationDocumentTechnicalIngestionStatus, ...
+    ] = Field(min_length=1, max_length=MAX_CITATION_DOCUMENT_IDS_PER_ITEM)
+    processing_results: tuple[
+        CitationDocumentProcessingSummaryResponse, ...
+    ] = Field(max_length=MAX_CITATION_DOCUMENT_IDS_PER_ITEM)
+    transcript_status: CitationDocumentTranscriptStatus
+    transcript_document_id: OpaqueId | None = None
+    search_indexing_status: CitationDocumentDeferredEvaluationStatus
+    human_scientific_acceptance_status: CitationDocumentDeferredEvaluationStatus
+    allowed_actions: tuple[CitationDocumentAllowedAction, ...] = Field(
+        max_length=3
     )
 
     @model_validator(mode="after")
@@ -321,6 +404,87 @@ class CitationDocumentItemResponse(BaseModel):
             raise ValueError(
                 "ambiguous citation document state needs documents"
             )
+        result_statuses = tuple(
+            CitationDocumentTechnicalIngestionStatus(item.status.value)
+            for item in self.processing_results
+        )
+        expected_single_status = (
+            result_statuses[0]
+            if len(result_statuses) == 1
+            else (
+                CitationDocumentTechnicalIngestionStatus.NOT_REQUESTED
+                if not result_statuses
+                else None
+            )
+        )
+        if self.technical_ingestion_status is not expected_single_status:
+            raise ValueError("single technical ingestion status is ambiguous")
+        if self.processing_results:
+            if self.technical_ingestion_statuses != result_statuses:
+                raise ValueError("technical ingestion statuses conflict")
+            if (
+                self.private_receipt_status
+                is not CitationDocumentPrivateReceiptStatus.RECEIVED
+                or self.private_processing_admission_status
+                is not CitationDocumentProcessingAdmissionStatus.AUTHORIZED
+            ):
+                raise ValueError("retained processing authority is incomplete")
+        elif (
+            self.technical_ingestion_statuses
+            != (CitationDocumentTechnicalIngestionStatus.NOT_REQUESTED,)
+            or self.private_receipt_status
+            is not CitationDocumentPrivateReceiptStatus.NOT_RECEIVED
+            or self.private_processing_admission_status
+            is not CitationDocumentProcessingAdmissionStatus.NOT_AUTHORIZED
+        ):
+            raise ValueError("unrequested processing state is inconsistent")
+        result_ids = tuple(item.result_id for item in self.processing_results)
+        request_ids = tuple(item.request_id for item in self.processing_results)
+        if request_ids != tuple(sorted(set(request_ids))) or len(
+            result_ids
+        ) != len(set(result_ids)):
+            raise ValueError("processing results must retain canonical order")
+        successful_documents = tuple(
+            item.document_id
+            for item in self.processing_results
+            if item.status is CitationDocumentTerminalStatus.SUCCEEDED
+        )
+        expected_transcript_status = (
+            CitationDocumentTranscriptStatus.AUTOMATED_UNREVIEWED
+            if successful_documents
+            else CitationDocumentTranscriptStatus.NOT_AVAILABLE
+        )
+        if self.transcript_status is not expected_transcript_status:
+            raise ValueError(
+                "transcript status conflicts with processing evidence"
+            )
+        expected_transcript_id = (
+            successful_documents[0] if len(successful_documents) == 1 else None
+        )
+        if self.transcript_document_id != expected_transcript_id:
+            raise ValueError("transcript navigation is absent or ambiguous")
+        expected_actions: tuple[CitationDocumentAllowedAction, ...]
+        if self.transcript_document_id is not None:
+            expected_actions = (CitationDocumentAllowedAction.OPEN_TRANSCRIPT,)
+        elif (
+            not self.processing_results
+            and self.document_status
+            is CitationDocumentAvailabilityStatus.NOT_OBSERVED
+        ):
+            expected_actions = (CitationDocumentAllowedAction.PROVIDE_PDF,)
+        else:
+            expected_actions = ()
+        if self.allowed_actions != expected_actions:
+            raise ValueError(
+                "citation document actions conflict with owner state"
+            )
+        if (
+            self.search_indexing_status
+            is not CitationDocumentDeferredEvaluationStatus.NOT_EVALUATED
+            or self.human_scientific_acceptance_status
+            is not CitationDocumentDeferredEvaluationStatus.NOT_EVALUATED
+        ):
+            raise ValueError("deferred status was inferred")
         return self
 
 
@@ -402,6 +566,7 @@ class CitationDocumentCatalogResponse(BaseModel):
 
     request_id: OwnerOpaqueId
     result_id: OwnerOpaqueId
+    processing_registry_projection_id: OwnerOpaqueId
     projection: CitationDocumentProjectionResponse
 
 
@@ -410,6 +575,9 @@ class CitationDocumentReceiptResponse(BaseModel):
 
     source_document: CitationSourceDocumentResponse
     receipt_id: OwnerOpaqueId
+    allowed_actions: tuple[CitationDocumentAllowedAction, ...] = (
+        CitationDocumentAllowedAction.PROCESS_PRIVATELY,
+    )
 
     @model_validator(mode="after")
     def is_within_private_custody_limit(
@@ -417,6 +585,10 @@ class CitationDocumentReceiptResponse(BaseModel):
     ) -> CitationDocumentReceiptResponse:
         if self.source_document.byte_size > MAX_CITATION_DOCUMENT_PDF_BYTES:
             raise ValueError("citation document receipt exceeds custody limit")
+        if self.allowed_actions != (
+            CitationDocumentAllowedAction.PROCESS_PRIVATELY,
+        ):
+            raise ValueError("citation document receipt actions are invalid")
         return self
 
 

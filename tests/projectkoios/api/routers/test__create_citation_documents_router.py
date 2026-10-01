@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
+from collections.abc import Iterator
 from typing import BinaryIO
 
+import projectkoios.api.routers.citation_documents as citation_router_module
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -56,6 +59,16 @@ def _item() -> CitationDocumentItemResponse:
         document_status="not-observed",
         source_document_ids=(),
         source_document_link_ids=(),
+        private_receipt_status="NOT_RECEIVED",
+        private_processing_admission_status="NOT_AUTHORIZED",
+        technical_ingestion_status="NOT_REQUESTED",
+        technical_ingestion_statuses=("NOT_REQUESTED",),
+        processing_results=(),
+        transcript_status="NOT_AVAILABLE",
+        transcript_document_id=None,
+        search_indexing_status="NOT_EVALUATED",
+        human_scientific_acceptance_status="NOT_EVALUATED",
+        allowed_actions=("PROVIDE_PDF",),
     )
 
 
@@ -64,6 +77,9 @@ def _catalog() -> CitationDocumentCatalogResponse:
     return CitationDocumentCatalogResponse(
         request_id="citation-document-projection-request:sha256:" + "7" * 64,
         result_id="citation-document-projection-result:sha256:" + "8" * 64,
+        processing_registry_projection_id=(
+            "citation-document-registry-projection:sha256:" + "6" * 64
+        ),
         projection=CitationDocumentProjectionResponse(
             contract_id="projectkoios.references.citation-document-projection",
             target_snapshot_id=item.target_snapshot_id,
@@ -188,6 +204,23 @@ class _Provider:
         raise AssertionError(document_id)
 
 
+class _CountingProvider(_Provider):
+    observed_size = 0
+
+    def receive_source(
+        self,
+        item_id: str,
+        source: BinaryIO,
+        *,
+        media_type: str,
+    ) -> CitationDocumentReceiptResponse:
+        assert item_id == _item().item_id
+        assert media_type == "application/pdf"
+        while chunk := source.read(1_048_576):
+            self.observed_size += len(chunk)
+        return _receipt()
+
+
 class _MissingProvider(_Provider):
     def receive_source(
         self,
@@ -210,6 +243,16 @@ class _LargeProvider(_Provider):
     ) -> CitationDocumentReceiptResponse:
         del item_id, source, media_type
         raise CitationDocumentPdfTooLarge
+
+
+class _MalformedProvider(_Provider):
+    def process_private(  # type: ignore[override]
+        self,
+        item_id: str,
+        request: CitationDocumentProcessRequest,
+    ) -> object:
+        del item_id, request
+        return {"SECRET-provider-value": "must-not-reflect"}
 
 
 class _ConflictProvider(_Provider):
@@ -259,66 +302,57 @@ def test_catalog_descriptor_bound_is_distinct_from_custody_limit() -> None:
         )
 
 
-def test_source_upload_ignores_filename_and_returns_immutable_receipt() -> None:
+def test_source_upload_streams_raw_pdf_and_returns_immutable_receipt() -> None:
     provider = _Provider()
     response = _client(provider).post(
         f"/citation-documents/{_item().item_id}/source",
-        files={
-            "source_pdf": (
-                "../../private.pdf",
-                b"%PDF-1.7\nbody",
-                "application/pdf",
-            )
-        },
+        content=b"%PDF-1.7\nbody",
+        headers={"content-type": "application/pdf"},
     )
 
     assert response.status_code == 200
     assert response.json() == _receipt().model_dump(mode="json")
     assert provider.uploaded == b"%PDF-1.7\nbody"
-    assert "private.pdf" not in response.text
+    assert "filename" not in response.text
 
 
-def test_source_upload_rejects_multiple_files_before_provider() -> None:
+def test_source_upload_rejects_multipart_without_parsing_filenames() -> None:
     provider = _Provider()
     response = _client(provider).post(
         f"/citation-documents/{_item().item_id}/source",
-        files=[
-            ("source_pdf", ("one.pdf", b"%PDF-one", "application/pdf")),
-            ("source_pdf", ("two.pdf", b"%PDF-two", "application/pdf")),
-        ],
+        files={"source_pdf": ("secret.pdf", b"%PDF-one", "application/pdf")},
     )
 
-    assert response.status_code == 400
-    assert response.json()["detail"]["code"] == (
-        "CITATION_DOCUMENT_INVALID_REQUEST"
-    )
-    assert "one.pdf" not in response.text
-    assert "two.pdf" not in response.text
+    assert response.status_code == 415
+    assert "secret.pdf" not in response.text
     assert provider.uploaded is None
 
 
-def test_source_upload_rejects_an_additional_file_without_leaking_names() -> (
-    None
-):
-    provider = _Provider()
-    response = _client(provider).post(
+def test_multipart_is_rejected_without_consuming_oversized_extras() -> None:
+    consumed = False
+
+    def hostile_multipart() -> Iterator[bytes]:
+        nonlocal consumed
+        consumed = True
+        yield b"x" * 50_000_001
+
+    response = _client(_Provider()).post(
         f"/citation-documents/{_item().item_id}/source",
-        files=[
-            ("source_pdf", ("source.pdf", b"%PDF-one", "application/pdf")),
-            ("attachment", ("secret.txt", b"private", "text/plain")),
-        ],
+        content=hostile_multipart(),
+        headers={
+            "content-type": "multipart/form-data; boundary=private-boundary"
+        },
     )
 
-    assert response.status_code == 400
-    assert "source.pdf" not in response.text
-    assert "secret.txt" not in response.text
-    assert provider.uploaded is None
+    assert response.status_code == 415
+    assert consumed is False
 
 
 def test_source_upload_rejects_declared_mime_before_provider() -> None:
     response = _client(_Provider()).post(
         f"/citation-documents/{_item().item_id}/source",
-        files={"source_pdf": ("source.pdf", b"%PDF-", "text/plain")},
+        content=b"%PDF-",
+        headers={"content-type": "text/plain"},
     )
 
     assert response.status_code == 415
@@ -327,14 +361,75 @@ def test_source_upload_rejects_declared_mime_before_provider() -> None:
     )
 
 
+def test_source_upload_rejects_empty_and_false_magic_without_reflection() -> (
+    None
+):
+    client = _client(_Provider())
+    for hostile in (b"", b"SECRET-not-a-pdf"):
+        response = client.post(
+            f"/citation-documents/{_item().item_id}/source",
+            content=hostile,
+            headers={"content-type": "application/pdf"},
+        )
+        assert response.status_code == 400
+        assert "SECRET" not in response.text
+
+
+def test_source_upload_enforces_exact_stream_bound_without_content_length(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_temporary_file = citation_router_module.tempfile.TemporaryFile
+    temporary_files: list[BinaryIO] = []
+
+    def tracked_temporary_file(*args: object, **kwargs: object) -> BinaryIO:
+        value = original_temporary_file(*args, **kwargs)
+        temporary_files.append(value)
+        return value
+
+    monkeypatch.setattr(
+        citation_router_module.tempfile,
+        "TemporaryFile",
+        tracked_temporary_file,
+    )
+
+    def content(size: int) -> Iterator[bytes]:
+        remaining = size - 5
+        yield b"%PDF-"
+        block = b"x" * 1_048_576
+        while remaining:
+            count = min(remaining, len(block))
+            yield block[:count]
+            remaining -= count
+
+    provider = _CountingProvider()
+    accepted = _client(provider).post(
+        f"/citation-documents/{_item().item_id}/source",
+        content=content(50_000_000),
+        headers={"content-type": "application/pdf"},
+    )
+    rejected = _client(provider).post(
+        f"/citation-documents/{_item().item_id}/source",
+        content=content(50_000_001),
+        headers={"content-type": "application/pdf"},
+    )
+
+    assert accepted.status_code == 200
+    assert provider.observed_size == 50_000_000
+    assert rejected.status_code == 413
+    assert all(item.closed for item in temporary_files)
+
+
 def test_source_upload_maps_safe_missing_and_limit_errors() -> None:
+    headers = {"content-type": "application/pdf"}
     missing = _client(_MissingProvider()).post(
         f"/citation-documents/{_item().item_id}/source",
-        files={"source_pdf": ("source.pdf", b"%PDF-", "application/pdf")},
+        content=b"%PDF-",
+        headers=headers,
     )
     oversized = _client(_LargeProvider()).post(
         f"/citation-documents/{_item().item_id}/source",
-        files={"source_pdf": ("source.pdf", b"%PDF-", "application/pdf")},
+        content=b"%PDF-",
+        headers=headers,
     )
 
     assert missing.status_code == 404
@@ -378,6 +473,62 @@ def test_process_private_maps_projection_conflict_without_owner_detail() -> (
     }
 
 
+def test_malformed_process_projection_is_sanitized_as_502() -> None:
+    response = _client(_MalformedProvider()).post(
+        f"/citation-documents/{_item().item_id}/process-private",
+        json=_process_request().model_dump(mode="json"),
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["code"] == (
+        "CITATION_DOCUMENT_OWNER_MALFORMED"
+    )
+    assert "SECRET" not in response.text
+
+
+def test_process_validation_never_reflects_hostile_input() -> None:
+    client = _client(_Provider())
+    path_response = client.post(
+        "/citation-documents/SECRET..identifier/process-private",
+        content=b'{"SECRET-body":true}',
+        headers={"content-type": "application/json"},
+    )
+    malformed = client.post(
+        f"/citation-documents/{_item().item_id}/process-private",
+        content=b'{"SECRET-malformed":',
+        headers={"content-type": "application/json"},
+    )
+    payload = _process_request().model_dump(mode="json")
+    payload["SECRET-extra"] = "SECRET-value"
+    extra = client.post(
+        f"/citation-documents/{_item().item_id}/process-private",
+        json=payload,
+    )
+
+    assert path_response.status_code == 422
+    assert malformed.status_code == 400
+    assert extra.status_code == 400
+    for response in (path_response, malformed, extra):
+        assert response.json()["detail"]["code"] == (
+            "CITATION_DOCUMENT_INVALID_REQUEST"
+        )
+        assert "SECRET" not in response.text
+        assert "input" not in response.text
+
+
+def test_process_json_transport_is_bounded_before_parsing() -> None:
+    response = _client(_Provider()).post(
+        f"/citation-documents/{_item().item_id}/process-private",
+        content=(part for part in (b"{", b"x" * 64_000, b"}")),
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 413
+    assert response.json()["detail"]["code"] == (
+        "CITATION_DOCUMENT_INVALID_REQUEST"
+    )
+
+
 def test_indeterminate_result_cannot_claim_transcript_readiness() -> None:
     result = _process_response("INDETERMINATE")
 
@@ -403,23 +554,27 @@ def test_upload_openapi_declares_binary_limit_and_terminal_process() -> None:
     process = schema["paths"]["/citation-documents/{item_id}/process-private"][
         "post"
     ]
-    upload_schema = upload["requestBody"]["content"]["multipart/form-data"][
+    upload_schema = upload["requestBody"]["content"]["application/pdf"][
         "schema"
     ]
 
-    assert upload_schema["$ref"].startswith("#/components/schemas/Body_")
-    body_name = upload_schema["$ref"].rsplit("/", 1)[-1]
-    file_schema = schema["components"]["schemas"][body_name]["properties"][
-        "source_pdf"
+    assert upload_schema["type"] == "string"
+    assert upload_schema["format"] == "binary"
+    assert upload_schema["x-maximum-bytes"] == 50_000_000
+    process_schema = process["requestBody"]["content"]["application/json"][
+        "schema"
     ]
-    assert file_schema["type"] == "array"
-    assert file_schema["minItems"] == 1
-    assert file_schema["maxItems"] == 1
-    assert file_schema["items"]["type"] == "string"
-    assert file_schema["items"]["contentMediaType"] == (
-        "application/octet-stream"
-    )
-    assert file_schema["x-maximum-bytes"] == 50_000_000
+    assert process_schema["type"] == "object"
+    assert set(process_schema["required"]) == {
+        "expected_projection_id",
+        "identity_item_id",
+        "receipt",
+    }
+    assert process_schema["x-maximum-bytes"] == 64_000
+    assert "$ref" not in json.dumps(process_schema)
+    assert upload["responses"]["422"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"}
     assert process["responses"]["200"]["content"]["application/json"][
         "schema"
     ] == {"$ref": "#/components/schemas/CitationDocumentProcessResponse"}

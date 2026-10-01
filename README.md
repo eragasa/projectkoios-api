@@ -155,11 +155,12 @@ GET  /transcripts/{document_id}
 ```
 
 The catalog preserves References-owned order, opaque IDs, no-key source gaps,
-and separate bibliography, key-resolution, identity, and document states. Only
-`not-observed` after complete evaluation is missing. Upload accepts exactly one
-`application/pdf`, ignores its filename, and returns an immutable private
-custody receipt under an exact 50,000,000-byte limit. Receipt does not start
-processing or grant rights.
+and separate bibliography, key-resolution, identity, document, receipt,
+processing-admission, technical-ingestion, transcript, Search, and human states.
+Only `not-observed` after complete evaluation is missing. Upload accepts one raw
+`application/pdf` body with no filename or multipart surface and returns an
+immutable private custody receipt under an exact 50,000,000-byte transport and
+custody limit. Receipt does not start processing or grant rights.
 
 `process-private` is a separate synchronous local-operator command and returns
 only `SUCCEEDED`, `FAILED`, or `INDETERMINATE`. There is no queue, polling,

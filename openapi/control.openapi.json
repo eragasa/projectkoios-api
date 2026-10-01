@@ -64,27 +64,6 @@
         "title": "Body_provide_reference_literature_review_references_post",
         "type": "object"
       },
-      "Body_receive_source_citation_documents__item_id__source_post": {
-        "properties": {
-          "source_pdf": {
-            "description": "Exactly one immutable PDF stream. The client filename is ignored.",
-            "items": {
-              "contentMediaType": "application/octet-stream",
-              "type": "string"
-            },
-            "maxItems": 1,
-            "minItems": 1,
-            "title": "Source Pdf",
-            "type": "array",
-            "x-maximum-bytes": 50000000
-          }
-        },
-        "required": [
-          "source_pdf"
-        ],
-        "title": "Body_receive_source_citation_documents__item_id__source_post",
-        "type": "object"
-      },
       "CitationBibliographyMembershipStatus": {
         "enum": [
           "defined",
@@ -267,6 +246,15 @@
         "title": "CitationDecisionResponse",
         "type": "object"
       },
+      "CitationDocumentAllowedAction": {
+        "enum": [
+          "PROVIDE_PDF",
+          "PROCESS_PRIVATELY",
+          "OPEN_TRANSCRIPT"
+        ],
+        "title": "CitationDocumentAllowedAction",
+        "type": "string"
+      },
       "CitationDocumentApiErrorCode": {
         "enum": [
           "CITATION_DOCUMENT_INVALID_REQUEST",
@@ -330,6 +318,12 @@
       "CitationDocumentCatalogResponse": {
         "additionalProperties": false,
         "properties": {
+          "processing_registry_projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Processing Registry Projection Id",
+            "type": "string"
+          },
           "projection": {
             "$ref": "#/components/schemas/CitationDocumentProjectionResponse"
           },
@@ -349,10 +343,18 @@
         "required": [
           "request_id",
           "result_id",
+          "processing_registry_projection_id",
           "projection"
         ],
         "title": "CitationDocumentCatalogResponse",
         "type": "object"
+      },
+      "CitationDocumentDeferredEvaluationStatus": {
+        "enum": [
+          "NOT_EVALUATED"
+        ],
+        "title": "CitationDocumentDeferredEvaluationStatus",
+        "type": "string"
       },
       "CitationDocumentFailureCode": {
         "enum": [
@@ -368,11 +370,22 @@
       "CitationDocumentItemResponse": {
         "additionalProperties": false,
         "properties": {
+          "allowed_actions": {
+            "items": {
+              "$ref": "#/components/schemas/CitationDocumentAllowedAction"
+            },
+            "maxItems": 3,
+            "title": "Allowed Actions",
+            "type": "array"
+          },
           "bibliography_membership_status": {
             "$ref": "#/components/schemas/CitationBibliographyMembershipStatus"
           },
           "document_status": {
             "$ref": "#/components/schemas/CitationDocumentAvailabilityStatus"
+          },
+          "human_scientific_acceptance_status": {
+            "$ref": "#/components/schemas/CitationDocumentDeferredEvaluationStatus"
           },
           "identity_items": {
             "items": {
@@ -416,6 +429,23 @@
             "title": "Occurrence Ids",
             "type": "array"
           },
+          "private_processing_admission_status": {
+            "$ref": "#/components/schemas/CitationDocumentProcessingAdmissionStatus"
+          },
+          "private_receipt_status": {
+            "$ref": "#/components/schemas/CitationDocumentPrivateReceiptStatus"
+          },
+          "processing_results": {
+            "items": {
+              "$ref": "#/components/schemas/CitationDocumentProcessingSummaryResponse"
+            },
+            "maxItems": 256,
+            "title": "Processing Results",
+            "type": "array"
+          },
+          "search_indexing_status": {
+            "$ref": "#/components/schemas/CitationDocumentDeferredEvaluationStatus"
+          },
           "source_document_ids": {
             "items": {
               "maxLength": 4096,
@@ -441,6 +471,42 @@
             "minLength": 1,
             "title": "Target Snapshot Id",
             "type": "string"
+          },
+          "technical_ingestion_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CitationDocumentTechnicalIngestionStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "technical_ingestion_statuses": {
+            "items": {
+              "$ref": "#/components/schemas/CitationDocumentTechnicalIngestionStatus"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Technical Ingestion Statuses",
+            "type": "array"
+          },
+          "transcript_document_id": {
+            "anyOf": [
+              {
+                "maxLength": 256,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Document Id"
+          },
+          "transcript_status": {
+            "$ref": "#/components/schemas/CitationDocumentTranscriptStatus"
           }
         },
         "required": [
@@ -454,37 +520,27 @@
           "identity_items",
           "document_status",
           "source_document_ids",
-          "source_document_link_ids"
+          "source_document_link_ids",
+          "private_receipt_status",
+          "private_processing_admission_status",
+          "technical_ingestion_status",
+          "technical_ingestion_statuses",
+          "processing_results",
+          "transcript_status",
+          "search_indexing_status",
+          "human_scientific_acceptance_status",
+          "allowed_actions"
         ],
         "title": "CitationDocumentItemResponse",
         "type": "object"
       },
-      "CitationDocumentProcessRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "expected_projection_id": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "title": "Expected Projection Id",
-            "type": "string"
-          },
-          "identity_item_id": {
-            "maxLength": 4096,
-            "minLength": 1,
-            "title": "Identity Item Id",
-            "type": "string"
-          },
-          "receipt": {
-            "$ref": "#/components/schemas/CitationDocumentReceiptResponse"
-          }
-        },
-        "required": [
-          "expected_projection_id",
-          "identity_item_id",
-          "receipt"
+      "CitationDocumentPrivateReceiptStatus": {
+        "enum": [
+          "NOT_RECEIVED",
+          "RECEIVED"
         ],
-        "title": "CitationDocumentProcessRequest",
-        "type": "object"
+        "title": "CitationDocumentPrivateReceiptStatus",
+        "type": "string"
       },
       "CitationDocumentProcessResponse": {
         "additionalProperties": false,
@@ -627,6 +683,94 @@
         "title": "CitationDocumentProcessResponse",
         "type": "object"
       },
+      "CitationDocumentProcessingAdmissionStatus": {
+        "enum": [
+          "NOT_AUTHORIZED",
+          "AUTHORIZED"
+        ],
+        "title": "CitationDocumentProcessingAdmissionStatus",
+        "type": "string"
+      },
+      "CitationDocumentProcessingSummaryResponse": {
+        "additionalProperties": false,
+        "description": "Path-free retained terminal evidence for one exact processing request.",
+        "properties": {
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CitationDocumentFailureCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "receipt_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Result Id",
+            "type": "string"
+          },
+          "source_document_descriptor_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source Document Descriptor Id",
+            "type": "string"
+          },
+          "source_document_link_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source Document Link Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CitationDocumentTerminalStatus"
+          },
+          "transcript_projection_id": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Projection Id"
+          }
+        },
+        "required": [
+          "request_id",
+          "result_id",
+          "receipt_id",
+          "source_document_descriptor_id",
+          "source_document_link_id",
+          "document_id",
+          "status"
+        ],
+        "title": "CitationDocumentProcessingSummaryResponse",
+        "type": "object"
+      },
       "CitationDocumentProjectionResponse": {
         "additionalProperties": false,
         "properties": {
@@ -745,6 +889,16 @@
       "CitationDocumentReceiptResponse": {
         "additionalProperties": false,
         "properties": {
+          "allowed_actions": {
+            "default": [
+              "PROCESS_PRIVATELY"
+            ],
+            "items": {
+              "$ref": "#/components/schemas/CitationDocumentAllowedAction"
+            },
+            "title": "Allowed Actions",
+            "type": "array"
+          },
           "receipt_id": {
             "maxLength": 4096,
             "minLength": 1,
@@ -762,6 +916,16 @@
         "title": "CitationDocumentReceiptResponse",
         "type": "object"
       },
+      "CitationDocumentTechnicalIngestionStatus": {
+        "enum": [
+          "NOT_REQUESTED",
+          "SUCCEEDED",
+          "FAILED",
+          "INDETERMINATE"
+        ],
+        "title": "CitationDocumentTechnicalIngestionStatus",
+        "type": "string"
+      },
       "CitationDocumentTerminalStatus": {
         "enum": [
           "SUCCEEDED",
@@ -769,6 +933,14 @@
           "INDETERMINATE"
         ],
         "title": "CitationDocumentTerminalStatus",
+        "type": "string"
+      },
+      "CitationDocumentTranscriptStatus": {
+        "enum": [
+          "NOT_AVAILABLE",
+          "AUTOMATED_UNREVIEWED"
+        ],
+        "title": "CitationDocumentTranscriptStatus",
         "type": "string"
       },
       "CitationIdentityItemResponse": {
@@ -4662,6 +4834,16 @@
             },
             "description": "Successful Response"
           },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "Request validation failed without reflecting input."
+          },
           "500": {
             "content": {
               "application/json": {
@@ -4709,9 +4891,6 @@
             "name": "item_id",
             "required": true,
             "schema": {
-              "maxLength": 256,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
               "title": "Item Id",
               "type": "string"
             }
@@ -4721,7 +4900,106 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CitationDocumentProcessRequest"
+                "additionalProperties": false,
+                "properties": {
+                  "expected_projection_id": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "title": "Expected Projection Id",
+                    "type": "string"
+                  },
+                  "identity_item_id": {
+                    "maxLength": 4096,
+                    "minLength": 1,
+                    "title": "Identity Item Id",
+                    "type": "string"
+                  },
+                  "receipt": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "allowed_actions": {
+                        "default": [
+                          "PROCESS_PRIVATELY"
+                        ],
+                        "items": {
+                          "enum": [
+                            "PROVIDE_PDF",
+                            "PROCESS_PRIVATELY",
+                            "OPEN_TRANSCRIPT"
+                          ],
+                          "title": "CitationDocumentAllowedAction",
+                          "type": "string"
+                        },
+                        "title": "Allowed Actions",
+                        "type": "array"
+                      },
+                      "receipt_id": {
+                        "maxLength": 4096,
+                        "minLength": 1,
+                        "title": "Receipt Id",
+                        "type": "string"
+                      },
+                      "source_document": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "byte_size": {
+                            "maximum": 100000000,
+                            "minimum": 1,
+                            "title": "Byte Size",
+                            "type": "integer"
+                          },
+                          "descriptor_id": {
+                            "maxLength": 4096,
+                            "minLength": 1,
+                            "title": "Descriptor Id",
+                            "type": "string"
+                          },
+                          "media_type": {
+                            "pattern": "^application/pdf$",
+                            "title": "Media Type",
+                            "type": "string"
+                          },
+                          "sha256": {
+                            "maxLength": 64,
+                            "minLength": 64,
+                            "pattern": "^[0-9a-f]{64}$",
+                            "title": "Sha256",
+                            "type": "string"
+                          },
+                          "source_document_id": {
+                            "maxLength": 4096,
+                            "minLength": 1,
+                            "title": "Source Document Id",
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "source_document_id",
+                          "sha256",
+                          "byte_size",
+                          "media_type",
+                          "descriptor_id"
+                        ],
+                        "title": "CitationSourceDocumentResponse",
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "source_document",
+                      "receipt_id"
+                    ],
+                    "title": "CitationDocumentReceiptResponse",
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "expected_projection_id",
+                  "identity_item_id",
+                  "receipt"
+                ],
+                "title": "CitationDocumentProcessRequest",
+                "type": "object",
+                "x-maximum-bytes": 64000
               }
             }
           },
@@ -4768,15 +5046,35 @@
             },
             "description": "The request conflicts with the current owner projection."
           },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The JSON request exceeds the exact 64,000-byte transport limit."
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The body is not application/json."
+          },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request validation failed without reflecting input."
           },
           "500": {
             "content": {
@@ -4817,7 +5115,7 @@
     },
     "/citation-documents/{item_id}/source": {
       "post": {
-        "description": "Local/private immutable PDF custody receipt only. Receipt does not authorize or start processing.",
+        "description": "Local/private immutable raw PDF custody receipt only. Receipt does not authorize or start processing.",
         "operationId": "receive_source_citation_documents__item_id__source_post",
         "parameters": [
           {
@@ -4825,9 +5123,6 @@
             "name": "item_id",
             "required": true,
             "schema": {
-              "maxLength": 256,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
               "title": "Item Id",
               "type": "string"
             }
@@ -4835,9 +5130,12 @@
         ],
         "requestBody": {
           "content": {
-            "multipart/form-data": {
+            "application/pdf": {
               "schema": {
-                "$ref": "#/components/schemas/Body_receive_source_citation_documents__item_id__source_post"
+                "format": "binary",
+                "minLength": 5,
+                "type": "string",
+                "x-maximum-bytes": 50000000
               }
             }
           },
@@ -4892,7 +5190,7 @@
                 }
               }
             },
-            "description": "The PDF exceeds the exact 50,000,000-byte custody limit."
+            "description": "The PDF exceeds the exact 50,000,000-byte transport and custody limit."
           },
           "415": {
             "content": {
@@ -4902,17 +5200,17 @@
                 }
               }
             },
-            "description": "The upload is not declared application/pdf."
+            "description": "The body is not application/pdf."
           },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Request validation failed without reflecting input."
           },
           "500": {
             "content": {
