@@ -106,6 +106,7 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     assert "/search" not in paths
     assert "/github/tasks" not in paths
     assert "/citation-reviews" not in paths
+    assert "/citation-documents" not in paths
     assert "/literature-review/progress" not in paths
     assert "/equation-reviews" not in paths
     assert "/transcripts" not in paths
@@ -136,6 +137,9 @@ def test__create_app__control_profile_includes_control_routes() -> None:
     assert "/search" in paths
     assert "/github/tasks" in paths
     assert "/citation-reviews" in paths
+    assert "/citation-documents" in paths
+    assert "/citation-documents/{item_id}/source" in paths
+    assert "/citation-documents/{item_id}/process-private" in paths
     assert "/literature-review/progress" in paths
     assert "/equation-reviews" in paths
     assert "/transcripts" in paths

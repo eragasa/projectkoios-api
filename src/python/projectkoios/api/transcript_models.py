@@ -6,7 +6,7 @@ from typing import Annotated
 from projectkoios.api.boundary_models import OpaqueId
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-MAX_TRANSCRIPT_DOCUMENTS = 1
+MAX_TRANSCRIPT_DOCUMENTS = 10_001
 MAX_TRANSCRIPT_PAGES = 10_000
 MAX_TRANSCRIPT_PAGE_TEXT_LENGTH = 1_000_000
 MAX_TRANSCRIPT_TEXT_LENGTH = 10_000_000
