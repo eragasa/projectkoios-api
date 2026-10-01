@@ -253,6 +253,15 @@ def test__combined_openapi__publishes_citation_document_control_contract() -> (
         "human_scientific_acceptance_status",
         "allowed_actions",
     } <= set(item)
+    for operation in (upload, process):
+        item_id = next(
+            parameter
+            for parameter in operation["parameters"]
+            if parameter["name"] == "item_id"
+        )["schema"]
+        assert item_id["minLength"] == 1
+        assert item_id["maxLength"] == 256
+        assert item_id["pattern"] == (r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$")
     upload_body = upload["requestBody"]["content"]["application/pdf"]["schema"]
     assert upload_body["format"] == "binary"
     assert upload_body["x-maximum-bytes"] == 50_000_000

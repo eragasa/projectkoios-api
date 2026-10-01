@@ -303,6 +303,15 @@ def test_owner_receives_processes_and_resolves_verified_transcript(
             io.BytesIO(_pdf("Disallowed replacement")),
             media_type="application/pdf",
         )
+    replacement_response = TestClient(citation_app).post(
+        f"/citation-documents/{item.item_id}/source",
+        content=_pdf("Different disallowed replacement"),
+        headers={"content-type": "application/pdf"},
+    )
+    assert replacement_response.status_code == 409
+    assert replacement_response.json()["detail"]["code"] == (
+        "CITATION_DOCUMENT_PROJECTION_CONFLICT"
+    )
 
     reloaded_custody = PrivatePdfCustody(custody.root)
     reloaded_service = CitationDocumentIngestionService(
@@ -340,6 +349,24 @@ def test_owner_receives_processes_and_resolves_verified_transcript(
     response = TestClient(app).get(f"/transcripts/{result.document_id}")
     assert response.status_code == 200
     assert response.json() == transcript.model_dump(mode="json")
+
+    record_path = next(registry.root.path.iterdir())
+    record = record_path.read_bytes()
+    stale_link_id = b"citation-source-document-link:sha256:" + b"0" * 64
+    assert result.source_document_link.link_id.encode() in record
+    record_path.write_bytes(
+        record.replace(
+            result.source_document_link.link_id.encode(),
+            stale_link_id,
+        )
+    )
+    os.chmod(record_path, 0o600)
+    stale_response = TestClient(citation_app).get("/citation-documents")
+    assert stale_response.status_code == 503
+    assert stale_response.json()["detail"]["code"] == (
+        "CITATION_DOCUMENT_OWNER_UNAVAILABLE"
+    )
+    assert result.source_document_link.link_id not in stale_response.text
 
 
 @pytest.mark.parametrize(
@@ -458,14 +485,19 @@ def test_retained_non_success_denies_transcript_after_reload(
             extraction_configuration=owner.extraction_configuration,
             artifact_limits=owner.artifact_limits,
         )
-        competing_result = service.action(
-            request=service.request(second_intent)
+        second_request = service.request(second_intent)
+        service.package_root.child_path(second_request.document_id).mkdir(
+            mode=0o700
         )
-        assert competing_result.status.value == "FAILED"
+        competing_result = service.action(request=second_request)
+        assert competing_result.status.value == "INDETERMINATE"
         competing = owner.read_catalog().projection.items[0]
         assert competing.document_status == "ambiguous"
         assert competing.technical_ingestion_status is None
-        assert competing.technical_ingestion_statuses == ("FAILED", "FAILED")
+        assert set(competing.technical_ingestion_statuses) == {
+            "FAILED",
+            "INDETERMINATE",
+        }
         assert len(competing.processing_results) == 2
         assert competing.allowed_actions == ()
 

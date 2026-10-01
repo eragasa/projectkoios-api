@@ -4891,6 +4891,9 @@
             "name": "item_id",
             "required": true,
             "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
               "title": "Item Id",
               "type": "string"
             }
@@ -5123,6 +5126,9 @@
             "name": "item_id",
             "required": true,
             "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
               "title": "Item Id",
               "type": "string"
             }

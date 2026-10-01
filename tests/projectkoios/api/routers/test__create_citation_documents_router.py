@@ -348,6 +348,43 @@ def test_multipart_is_rejected_without_consuming_oversized_extras() -> None:
     assert consumed is False
 
 
+@pytest.mark.parametrize(
+    "media_type",
+    (
+        "application/pdf",
+        "Application/PDF",
+        "application/pdf; charset=binary",
+        "Application/Pdf ; version=1.7",
+    ),
+)
+def test_source_upload_accepts_conforming_pdf_media_type_variants(
+    media_type: str,
+) -> None:
+    provider = _Provider()
+    response = _client(provider).post(
+        f"/citation-documents/{_item().item_id}/source",
+        content=b"%PDF-variant",
+        headers={"content-type": media_type},
+    )
+
+    assert response.status_code == 200
+    assert provider.uploaded == b"%PDF-variant"
+
+
+@pytest.mark.parametrize(
+    "media_type",
+    ("application/pdfx", "application/x-pdf", "text/application/pdf"),
+)
+def test_source_upload_rejects_near_match_media_types(media_type: str) -> None:
+    response = _client(_Provider()).post(
+        f"/citation-documents/{_item().item_id}/source",
+        content=b"%PDF-",
+        headers={"content-type": media_type},
+    )
+
+    assert response.status_code == 415
+
+
 def test_source_upload_rejects_declared_mime_before_provider() -> None:
     response = _client(_Provider()).post(
         f"/citation-documents/{_item().item_id}/source",
@@ -373,6 +410,61 @@ def test_source_upload_rejects_empty_and_false_magic_without_reflection() -> (
         )
         assert response.status_code == 400
         assert "SECRET" not in response.text
+
+
+@pytest.mark.parametrize(
+    ("declared_length", "content"),
+    (("not-a-number", b"%PDF-"), ("-1", b"%PDF-"), ("6", b"%PDF-")),
+)
+def test_source_upload_rejects_invalid_or_mismatched_content_length(
+    declared_length: str,
+    content: bytes,
+) -> None:
+    response = _client(_Provider()).post(
+        f"/citation-documents/{_item().item_id}/source",
+        content=content,
+        headers={
+            "content-type": "application/pdf",
+            "content-length": declared_length,
+        },
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == (
+        "CITATION_DOCUMENT_INVALID_REQUEST"
+    )
+    assert content.decode() not in response.text
+
+
+def test_source_upload_closes_spool_when_request_stream_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_temporary_file = citation_router_module.tempfile.TemporaryFile
+    temporary_files: list[BinaryIO] = []
+
+    def tracked_temporary_file(*args: object, **kwargs: object) -> BinaryIO:
+        value = original_temporary_file(*args, **kwargs)
+        temporary_files.append(value)
+        return value
+
+    def broken_stream() -> Iterator[bytes]:
+        yield b"%PDF-"
+        raise RuntimeError("private transport failure")
+
+    monkeypatch.setattr(
+        citation_router_module.tempfile,
+        "TemporaryFile",
+        tracked_temporary_file,
+    )
+    with pytest.raises(RuntimeError, match="private transport failure"):
+        _client(_Provider()).post(
+            f"/citation-documents/{_item().item_id}/source",
+            content=broken_stream(),
+            headers={"content-type": "application/pdf"},
+        )
+
+    assert temporary_files
+    assert all(item.closed for item in temporary_files)
 
 
 def test_source_upload_enforces_exact_stream_bound_without_content_length(
@@ -557,7 +649,13 @@ def test_upload_openapi_declares_binary_limit_and_terminal_process() -> None:
     upload_schema = upload["requestBody"]["content"]["application/pdf"][
         "schema"
     ]
+    item_id = next(
+        item for item in upload["parameters"] if item["name"] == "item_id"
+    )["schema"]
 
+    assert item_id["maxLength"] == 256
+    assert item_id["minLength"] == 1
+    assert item_id["pattern"] == r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
     assert upload_schema["type"] == "string"
     assert upload_schema["format"] == "binary"
     assert upload_schema["x-maximum-bytes"] == 50_000_000

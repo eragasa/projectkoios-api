@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import tempfile
 from collections.abc import Callable, Coroutine
-from typing import Any, BinaryIO, cast
+from typing import Annotated, Any, BinaryIO, cast
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Path, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import Response
 from fastapi.routing import APIRoute
@@ -37,7 +37,16 @@ from starlette.concurrency import run_in_threadpool
 
 MAX_CITATION_DOCUMENT_PROCESS_REQUEST_BYTES = 64_000
 _PDF_MAGIC = b"%PDF-"
+_OPAQUE_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$"
 _ITEM_ID_ADAPTER = TypeAdapter(OpaqueId)
+CitationDocumentItemId = Annotated[
+    str,
+    Path(
+        min_length=1,
+        max_length=256,
+        pattern=_OPAQUE_ID_PATTERN,
+    ),
+]
 
 
 def _inline_process_request_schema() -> dict[str, Any]:
@@ -196,7 +205,7 @@ def create_citation_documents_router(
     )
     async def receive_source(
         request: Request,
-        item_id: str,
+        item_id: CitationDocumentItemId,
     ) -> CitationDocumentReceiptResponse:
         validated_item_id = _validated_item_id(item_id)
         owner = _require_provider(provider)
@@ -264,7 +273,7 @@ def create_citation_documents_router(
     )
     async def process_private(
         request: Request,
-        item_id: str,
+        item_id: CitationDocumentItemId,
     ) -> CitationDocumentProcessResponse:
         validated_item_id = _validated_item_id(item_id)
         owner = _require_provider(provider)
@@ -299,7 +308,8 @@ def create_citation_documents_router(
 
 
 async def _receive_bounded_pdf(request: Request) -> BinaryIO:
-    if request.headers.get("content-type") != "application/pdf":
+    content_type = request.headers.get("content-type", "").partition(";")[0]
+    if content_type.strip().lower() != "application/pdf":
         raise _unsupported_media_type()
     declared_length = _declared_length(request)
     if (
