@@ -71,6 +71,21 @@ jobs:
           test "$(git rev-parse HEAD)" = "233f36900b9b44c943ecc5e27f2968ad4bee97ad"
           test "$(git rev-parse HEAD^{tree})" = "b7c3ffd23086e7ef184c990267d48a56dd87282b"
 
+      - name: GitHubTask 05b · Check out locked public catalog data
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios
+          ref: 88c37990fd37650b3091b2cb2f605a589ab624f4
+          path: projectkoios-public-catalogs
+          persist-credentials: false
+          sparse-checkout: public
+
+      - name: GitHubTask 05c · Verify locked public catalog data
+        working-directory: projectkoios-public-catalogs
+        run: |
+          test "$(git rev-parse HEAD)" = "88c37990fd37650b3091b2cb2f605a589ab624f4"
+          test "$(git rev-parse HEAD^{tree})" = "b102469ba33bc6c677ac93d1186a72b1496f5bc8"
+
       - name: GitHubTask 06 · Check out locked organizer owner
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
@@ -129,7 +144,7 @@ jobs:
           from projectkoios.api.courses import PublicCourseRepository
           from projectkoios.api.projects import PublicProjectRepository
 
-          root = Path("../projectkoios/public")
+          root = Path("../projectkoios-public-catalogs/public")
           courses = PublicCourseRepository(
               root / "course-catalog.json"
           ).list_courses()

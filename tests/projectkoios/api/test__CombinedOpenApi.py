@@ -569,6 +569,11 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     assert "dd171a3ea215d70bd0852fa4c50ff6e26291ded5" in workflow
     assert "233f36900b9b44c943ecc5e27f2968ad4bee97ad" in workflow
     assert "b7c3ffd23086e7ef184c990267d48a56dd87282b" in workflow
+    assert "88c37990fd37650b3091b2cb2f605a589ab624f4" in workflow
+    assert "b102469ba33bc6c677ac93d1186a72b1496f5bc8" in workflow
+    assert "path: projectkoios-public-catalogs" in workflow
+    assert "sparse-checkout: public" in workflow
+    assert 'root = Path("../projectkoios-public-catalogs/public")' in workflow
     assert "f1ca7b4aee552af131ff7af7d1408d33dd338c93" in workflow
     assert "b37672e36af13014dc25170be725fbf3f909c2d7" in workflow
     for identity in (
@@ -578,6 +583,8 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
         "dd171a3ea215d70bd0852fa4c50ff6e26291ded5",
         "233f36900b9b44c943ecc5e27f2968ad4bee97ad",
         "b7c3ffd23086e7ef184c990267d48a56dd87282b",
+        "88c37990fd37650b3091b2cb2f605a589ab624f4",
+        "b102469ba33bc6c677ac93d1186a72b1496f5bc8",
         "f1ca7b4aee552af131ff7af7d1408d33dd338c93",
         "b37672e36af13014dc25170be725fbf3f909c2d7",
         "be60640bec4fe15cc88b24161545eb1027ffbd2e",
@@ -585,7 +592,6 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     ):
         assert identity in ci_document
     assert "f926778101e3d74b420f8e1e4189cf2f5d939b6a" not in ci_document
-    assert "88c37990fd37650b3091b2cb2f605a589ab624f4" not in ci_document
     assert "e531cff8f65422d9c0cfab5aaa903c1ebdd778c0" in workflow
     assert workflow.index("Check out published applications owner") < (
         workflow.index("Verify locked applications owner")
