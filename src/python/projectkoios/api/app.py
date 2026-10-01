@@ -2,6 +2,10 @@ from __future__ import annotations
 
 from fastapi import FastAPI
 from projectkoios.agent.organizer import OrganizerCatalog
+from projectkoios.api.citation_documents import (
+    CitationDocumentProvider,
+    CitationDocumentTranscriptProvider,
+)
 from projectkoios.api.citation_review import CitationReviewRepository
 from projectkoios.api.config import (
     DeploymentProfile,
@@ -16,6 +20,9 @@ from projectkoios.api.github_tasks import GitHubTaskReader
 from projectkoios.api.literature_review import LiteratureReviewRepository
 from projectkoios.api.projects import PublicProjectRepository
 from projectkoios.api.publications import PublicationRepository
+from projectkoios.api.routers.citation_documents import (
+    create_citation_documents_router,
+)
 from projectkoios.api.routers.citation_review import (
     create_citation_review_router,
 )
@@ -44,6 +51,7 @@ from projectkoios.api.routers.transcript_review import (
 from projectkoios.api.routers.transcripts import create_transcripts_router
 from projectkoios.api.transcript_review import TranscriptReviewProvider
 from projectkoios.api.transcripts import (
+    CompositeTranscriptProvider,
     TranscriptOwner,
     TranscriptProvider,
     TranscriptRepository,
@@ -60,6 +68,7 @@ class ProjectKoiosApp:
         organizer: OrganizerProvider | None = None,
         transcript_reviews: TranscriptReviewProvider | None = None,
         transcripts: TranscriptProvider | None = None,
+        citation_documents: CitationDocumentProvider | None = None,
     ) -> None:
         self.configuration = configuration or ProjectKoiosAppConfiguration()
         self.courses = PublicCourseRepository(
@@ -93,6 +102,7 @@ class ProjectKoiosApp:
                 organizer,
                 transcript_reviews,
                 transcripts,
+                citation_documents,
             )
 
     def _register_control_routes(
@@ -102,6 +112,7 @@ class ProjectKoiosApp:
         organizer: OrganizerProvider | None,
         transcript_reviews: TranscriptReviewProvider | None,
         transcripts: TranscriptProvider | None,
+        citation_documents: CitationDocumentProvider | None,
     ) -> None:
         control_services = services or create_services(self.configuration)
         citation_review = self.configuration.citation_review
@@ -156,10 +167,20 @@ class ProjectKoiosApp:
         )
         self.app.include_router(create_citation_review_router(citation_reviews))
         self.app.include_router(
+            create_citation_documents_router(citation_documents)
+        )
+        self.app.include_router(
             create_literature_review_router(literature_reviews)
         )
         self.app.include_router(create_equation_review_router(equation_reviews))
         self.app.include_router(create_organizer_router(organizer_provider))
+        if citation_documents is not None:
+            transcript_provider = CompositeTranscriptProvider(
+                (
+                    transcript_provider,
+                    CitationDocumentTranscriptProvider(citation_documents),
+                )
+            )
         self.app.include_router(create_transcripts_router(transcript_provider))
         self.app.include_router(
             create_transcript_review_router(transcript_reviews)
@@ -174,6 +195,7 @@ class ProjectKoiosApp:
         organizer: OrganizerProvider | None = None,
         transcript_reviews: TranscriptReviewProvider | None = None,
         transcripts: TranscriptProvider | None = None,
+        citation_documents: CitationDocumentProvider | None = None,
     ) -> FastAPI:
         projectkoios_app = cls(
             configuration=configuration,
@@ -182,5 +204,6 @@ class ProjectKoiosApp:
             organizer=organizer,
             transcript_reviews=transcript_reviews,
             transcripts=transcripts,
+            citation_documents=citation_documents,
         )
         return projectkoios_app.app

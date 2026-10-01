@@ -60,18 +60,26 @@ explicit_package_bases = true
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["projectkoios.applications", "projectkoios.applications.*"]
+module = [
+    "projectkoios.applications",
+    "projectkoios.applications.*",
+    "projectkoios.ingestion",
+    "projectkoios.ingestion.*",
+    "projectkoios.references",
+    "projectkoios.references.*",
+]
 follow_imports = "skip"
+ignore_missing_imports = true
 
 [tool.ruff.format]
 quote-style = "double"
 indent-style = "space"
 
 [tool.uv.sources]
-projectkoios = { git = "https://github.com/eragasa/projectkoios.git", rev = "88c37990fd37650b3091b2cb2f605a589ab624f4" }
+projectkoios = { git = "https://github.com/eragasa/projectkoios.git", rev = "233f36900b9b44c943ecc5e27f2968ad4bee97ad" }
 projectkoios-agent = { path = "../projectkoios-agent", editable = true }
 projectkoios-applications = { path = "../projectkoios-applications", editable = false }
-projectkoios-ingestion = { path = "../projectkoios-ingestion", editable = true }
+projectkoios-ingestion = { git = "https://github.com/eragasa/projectkoios-ingestion.git", rev = "30db4756049b762ec6ea9962d205424a66d699e3" }
 projectkoios-obsidian = { path = "../projectkoios-obsidian", editable = true }
 projectkoios-references = { path = "../projectkoios-references", editable = true }
 projectkoios-search = { path = "../projectkoios-search", editable = true }

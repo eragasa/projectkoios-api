@@ -33,37 +33,43 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-applications
-          ref: f926778101e3d74b420f8e1e4189cf2f5d939b6a
+          ref: 781bdb58ce8ce7a4860edc66abaf190b42c91236
           path: projectkoios-applications
           persist-credentials: false
 
       - name: GitHubTask 03 · Verify locked applications owner
         working-directory: projectkoios-applications
         run: |
-          test "$(git rev-parse HEAD)" = "f926778101e3d74b420f8e1e4189cf2f5d939b6a"
-          test "$(git rev-parse HEAD^{tree})" = "eeb8563adc6b631443e748473a08aee00583758c"
+          test "$(git rev-parse HEAD)" = "781bdb58ce8ce7a4860edc66abaf190b42c91236"
+          test "$(git rev-parse HEAD^{tree})" = "de6257c720fa73caff21b393af4a3fb4858fd617"
 
       - name: GitHubTask 04 · Check out locked ingestion dependency
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-ingestion
-          ref: be60640bec4fe15cc88b24161545eb1027ffbd2e
+          ref: 30db4756049b762ec6ea9962d205424a66d699e3
           path: projectkoios-ingestion
           persist-credentials: false
+
+      - name: GitHubTask 04a · Verify locked ingestion dependency
+        working-directory: projectkoios-ingestion
+        run: |
+          test "$(git rev-parse HEAD)" = "30db4756049b762ec6ea9962d205424a66d699e3"
+          test "$(git rev-parse HEAD^{tree})" = "dd171a3ea215d70bd0852fa4c50ff6e26291ded5"
 
       - name: GitHubTask 05 · Check out locked Project Koios core
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios
-          ref: 88c37990fd37650b3091b2cb2f605a589ab624f4
+          ref: 233f36900b9b44c943ecc5e27f2968ad4bee97ad
           path: projectkoios
           persist-credentials: false
 
       - name: GitHubTask 05a · Verify locked Project Koios core
         working-directory: projectkoios
         run: |
-          test "$(git rev-parse HEAD)" = "88c37990fd37650b3091b2cb2f605a589ab624f4"
-          test "$(git rev-parse HEAD^{tree})" = "b102469ba33bc6c677ac93d1186a72b1496f5bc8"
+          test "$(git rev-parse HEAD)" = "233f36900b9b44c943ecc5e27f2968ad4bee97ad"
+          test "$(git rev-parse HEAD^{tree})" = "b7c3ffd23086e7ef184c990267d48a56dd87282b"
 
       - name: GitHubTask 06 · Check out locked organizer owner
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
@@ -93,9 +99,15 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-references
-          ref: b7581cb5f8a619883ecd73ed1d9354b85e5f57fd
+          ref: f1ca7b4aee552af131ff7af7d1408d33dd338c93
           path: projectkoios-references
           persist-credentials: false
+
+      - name: GitHubTask 09a · Verify locked references component
+        working-directory: projectkoios-references
+        run: |
+          test "$(git rev-parse HEAD)" = "f1ca7b4aee552af131ff7af7d1408d33dd338c93"
+          test "$(git rev-parse HEAD^{tree})" = "b37672e36af13014dc25170be725fbf3f909c2d7"
 
       - name: GitHubTask 10 · Install locked Python toolchain
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0

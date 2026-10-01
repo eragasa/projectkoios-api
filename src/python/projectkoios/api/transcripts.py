@@ -36,6 +36,31 @@ class TranscriptOwner(Protocol):
     def project_document(self) -> TranscriptDocumentResponse: ...
 
 
+class CompositeTranscriptProvider:
+    """Combine explicit transcript owners without scanning private roots."""
+
+    def __init__(self, providers: tuple[TranscriptProvider, ...]) -> None:
+        if not providers:
+            raise ValueError("at least one transcript provider is required")
+        self._providers = providers
+
+    def read_collection(self) -> TranscriptCollectionResponse:
+        documents = tuple(
+            document
+            for provider in self._providers
+            for document in provider.read_collection().documents
+        )
+        return TranscriptCollectionResponse(documents=documents)
+
+    def read_document(self, document_id: str) -> TranscriptDocumentResponse:
+        for provider in self._providers:
+            try:
+                return provider.read_document(document_id)
+            except ProjectionNotFound:
+                continue
+        raise TranscriptNotFound(document_id)
+
+
 class TranscriptRepository:
     """Map one explicit owner root to collection and identity-based reads."""
 

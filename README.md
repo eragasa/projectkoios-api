@@ -134,17 +134,47 @@ revision exists.
 
 The owner adapters are declared by the retained `equation-review-control`
 optional extra and imported only for configured PDF-corpus control capabilities.
-Applications commit `f926778` preserves `[pdf-corpus]` isolation from
-simulations/Physkit and owns the canonical unversioned transcript projection
-plus deterministic equation queue. That commit and ingestion replay owner
-`be60640` remain unpushed, so hosted verification reports owner-source
-unavailability.
+Applications commit `781bdb5` preserves `[pdf-corpus]` isolation from
+simulations/Physkit and owns the canonical unversioned transcript projection,
+deterministic equation queue, and citation-document processing registry. Runtime
+Ingestion is pinned to compatible descendant `30db475`; Applications retains
+`be60640` as exact extraction/package source-lineage metadata.
+
+## Local citation-document control
+
+> This is a local/private single-operator control surface without remote-user
+> authentication. Do not expose it on an untrusted network.
+
+An explicitly injected citation-document owner enables:
+
+```text
+GET  /citation-documents
+POST /citation-documents/{item_id}/source
+POST /citation-documents/{item_id}/process-private
+GET  /transcripts/{document_id}
+```
+
+The catalog preserves References-owned order, opaque IDs, no-key source gaps,
+and separate bibliography, key-resolution, identity, and document states. Only
+`not-observed` after complete evaluation is missing. Upload accepts exactly one
+`application/pdf`, ignores its filename, and returns an immutable private
+custody receipt under an exact 50,000,000-byte limit. Receipt does not start
+processing or grant rights.
+
+`process-private` is a separate synchronous local-operator command and returns
+only `SUCCEEDED`, `FAILED`, or `INDETERMINATE`. There is no queue, polling,
+progress, Search lifecycle, or automatic retry/repair. An indeterminate result
+exposes no transcript. Only registry-verified success can be read through the
+existing transcript detail route. With no injected owner, citation-document
+routes return a sanitized `503`.
 
 ## Parsed transcript display
 
 The control profile exposes a minimal read-only transcript display at
-`GET /transcripts` and `GET /transcripts/{document_id}`. Configure one completed
-document package explicitly; there is no default path or directory discovery:
+`GET /transcripts` and `GET /transcripts/{document_id}`. One base completed
+document package may be configured explicitly; successful citation documents
+are composed through their verified registry. There is no default path or
+directory discovery:
 
 ```bash
 KOIOS_TRANSCRIPT_DOCUMENT_ROOT=/private/document-package

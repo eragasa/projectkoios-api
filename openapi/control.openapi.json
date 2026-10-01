@@ -64,6 +64,36 @@
         "title": "Body_provide_reference_literature_review_references_post",
         "type": "object"
       },
+      "Body_receive_source_citation_documents__item_id__source_post": {
+        "properties": {
+          "source_pdf": {
+            "description": "Exactly one immutable PDF stream. The client filename is ignored.",
+            "items": {
+              "contentMediaType": "application/octet-stream",
+              "type": "string"
+            },
+            "maxItems": 1,
+            "minItems": 1,
+            "title": "Source Pdf",
+            "type": "array",
+            "x-maximum-bytes": 50000000
+          }
+        },
+        "required": [
+          "source_pdf"
+        ],
+        "title": "Body_receive_source_citation_documents__item_id__source_post",
+        "type": "object"
+      },
+      "CitationBibliographyMembershipStatus": {
+        "enum": [
+          "defined",
+          "undefined",
+          "not-evaluated"
+        ],
+        "title": "CitationBibliographyMembershipStatus",
+        "type": "string"
+      },
       "CitationCandidateResponse": {
         "additionalProperties": false,
         "properties": {
@@ -125,6 +155,36 @@
           "passage"
         ],
         "title": "CitationCandidateResponse",
+        "type": "object"
+      },
+      "CitationContentIdentityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithm": {
+            "pattern": "^sha256$",
+            "title": "Algorithm",
+            "type": "string"
+          },
+          "byte_count": {
+            "maximum": 100000000.0,
+            "minimum": 1.0,
+            "title": "Byte Count",
+            "type": "integer"
+          },
+          "digest": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Digest",
+            "type": "string"
+          }
+        },
+        "required": [
+          "algorithm",
+          "digest",
+          "byte_count"
+        ],
+        "title": "CitationContentIdentityResponse",
         "type": "object"
       },
       "CitationDecisionDisposition": {
@@ -206,6 +266,614 @@
         ],
         "title": "CitationDecisionResponse",
         "type": "object"
+      },
+      "CitationDocumentApiErrorCode": {
+        "enum": [
+          "CITATION_DOCUMENT_INVALID_REQUEST",
+          "CITATION_DOCUMENT_ITEM_NOT_FOUND",
+          "CITATION_DOCUMENT_PROJECTION_CONFLICT",
+          "CITATION_DOCUMENT_PDF_TOO_LARGE",
+          "CITATION_DOCUMENT_UNSUPPORTED_MEDIA_TYPE",
+          "CITATION_DOCUMENT_OWNER_MALFORMED",
+          "CITATION_DOCUMENT_OWNER_UNAVAILABLE",
+          "CITATION_DOCUMENT_OWNER_FAILURE"
+        ],
+        "title": "CitationDocumentApiErrorCode",
+        "type": "string"
+      },
+      "CitationDocumentApiErrorEnvelope": {
+        "additionalProperties": false,
+        "description": "FastAPI HTTPException envelope containing a stable feature error.",
+        "properties": {
+          "detail": {
+            "$ref": "#/components/schemas/CitationDocumentApiErrorResponse"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "title": "CitationDocumentApiErrorEnvelope",
+        "type": "object"
+      },
+      "CitationDocumentApiErrorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/CitationDocumentApiErrorCode"
+          },
+          "detail": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "CitationDocumentApiErrorResponse",
+        "type": "object"
+      },
+      "CitationDocumentAvailabilityStatus": {
+        "enum": [
+          "not-evaluated",
+          "not-observed",
+          "available-unverified-linkage",
+          "available-linked",
+          "ambiguous",
+          "inaccessible"
+        ],
+        "title": "CitationDocumentAvailabilityStatus",
+        "type": "string"
+      },
+      "CitationDocumentCatalogResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "projection": {
+            "$ref": "#/components/schemas/CitationDocumentProjectionResponse"
+          },
+          "request_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Result Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "result_id",
+          "projection"
+        ],
+        "title": "CitationDocumentCatalogResponse",
+        "type": "object"
+      },
+      "CitationDocumentFailureCode": {
+        "enum": [
+          "EXTRACTION_FAILED",
+          "PACKAGE_BUILD_FAILED",
+          "PUBLICATION_FAILED",
+          "PUBLICATION_INDETERMINATE",
+          "TRANSCRIPT_VERIFICATION_FAILED"
+        ],
+        "title": "CitationDocumentFailureCode",
+        "type": "string"
+      },
+      "CitationDocumentItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bibliography_membership_status": {
+            "$ref": "#/components/schemas/CitationBibliographyMembershipStatus"
+          },
+          "document_status": {
+            "$ref": "#/components/schemas/CitationDocumentAvailabilityStatus"
+          },
+          "identity_items": {
+            "items": {
+              "$ref": "#/components/schemas/CitationIdentityItemResponse"
+            },
+            "maxItems": 10000,
+            "title": "Identity Items",
+            "type": "array"
+          },
+          "identity_projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Identity Projection Id",
+            "type": "string"
+          },
+          "item_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Item Id",
+            "type": "string"
+          },
+          "key_resolution_status": {
+            "$ref": "#/components/schemas/CitationKeyResolutionStatus"
+          },
+          "literal_citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "title": "Literal Citekey",
+            "type": "string"
+          },
+          "occurrence_ids": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Occurrence Ids",
+            "type": "array"
+          },
+          "source_document_ids": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Source Document Ids",
+            "type": "array"
+          },
+          "source_document_link_ids": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Source Document Link Ids",
+            "type": "array"
+          },
+          "target_snapshot_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Target Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "item_id",
+          "target_snapshot_id",
+          "identity_projection_id",
+          "literal_citekey",
+          "occurrence_ids",
+          "bibliography_membership_status",
+          "key_resolution_status",
+          "identity_items",
+          "document_status",
+          "source_document_ids",
+          "source_document_link_ids"
+        ],
+        "title": "CitationDocumentItemResponse",
+        "type": "object"
+      },
+      "CitationDocumentProcessRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Expected Projection Id",
+            "type": "string"
+          },
+          "identity_item_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Identity Item Id",
+            "type": "string"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/CitationDocumentReceiptResponse"
+          }
+        },
+        "required": [
+          "expected_projection_id",
+          "identity_item_id",
+          "receipt"
+        ],
+        "title": "CitationDocumentProcessRequest",
+        "type": "object"
+      },
+      "CitationDocumentProcessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "document_id": {
+            "maxLength": 256,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "extraction_bundle_id": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extraction Bundle Id"
+          },
+          "failure_code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CitationDocumentFailureCode"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "intent_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Intent Id",
+            "type": "string"
+          },
+          "link_result_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Link Result Id",
+            "type": "string"
+          },
+          "package_id": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Package Id"
+          },
+          "physical_page_count": {
+            "anyOf": [
+              {
+                "maximum": 10000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Physical Page Count"
+          },
+          "publication_action": {
+            "anyOf": [
+              {
+                "pattern": "^(create|unchanged)$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Publication Action"
+          },
+          "receipt_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Result Id",
+            "type": "string"
+          },
+          "source_document_descriptor_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source Document Descriptor Id",
+            "type": "string"
+          },
+          "source_document_link": {
+            "$ref": "#/components/schemas/CitationSourceDocumentLinkResponse"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CitationDocumentTerminalStatus"
+          },
+          "transcript_projection_id": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Transcript Projection Id"
+          }
+        },
+        "required": [
+          "request_id",
+          "intent_id",
+          "link_result_id",
+          "source_document_link",
+          "receipt_id",
+          "source_document_descriptor_id",
+          "document_id",
+          "status",
+          "result_id"
+        ],
+        "title": "CitationDocumentProcessResponse",
+        "type": "object"
+      },
+      "CitationDocumentProjectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bibliography_binding_ids": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Bibliography Binding Ids",
+            "type": "array"
+          },
+          "contract_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "document_observation_ids": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Document Observation Ids",
+            "type": "array"
+          },
+          "identity_projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Identity Projection Id",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CitationDocumentItemResponse"
+            },
+            "maxItems": 10000,
+            "title": "Items",
+            "type": "array"
+          },
+          "limitations": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Projection Id",
+            "type": "string"
+          },
+          "source_document_link_ids": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 20000,
+            "title": "Source Document Link Ids",
+            "type": "array"
+          },
+          "source_documents": {
+            "items": {
+              "$ref": "#/components/schemas/CitationSourceDocumentResponse"
+            },
+            "maxItems": 10000,
+            "title": "Source Documents",
+            "type": "array"
+          },
+          "source_gaps": {
+            "items": {
+              "$ref": "#/components/schemas/CitationSourceGapResponse"
+            },
+            "maxItems": 10000,
+            "title": "Source Gaps",
+            "type": "array"
+          },
+          "target_projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Target Projection Id",
+            "type": "string"
+          },
+          "target_snapshot_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Target Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_id",
+          "target_snapshot_id",
+          "target_projection_id",
+          "bibliography_binding_ids",
+          "identity_projection_id",
+          "document_observation_ids",
+          "source_document_link_ids",
+          "source_documents",
+          "items",
+          "source_gaps",
+          "limitations",
+          "projection_id"
+        ],
+        "title": "CitationDocumentProjectionResponse",
+        "type": "object"
+      },
+      "CitationDocumentReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "receipt_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "source_document": {
+            "$ref": "#/components/schemas/CitationSourceDocumentResponse"
+          }
+        },
+        "required": [
+          "source_document",
+          "receipt_id"
+        ],
+        "title": "CitationDocumentReceiptResponse",
+        "type": "object"
+      },
+      "CitationDocumentTerminalStatus": {
+        "enum": [
+          "SUCCEEDED",
+          "FAILED",
+          "INDETERMINATE"
+        ],
+        "title": "CitationDocumentTerminalStatus",
+        "type": "string"
+      },
+      "CitationIdentityItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "canonical_citekey": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Citekey"
+          },
+          "item_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Item Id",
+            "type": "string"
+          },
+          "projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Projection Id",
+            "type": "string"
+          },
+          "proposed_citekey": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Proposed Citekey"
+          },
+          "reference_id": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Id"
+          },
+          "requested_identity_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Requested Identity Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CitationIdentityStatus"
+          },
+          "successor_reference_ids": {
+            "default": [],
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Successor Reference Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "item_id",
+          "requested_identity_id",
+          "projection_id",
+          "status"
+        ],
+        "title": "CitationIdentityItemResponse",
+        "type": "object"
+      },
+      "CitationIdentityStatus": {
+        "enum": [
+          "accepted-active-canonical",
+          "accepted-without-active-citekey",
+          "candidate-proposed-noncanonical",
+          "inactive-superseded",
+          "unresolved"
+        ],
+        "title": "CitationIdentityStatus",
+        "type": "string"
+      },
+      "CitationKeyResolutionStatus": {
+        "enum": [
+          "resolved",
+          "ambiguous",
+          "unresolved"
+        ],
+        "title": "CitationKeyResolutionStatus",
+        "type": "string"
       },
       "CitationReviewDetailResponse": {
         "additionalProperties": false,
@@ -402,6 +1070,258 @@
           "decision"
         ],
         "title": "CitationReviewSummaryResponse",
+        "type": "object"
+      },
+      "CitationSourceDocumentLinkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "availability_observation_ids": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 256,
+            "minItems": 1,
+            "title": "Availability Observation Ids",
+            "type": "array"
+          },
+          "creating_request_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Creating Request Id",
+            "type": "string"
+          },
+          "identity_item_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Identity Item Id",
+            "type": "string"
+          },
+          "identity_projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Identity Projection Id",
+            "type": "string"
+          },
+          "limitations": {
+            "items": {
+              "maxLength": 4096,
+              "minLength": 1,
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Limitations",
+            "type": "array"
+          },
+          "link_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Link Id",
+            "type": "string"
+          },
+          "linkage_basis": {
+            "pattern": "^explicit-upload-for-requested-citation$",
+            "title": "Linkage Basis",
+            "type": "string"
+          },
+          "literal_citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9._-]+$",
+            "title": "Literal Citekey",
+            "type": "string"
+          },
+          "pre_effect_intent_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Pre Effect Intent Id",
+            "type": "string"
+          },
+          "prior_item_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Prior Item Id",
+            "type": "string"
+          },
+          "prior_projection_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Prior Projection Id",
+            "type": "string"
+          },
+          "requested_identity_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Requested Identity Id",
+            "type": "string"
+          },
+          "source_document": {
+            "$ref": "#/components/schemas/CitationSourceDocumentResponse"
+          },
+          "target_snapshot_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Target Snapshot Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "creating_request_id",
+          "prior_projection_id",
+          "prior_item_id",
+          "target_snapshot_id",
+          "identity_projection_id",
+          "literal_citekey",
+          "identity_item_id",
+          "requested_identity_id",
+          "source_document",
+          "availability_observation_ids",
+          "pre_effect_intent_id",
+          "linkage_basis",
+          "limitations",
+          "link_id"
+        ],
+        "title": "CitationSourceDocumentLinkResponse",
+        "type": "object"
+      },
+      "CitationSourceDocumentResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_size": {
+            "maximum": 100000000.0,
+            "minimum": 1.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "descriptor_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Descriptor Id",
+            "type": "string"
+          },
+          "media_type": {
+            "pattern": "^application/pdf$",
+            "title": "Media Type",
+            "type": "string"
+          },
+          "sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source_document_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source Document Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_document_id",
+          "sha256",
+          "byte_size",
+          "media_type",
+          "descriptor_id"
+        ],
+        "title": "CitationSourceDocumentResponse",
+        "type": "object"
+      },
+      "CitationSourceGapResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "locator": {
+            "$ref": "#/components/schemas/CitationSourceLocatorResponse"
+          },
+          "placeholder_identifier": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Placeholder Identifier",
+            "type": "string"
+          },
+          "reason": {
+            "pattern": "^placeholder_identifier$",
+            "title": "Reason",
+            "type": "string"
+          },
+          "source_gap_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source Gap Id",
+            "type": "string"
+          },
+          "source_gap_index": {
+            "exclusiveMaximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Source Gap Index",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_gap_id",
+          "source_gap_index",
+          "locator",
+          "reason",
+          "placeholder_identifier"
+        ],
+        "title": "CitationSourceGapResponse",
+        "type": "object"
+      },
+      "CitationSourceLocatorResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_end": {
+            "exclusiveMinimum": 0.0,
+            "maximum": 100000000.0,
+            "title": "Byte End",
+            "type": "integer"
+          },
+          "byte_start": {
+            "maximum": 100000000.0,
+            "minimum": 0.0,
+            "title": "Byte Start",
+            "type": "integer"
+          },
+          "column": {
+            "maximum": 1000000000.0,
+            "minimum": 1.0,
+            "title": "Column",
+            "type": "integer"
+          },
+          "include_index": {
+            "exclusiveMaximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Include Index",
+            "type": "integer"
+          },
+          "line": {
+            "maximum": 1000000000.0,
+            "minimum": 1.0,
+            "title": "Line",
+            "type": "integer"
+          },
+          "source_content_identity": {
+            "$ref": "#/components/schemas/CitationContentIdentityResponse"
+          },
+          "source_path": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source Path",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_path",
+          "source_content_identity",
+          "include_index",
+          "byte_start",
+          "byte_end",
+          "line",
+          "column"
+        ],
+        "title": "CitationSourceLocatorResponse",
         "type": "object"
       },
       "CourseMaterialsStatus": {
@@ -2907,7 +3827,7 @@
             "items": {
               "$ref": "#/components/schemas/TranscriptDocumentSummaryResponse"
             },
-            "maxItems": 1,
+            "maxItems": 10001,
             "title": "Documents",
             "type": "array"
           }
@@ -3724,6 +4644,310 @@
         "summary": "List Publications",
         "tags": [
           "publications"
+        ]
+      }
+    },
+    "/citation-documents": {
+      "get": {
+        "description": "Local/private operator-only catalog. Do not expose this control surface on an untrusted network.",
+        "operationId": "read_catalog_citation_documents_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentCatalogResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner is unavailable."
+          }
+        },
+        "summary": "Read Catalog",
+        "tags": [
+          "citation-documents"
+        ]
+      }
+    },
+    "/citation-documents/{item_id}/process-private": {
+      "post": {
+        "description": "Explicit local-operator private processing command. Execution is synchronous and returns one terminal result; no retry is implied.",
+        "operationId": "process_private_citation_documents__item_id__process_private_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CitationDocumentProcessRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentProcessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The bounded request is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document item was not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request conflicts with the current owner projection."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner is unavailable."
+          }
+        },
+        "summary": "Process Private",
+        "tags": [
+          "citation-documents"
+        ]
+      }
+    },
+    "/citation-documents/{item_id}/source": {
+      "post": {
+        "description": "Local/private immutable PDF custody receipt only. Receipt does not authorize or start processing.",
+        "operationId": "receive_source_citation_documents__item_id__source_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "maxLength": 256,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_receive_source_citation_documents__item_id__source_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The bounded request is invalid."
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document item was not found."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The request conflicts with the current owner projection."
+          },
+          "413": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The PDF exceeds the exact 50,000,000-byte custody limit."
+          },
+          "415": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The upload is not declared application/pdf."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner failed unexpectedly."
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner returned invalid data."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CitationDocumentApiErrorEnvelope"
+                }
+              }
+            },
+            "description": "The citation-document owner is unavailable."
+          }
+        },
+        "summary": "Receive Source",
+        "tags": [
+          "citation-documents"
         ]
       }
     },

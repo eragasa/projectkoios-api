@@ -16,10 +16,22 @@ snapshot `7454c022a0844496a87032c7fa728087a78ef662` (tree
   `docs/equation-review-api-contract.md` and its provisional TypeScript
   projection; and
 - applications exact transcript projection plus the retained deterministic
-  equation queue and schema `3` owner at
-  `f926778101e3d74b420f8e1e4189cf2f5d939b6a` (tree
-  `eeb8563adc6b631443e748473a08aee00583758c`, parent
-  `0cbc74ff234b8c463f29de98dcd15d3599952ba6`).
+  equation queue, schema `3` owner, and citation-document owner at
+  `781bdb58ce8ce7a4860edc66abaf190b42c91236` (tree
+  `de6257c720fa73caff21b393af4a3fb4858fd617`).
+
+The citation-document slice additionally binds exact ksdft commit
+`3ec21b4318020d700be671a8f220b2149b3d28c7` (tree
+`9953c0e99a28443426b5093852292f7cfbada2cc`), References commit
+`f1ca7b4aee552af131ff7af7d1408d33dd338c93` (tree
+`b37672e36af13014dc25170be725fbf3f909c2d7`), and Ingestion lineage commit
+`be60640bec4fe15cc88b24161545eb1027ffbd2e` (tree
+`d386a1744f79463fd7cd0b3087ee5fc361e0f7d5`). The runtime Ingestion checkout is
+the dependency-compatible descendant `30db4756049b762ec6ea9962d205424a66d699e3`
+(tree `dd171a3ea215d70bd0852fa4c50ff6e26291ded5`); its PDF subtree is identical
+to the lineage commit. The compatible transitive core source is commit
+`233f36900b9b44c943ecc5e27f2968ad4bee97ad` (tree
+`b7c3ffd23086e7ef184c990267d48a56dd87282b`).
 
 The primary course/project repositories and the working organizer owner
 integration are retained unchanged in behavior. The equation-review and
@@ -33,11 +45,12 @@ The API owns only:
 - Pydantic request and response DTOs;
 - HTTP paths, query limits, status codes, and safe error envelopes;
 - narrow `Protocol` ports for owner-supplied projections;
-- a minimal path-free display projection for one explicitly configured parsed
-  transcript;
+- a bounded path-free display projection for explicitly configured and
+  registry-verified parsed transcripts;
 - the explicit, content-addressed `pizzi2020` equation read boundary;
-- a narrow adapter to the applications-owned deterministic queue and schema `3`
-  append seams, with read compatibility for legacy schema-2 revisions; and
+- narrow adapters to the Applications-owned deterministic queue/schema `3`
+  append seams and synchronous citation-document custody/processing registry,
+  with read compatibility for legacy equation schema-2 revisions; and
 - `openapi/control.openapi.json`.
 
 It does not scan equation files, ingest transcripts, process PDFs, or
@@ -99,14 +112,64 @@ order: `page_index` is contiguous from zero, `physical_page` equals
 `page_index + 1`, page identities
 are unique, and the number of pages exactly equals `physical_page_count`.
 
-One collection contains at most one configured document. A document contains
-1–10,000 pages, each page contains at most 1,000,000 text characters, and total
-page text is limited to 10,000,000 characters. All DTOs reject extra fields and
-all identities use the shared 256-character path-free opaque-ID contract.
+A collection contains at most 10,001 distinct documents: the optional configured
+package plus up to 10,000 verified successful citation-document transcript
+projections. A
+document contains 1–10,000 pages, each page contains at most 1,000,000 text
+characters, and total page text is limited to 10,000,000 characters. All DTOs
+reject extra fields and all identities use the shared 256-character path-free
+opaque-ID contract.
 Provider unavailability maps to a fixed `503`, malformed owner projections to a
 fixed `502`, and unexpected failures to a fixed `500`; private exception text is
 never returned. This display surface does not mutate or claim human review and
 is separate from the richer `/transcript-reviews` evidence surface below.
+
+## Citation-document control surface
+
+> **Local/private control warning:** these endpoints are for a single explicitly
+> configured local operator. They are not an authenticated remote-user API and
+> must not be exposed on an untrusted network. Custodied PDFs, extracted text,
+> and processing evidence remain private owner data.
+
+The bounded endpoints are:
+
+```text
+GET  /citation-documents
+POST /citation-documents/{item_id}/source
+POST /citation-documents/{item_id}/process-private
+GET  /transcripts/{document_id}
+```
+
+The first route returns the exact References-owned catalog order and retains
+bibliography membership, key resolution, identity projection, document
+availability, source documents, and no-key source gaps as distinct fields.
+Opaque owner identities are preserved verbatim. `not-observed` after completed
+evaluation is the only missing-document state; `not-evaluated` is not treated as
+missing. Responses expose neither filenames nor private paths.
+
+Source receipt accepts exactly one multipart `application/pdf` stream. The
+client filename is ignored. Applications-owned private custody enforces PDF
+magic, immutable content-addressed receipt, private atomic storage, bounded
+reads, partial-file cleanup, and the exact **50,000,000-byte** limit. Receipt
+creation does not imply citation linkage, admission, rights, extraction, or
+processing.
+
+`process-private` is a separate, explicit local-operator command. It binds the
+current projection, selected identity item, immutable receipt, and configured
+local authority/admission identities, then runs Applications-owned extraction
+and publication synchronously. The response is terminal: `SUCCEEDED`, `FAILED`,
+or `INDETERMINATE`. There is no queue, background work, polling, progress,
+workflow identity, Search lifecycle, automatic retry, overwrite, or repair.
+`INDETERMINATE` means publication may be partial or unknown and requires manual
+reconciliation; it exposes no transcript projection.
+
+Only a registry-verified `SUCCEEDED` result is resolvable through the existing
+`GET /transcripts/{document_id}` projection. Citation routes do not create a
+nested transcript route. The API owns only DTO translation, strict provider
+revalidation, safe fixed error envelopes, and HTTP behavior; References owns the
+catalog/link projection and Applications owns custody, processing, persistence,
+and the successful-transcript registry. Until a citation owner is explicitly
+injected, citation routes return fixed `503` owner-unavailable responses.
 
 ## Transcript review surface
 
@@ -264,27 +327,27 @@ or transcript control owner imports the owner chain. The only applications
 capability selected by that runtime extra is
 `projectkoios-applications[pdf-corpus]==0.1.0.dev0`. The development extra also
 names `projectkoios-ingestion[pdf]` so `uv` can bind that unpublished transitive
-requirement to the reviewed local source; dependency sources are not inherited
-from another package. The API maps Project Koios core to exact commit
-`88c37990fd37650b3091b2cb2f605a589ab624f4`, matching ingestion's source and the
-prior CI core tree without changing core behavior. These lock aids do not
-broaden the control runtime extra. There is no API dependency or source mapping
-for `projectkoios-simulations` or Physkit.
+requirement to the reviewed Ingestion Git source; dependency sources are not
+inherited from another package. The API maps Project Koios core to exact commit
+`233f36900b9b44c943ecc5e27f2968ad4bee97ad`, matching the approved References
+and runtime Ingestion sources. These lock aids do not broaden the control runtime
+extra. There is no API dependency or source mapping for
+`projectkoios-simulations` or Physkit.
 
-Applications commit `f926778` retains separate simulation, example, and
+Applications commit `781bdb5` retains separate simulation, example, and
 development capabilities while owning the canonical unversioned transcript
-projection, deterministic equation queue, and canonical schema-3 reviewer math
-bodies. Lock consistency against tree
-`eeb8563adc6b631443e748473a08aee00583758c` resolves 47 packages (including the
-preserved organizer owner) and produces no `projectkoios-simulations` or Physkit
-package record. A guarded import/startup
-check also proves that the configured equation-review and transcript control
-owners can load through `[pdf-corpus]` while imports of simulations and Physkit
-are rejected. The API contains no copied or extracted owner persistence or
-artifact-parsing code.
+projection, deterministic equation queue, canonical schema-3 reviewer math
+bodies, and citation-document custody/processing registry. Lock consistency
+against tree `de6257c720fa73caff21b393af4a3fb4858fd617` resolves 47 packages
+(including the preserved organizer owner) and produces no
+`projectkoios-simulations` or Physkit package record. A guarded import/startup
+check also proves that configured equation-review and transcript control owners
+can load through `[pdf-corpus]` while imports of simulations and Physkit are
+rejected. Citation-document composition is explicitly injected. The API
+contains no copied owner persistence, PDF extraction, or artifact parsing code.
 
-Hosted verification is pinned to applications commit `f926778` and ingestion
-commit `be60640`, verifies the Applications tree, and proceeds through the
-locked dependency and API checks. Both owner commits remain unpushed, so hosted
-checkout is expected to report owner-source unavailability until they are
-published. No push or installation was performed by this change.
+Hosted verification pins and verifies Applications `781bdb5`, runtime Ingestion
+`30db475`, Project Koios core `233f369`, and References `f1ca7b4` before the
+locked dependency and API checks. Applications continues to assert the exact
+`be60640` Ingestion extraction/package lineage. Source availability is therefore
+fail-closed at checkout. No push is performed by this change.

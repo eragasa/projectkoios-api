@@ -382,7 +382,7 @@ wheels = [
 [[package]]
 name = "projectkoios"
 version = "0.0.0"
-source = { git = "https://github.com/eragasa/projectkoios.git?rev=88c37990fd37650b3091b2cb2f605a589ab624f4#88c37990fd37650b3091b2cb2f605a589ab624f4" }
+source = { git = "https://github.com/eragasa/projectkoios.git?rev=233f36900b9b44c943ecc5e27f2968ad4bee97ad#233f36900b9b44c943ecc5e27f2968ad4bee97ad" }
 
 [[package]]
 name = "projectkoios-agent"
@@ -430,10 +430,10 @@ requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx2", marker = "extra == 'dev'", specifier = ">=2.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
-    { name = "projectkoios", git = "https://github.com/eragasa/projectkoios.git?rev=88c37990fd37650b3091b2cb2f605a589ab624f4" },
+    { name = "projectkoios", git = "https://github.com/eragasa/projectkoios.git?rev=233f36900b9b44c943ecc5e27f2968ad4bee97ad" },
     { name = "projectkoios-agent", editable = "../projectkoios-agent" },
     { name = "projectkoios-applications", extras = ["pdf-corpus"], marker = "extra == 'equation-review-control'", directory = "../projectkoios-applications" },
-    { name = "projectkoios-ingestion", extras = ["pdf"], marker = "extra == 'dev'", editable = "../projectkoios-ingestion" },
+    { name = "projectkoios-ingestion", extras = ["pdf"], marker = "extra == 'dev'", git = "https://github.com/eragasa/projectkoios-ingestion.git?rev=30db4756049b762ec6ea9962d205424a66d699e3" },
     { name = "projectkoios-obsidian", editable = "../projectkoios-obsidian" },
     { name = "projectkoios-references", editable = "../projectkoios-references" },
     { name = "projectkoios-search", editable = "../projectkoios-search" },
@@ -480,7 +480,7 @@ provides-extras = ["pdf-corpus", "simulations", "examples", "development"]
 [[package]]
 name = "projectkoios-ingestion"
 version = "0.0.0"
-source = { editable = "../projectkoios-ingestion" }
+source = { git = "https://github.com/eragasa/projectkoios-ingestion.git?rev=30db4756049b762ec6ea9962d205424a66d699e3#30db4756049b762ec6ea9962d205424a66d699e3" }
 dependencies = [
     { name = "projectkoios" },
 ]
@@ -489,19 +489,6 @@ dependencies = [
 pdf = [
     { name = "pymupdf" },
 ]
-
-[package.metadata]
-requires-dist = [
-    { name = "latex2mathml", marker = "extra == 'dev'", specifier = ">=3.81" },
-    { name = "latex2mathml", marker = "extra == 'mathml'", specifier = ">=3.81" },
-    { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
-    { name = "projectkoios", git = "https://github.com/eragasa/projectkoios.git?rev=88c37990fd37650b3091b2cb2f605a589ab624f4" },
-    { name = "pymupdf", marker = "extra == 'dev'", specifier = ">=1.24" },
-    { name = "pymupdf", marker = "extra == 'pdf'", specifier = ">=1.24" },
-    { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
-    { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
-]
-provides-extras = ["pdf", "mathml", "dev"]
 
 [[package]]
 name = "projectkoios-obsidian"
@@ -521,15 +508,18 @@ name = "projectkoios-references"
 version = "0.0.0"
 source = { editable = "../projectkoios-references" }
 dependencies = [
+    { name = "projectkoios" },
     { name = "pybtex" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },
+    { name = "projectkoios", git = "https://github.com/eragasa/projectkoios.git?rev=233f36900b9b44c943ecc5e27f2968ad4bee97ad" },
     { name = "pybtex", specifier = ">=0.25" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
+    { name = "setuptools", marker = "extra == 'dev'", specifier = ">=61.0.0" },
 ]
 provides-extras = ["dev"]
 

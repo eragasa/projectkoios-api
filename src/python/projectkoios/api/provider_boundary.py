@@ -35,13 +35,12 @@ def invoke_provider[ValueT](call: Callable[[], ValueT]) -> ValueT:
         raise UnexpectedProviderFailure from error
 
 
-def validated_provider_projection[ProjectionT: BaseModel](
-    call: Callable[[], object],
+def validate_provider_projection[ProjectionT: BaseModel](
+    value: object,
     model: type[ProjectionT],
 ) -> ProjectionT:
-    """Return a fresh, strictly validated API model for provider output."""
+    """Strictly revalidate one already-returned provider projection."""
 
-    value = invoke_provider(call)
     try:
         payload = (
             value.model_dump(
@@ -57,3 +56,12 @@ def validated_provider_projection[ProjectionT: BaseModel](
         raise MalformedProviderProjection from error
     except Exception as error:
         raise UnexpectedProviderFailure from error
+
+
+def validated_provider_projection[ProjectionT: BaseModel](
+    call: Callable[[], object],
+    model: type[ProjectionT],
+) -> ProjectionT:
+    """Return a fresh, strictly validated API model for provider output."""
+
+    return validate_provider_projection(invoke_provider(call), model)

@@ -33,6 +33,9 @@ _EXPECTED_PATHS = {
     "/citation-reviews/sources/{source_name}",
     "/citation-reviews/{claim_id}",
     "/citation-reviews/{claim_id}/decision",
+    "/citation-documents",
+    "/citation-documents/{item_id}/source",
+    "/citation-documents/{item_id}/process-private",
     "/literature-review/progress",
     "/literature-review/references",
     "/equation-reviews",
@@ -59,6 +62,8 @@ def test__combined_openapi__has_exact_integrated_paths_and_methods() -> None:
     expected_methods.update(
         {
             "/citation-reviews/{claim_id}/decision": {"put"},
+            "/citation-documents/{item_id}/source": {"post"},
+            "/citation-documents/{item_id}/process-private": {"post"},
             "/equation-reviews/{candidate_id}/decision": {"put"},
             "/literature-review/references": {"get", "post"},
             "/organizer/control": {"put"},
@@ -155,7 +160,7 @@ def test__combined_openapi__publishes_transcript_display_contract() -> None:
         models["TranscriptCollectionResponse"]["properties"]["documents"][
             "maxItems"
         ]
-        == 1
+        == 10_001
     )
     document = models["TranscriptDocumentResponse"]
     assert document["properties"]["physical_page_count"] == {
@@ -183,6 +188,90 @@ def test__combined_openapi__publishes_transcript_display_contract() -> None:
             assert operation["responses"][code]["content"]["application/json"][
                 "schema"
             ] == {"$ref": "#/components/schemas/ApiErrorResponse"}
+
+
+def test__combined_openapi__publishes_citation_document_control_contract() -> (
+    None
+):
+    schema = combined_openapi_schema()
+    models = schema["components"]["schemas"]
+    catalog = schema["paths"]["/citation-documents"]["get"]
+    upload = schema["paths"]["/citation-documents/{item_id}/source"]["post"]
+    process = schema["paths"]["/citation-documents/{item_id}/process-private"][
+        "post"
+    ]
+
+    assert "Local/private" in catalog["description"]
+    assert "Local/private" in upload["description"]
+    assert "synchronous" in process["description"]
+    assert models["CitationBibliographyMembershipStatus"]["enum"] == [
+        "defined",
+        "undefined",
+        "not-evaluated",
+    ]
+    assert models["CitationKeyResolutionStatus"]["enum"] == [
+        "resolved",
+        "ambiguous",
+        "unresolved",
+    ]
+    assert models["CitationDocumentAvailabilityStatus"]["enum"] == [
+        "not-evaluated",
+        "not-observed",
+        "available-unverified-linkage",
+        "available-linked",
+        "ambiguous",
+        "inaccessible",
+    ]
+    assert models["CitationDocumentTerminalStatus"]["enum"] == [
+        "SUCCEEDED",
+        "FAILED",
+        "INDETERMINATE",
+    ]
+    projection = models["CitationDocumentProjectionResponse"]
+    assert "source_gaps" in projection["properties"]
+    assert "source_documents" in projection["properties"]
+    upload_body = upload["requestBody"]["content"]["multipart/form-data"][
+        "schema"
+    ]["$ref"].rsplit("/", 1)[-1]
+    assert (
+        models[upload_body]["properties"]["source_pdf"]["x-maximum-bytes"]
+        == 50_000_000
+    )
+    assert set(upload["responses"]) >= {
+        "200",
+        "404",
+        "409",
+        "413",
+        "415",
+        "422",
+        "500",
+        "502",
+        "503",
+    }
+    assert set(process["responses"]) >= {
+        "200",
+        "400",
+        "404",
+        "409",
+        "422",
+        "500",
+        "502",
+        "503",
+    }
+    encoded = json.dumps(
+        {
+            "paths": {
+                key: value
+                for key, value in schema["paths"].items()
+                if key.startswith("/citation-documents")
+            },
+            "terminal": models["CitationDocumentTerminalStatus"],
+        },
+        sort_keys=True,
+    )
+    assert "QUEUED" not in encoded
+    assert "RUNNING" not in encoded
+    assert "workflow_id" not in encoded
 
 
 def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
@@ -416,7 +505,11 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     assert "projectkoios-simulations" not in sources
     assert sources["projectkoios"] == {
         "git": "https://github.com/eragasa/projectkoios.git",
-        "rev": "88c37990fd37650b3091b2cb2f605a589ab624f4",
+        "rev": "233f36900b9b44c943ecc5e27f2968ad4bee97ad",
+    }
+    assert sources["projectkoios-ingestion"] == {
+        "git": "https://github.com/eragasa/projectkoios-ingestion.git",
+        "rev": "30db4756049b762ec6ea9962d205424a66d699e3",
     }
     assert sources["projectkoios-applications"] == {
         "path": "../projectkoios-applications",
@@ -424,11 +517,14 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     }
     assert not {"projectkoios-simulations", "physkit"} & locked_names
     assert "Check out published applications owner" in workflow
-    assert "f926778101e3d74b420f8e1e4189cf2f5d939b6a" in workflow
-    assert "eeb8563adc6b631443e748473a08aee00583758c" in workflow
-    assert "be60640bec4fe15cc88b24161545eb1027ffbd2e" in workflow
-    assert "88c37990fd37650b3091b2cb2f605a589ab624f4" in workflow
-    assert "b102469ba33bc6c677ac93d1186a72b1496f5bc8" in workflow
+    assert "781bdb58ce8ce7a4860edc66abaf190b42c91236" in workflow
+    assert "de6257c720fa73caff21b393af4a3fb4858fd617" in workflow
+    assert "30db4756049b762ec6ea9962d205424a66d699e3" in workflow
+    assert "dd171a3ea215d70bd0852fa4c50ff6e26291ded5" in workflow
+    assert "233f36900b9b44c943ecc5e27f2968ad4bee97ad" in workflow
+    assert "b7c3ffd23086e7ef184c990267d48a56dd87282b" in workflow
+    assert "f1ca7b4aee552af131ff7af7d1408d33dd338c93" in workflow
+    assert "b37672e36af13014dc25170be725fbf3f909c2d7" in workflow
     assert "e531cff8f65422d9c0cfab5aaa903c1ebdd778c0" in workflow
     assert workflow.index("Check out published applications owner") < (
         workflow.index("Verify locked applications owner")
