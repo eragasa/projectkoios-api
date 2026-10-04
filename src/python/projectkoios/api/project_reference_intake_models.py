@@ -5,6 +5,7 @@ from typing import Annotated, Literal
 
 from projectkoios.api.project_reference_intake import (
     ProjectPdfBindingDisposition,
+    ProjectPdfProvisionStatus,
     ProjectPdfReceiptDisposition,
 )
 from pydantic import (
@@ -108,3 +109,19 @@ class ProvideMissingPdfResponse(BaseModel):
     receipt_disposition: ProjectPdfReceiptDisposition
     binding_disposition: ProjectPdfBindingDisposition
     document_status: Literal["received-unreviewed"] = "received-unreviewed"
+
+
+class ReceivedUnboundPdfResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: Literal["ksdft2effmass"] = "ksdft2effmass"
+    citekey: Citekey
+    byte_size: int = Field(ge=1, le=100_000_000)
+    receipt_disposition: ProjectPdfReceiptDisposition
+    binding_status: Literal[ProjectPdfProvisionStatus.RECEIVED_UNBOUND] = (
+        ProjectPdfProvisionStatus.RECEIVED_UNBOUND
+    )
+    document_status: Literal["received-unreviewed"] = "received-unreviewed"
+    detail: Literal["PDF was received but could not be bound"] = (
+        "PDF was received but could not be bound"
+    )

@@ -14,10 +14,20 @@ source links, private paths, receipt IDs, or document hashes.
 
 The POST body must be raw `application/pdf`, not multipart data. API bounds and
 spools the body, verifies its declared and observed sizes and `%PDF-` prefix,
-then calls References-owned receive and bind operations. The private SHA-256
-identity remains inside owner composition. Receipt or binding does not establish
-bibliographic acceptance, rights, processing, indexing, scientific support, or
-publication eligibility.
+then calls the References-owned composed intake operation. The private SHA-256
+identity remains inside owner composition. Browser intake always uses the
+References-owned explicit-selection binding action and cannot choose import
+provenance.
+
+If custody succeeds but the one-to-one binding conflicts, API returns HTTP 409
+with the typed `binding_status` value `received-unbound`, the citekey, byte size,
+receipt disposition, and unreviewed document status. It does not return the
+private document digest, receipt identity, source link, or path. Clients should
+refresh the derived missing-PDF list after this outcome because durable custody
+changed even though binding did not.
+
+Receipt or binding does not establish bibliographic acceptance, rights,
+processing, indexing, scientific support, or publication eligibility.
 
 Configure both roots or neither:
 

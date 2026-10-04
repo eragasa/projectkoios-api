@@ -8,9 +8,9 @@ from projectkoios.api.project_reference_intake import (
     ProjectMissingPdf,
     ProjectMissingPdfList,
     ProjectPdfBindingDisposition,
+    ProjectPdfProvisionStatus,
     ProjectPdfReceiptDisposition,
     ProjectProvidedPdf,
-    ProjectReferenceIntakeConflict,
 )
 from projectkoios.api.routers.project_reference_intake import (
     create_project_reference_intake_router,
@@ -53,11 +53,18 @@ class _Provider:
         content = stream.read()
         self.received.append((citekey, content, declared_byte_size))
         if self.conflict:
-            raise ProjectReferenceIntakeConflict
+            return ProjectProvidedPdf(
+                citekey=citekey,
+                byte_size=len(content),
+                receipt_disposition=ProjectPdfReceiptDisposition.RECEIVED,
+                provision_status=ProjectPdfProvisionStatus.RECEIVED_UNBOUND,
+                binding_disposition=None,
+            )
         return ProjectProvidedPdf(
             citekey=citekey,
             byte_size=len(content),
             receipt_disposition=ProjectPdfReceiptDisposition.RECEIVED,
+            provision_status=ProjectPdfProvisionStatus.BOUND,
             binding_disposition=ProjectPdfBindingDisposition.BOUND,
         )
 
@@ -156,7 +163,7 @@ def test__project_reference_intake__rejects_body_before_owner() -> None:
     assert provider.received == []
 
 
-def test__project_reference_intake__maps_binding_conflict_without_detail() -> (
+def test__project_reference_intake__reports_received_unbound_without_hash() -> (
     None
 ):
     provider = _Provider()
@@ -171,5 +178,16 @@ def test__project_reference_intake__maps_binding_conflict_without_detail() -> (
 
     assert response.status_code == 409
     assert response.json() == {
-        "detail": "project reference already has a different PDF binding"
+        "project_id": "ksdft2effmass",
+        "citekey": "missing2026",
+        "byte_size": len(b"%PDF-1.7\nfixture\n"),
+        "receipt_disposition": "received",
+        "binding_status": "received-unbound",
+        "document_status": "received-unreviewed",
+        "detail": "PDF was received but could not be bound",
     }
+    assert "sha256" not in response.text.casefold()
+    assert "/Users/" not in response.text
+    assert provider.received == [
+        ("missing2026", b"%PDF-1.7\nfixture\n", len(b"%PDF-1.7\nfixture\n"))
+    ]
