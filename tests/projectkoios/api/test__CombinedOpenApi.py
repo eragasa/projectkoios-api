@@ -28,6 +28,8 @@ _EXPECTED_PATHS = {
     "/api/projects",
     "/api/publications",
     "/search",
+    "/project-reference-intake/ksdft2effmass/missing-pdfs",
+    ("/project-reference-intake/ksdft2effmass/missing-pdfs/{citekey}/document"),
     "/github/tasks",
     "/citation-reviews",
     "/citation-reviews/sources/{source_name}",
@@ -67,6 +69,10 @@ def test__combined_openapi__has_exact_integrated_paths_and_methods() -> None:
             "/equation-reviews/{candidate_id}/decision": {"put"},
             "/literature-review/references": {"get", "post"},
             "/organizer/control": {"put"},
+            (
+                "/project-reference-intake/ksdft2effmass/missing-pdfs/"
+                "{citekey}/document"
+            ): {"post"},
             "/search": {"post"},
         }
     )

@@ -110,6 +110,7 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     assert "/literature-review/progress" not in paths
     assert "/equation-reviews" not in paths
     assert "/transcripts" not in paths
+    assert "/project-reference-intake/ksdft2effmass/missing-pdfs" not in paths
     denied = TestClient(app).put(
         "/equation-reviews/pizzi2020:eq:001/decision",
         json={
@@ -144,4 +145,14 @@ def test__create_app__control_profile_includes_control_routes() -> None:
     assert "/equation-reviews" in paths
     assert "/transcripts" in paths
     assert "/transcripts/{document_id}" in paths
+    assert "/project-reference-intake/ksdft2effmass/missing-pdfs" in paths
+    assert (
+        "/project-reference-intake/ksdft2effmass/missing-pdfs/"
+        "{citekey}/document"
+    ) in paths
+    unavailable = TestClient(app).get(
+        "/project-reference-intake/ksdft2effmass/missing-pdfs"
+    )
+    assert unavailable.status_code == 503
+    assert unavailable.json() == {"detail": "reference owner is unavailable"}
     assert app.state.deployment_profile == "control"

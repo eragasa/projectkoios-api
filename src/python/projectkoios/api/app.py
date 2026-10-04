@@ -18,6 +18,10 @@ from projectkoios.api.equation_review import (
 )
 from projectkoios.api.github_tasks import GitHubTaskReader
 from projectkoios.api.literature_review import LiteratureReviewRepository
+from projectkoios.api.project_reference_intake import (
+    ProjectReferenceIntakeProvider,
+    UnavailableProjectReferenceIntakeProvider,
+)
 from projectkoios.api.projects import PublicProjectRepository
 from projectkoios.api.publications import PublicationRepository
 from projectkoios.api.routers.citation_documents import (
@@ -41,6 +45,9 @@ from projectkoios.api.routers.literature_review import (
 from projectkoios.api.routers.organizer import (
     OrganizerProvider,
     create_organizer_router,
+)
+from projectkoios.api.routers.project_reference_intake import (
+    create_project_reference_intake_router,
 )
 from projectkoios.api.routers.projects import create_projects_router
 from projectkoios.api.routers.publications import create_publications_router
@@ -69,6 +76,7 @@ class ProjectKoiosApp:
         transcript_reviews: TranscriptReviewProvider | None = None,
         transcripts: TranscriptProvider | None = None,
         citation_documents: CitationDocumentProvider | None = None,
+        project_reference_intake: ProjectReferenceIntakeProvider | None = None,
     ) -> None:
         self.configuration = configuration or ProjectKoiosAppConfiguration()
         self.courses = PublicCourseRepository(
@@ -80,6 +88,32 @@ class ProjectKoiosApp:
         self.projects = PublicProjectRepository(
             self.configuration.projects.catalog_path
         )
+        control_profile = (
+            self.configuration.deployment_profile is DeploymentProfile.CONTROL
+        )
+        project_reference_intake_provider = project_reference_intake
+        if control_profile and project_reference_intake_provider is None:
+            intake = self.configuration.project_reference_intake
+            if (
+                intake.database_root is not None
+                and intake.object_root is not None
+            ):
+                from projectkoios.api.project_reference_intake_owner import (
+                    ConfiguredProjectReferenceIntakeOwner,
+                )
+
+                project_reference_intake_provider = (
+                    ConfiguredProjectReferenceIntakeOwner(
+                        database_root=intake.database_root,
+                        database_name=intake.database_name,
+                        object_root=intake.object_root,
+                        max_pdf_bytes=intake.max_pdf_bytes,
+                    )
+                )
+            else:
+                project_reference_intake_provider = (
+                    UnavailableProjectReferenceIntakeProvider()
+                )
 
         self.app = FastAPI(
             title=self.configuration.title,
@@ -103,6 +137,7 @@ class ProjectKoiosApp:
                 transcript_reviews,
                 transcripts,
                 citation_documents,
+                project_reference_intake_provider,
             )
 
     def _register_control_routes(
@@ -113,6 +148,7 @@ class ProjectKoiosApp:
         transcript_reviews: TranscriptReviewProvider | None,
         transcripts: TranscriptProvider | None,
         citation_documents: CitationDocumentProvider | None,
+        project_reference_intake: ProjectReferenceIntakeProvider | None,
     ) -> None:
         control_services = services or create_services(self.configuration)
         citation_review = self.configuration.citation_review
@@ -185,6 +221,13 @@ class ProjectKoiosApp:
         self.app.include_router(
             create_transcript_review_router(transcript_reviews)
         )
+        if project_reference_intake is None:
+            raise RuntimeError(
+                "control project reference intake was not constructed"
+            )
+        self.app.include_router(
+            create_project_reference_intake_router(project_reference_intake)
+        )
 
     @classmethod
     def create_app(
@@ -196,6 +239,7 @@ class ProjectKoiosApp:
         transcript_reviews: TranscriptReviewProvider | None = None,
         transcripts: TranscriptProvider | None = None,
         citation_documents: CitationDocumentProvider | None = None,
+        project_reference_intake: ProjectReferenceIntakeProvider | None = None,
     ) -> FastAPI:
         projectkoios_app = cls(
             configuration=configuration,
@@ -205,5 +249,6 @@ class ProjectKoiosApp:
             transcript_reviews=transcript_reviews,
             transcripts=transcripts,
             citation_documents=citation_documents,
+            project_reference_intake=project_reference_intake,
         )
         return projectkoios_app.app
