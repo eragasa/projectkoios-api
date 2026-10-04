@@ -4,6 +4,7 @@ import pytest
 from projectkoios.api.config import (
     DeploymentProfile,
     ProjectKoiosAppConfiguration,
+    ProjectReferenceIntakeConfiguration,
 )
 
 
@@ -125,6 +126,85 @@ def test__transcripts__reject_an_empty_document_root(
     with pytest.raises(
         ValueError,
         match="KOIOS_TRANSCRIPT_DOCUMENT_ROOT must not be empty",
+    ):
+        ProjectKoiosAppConfiguration()
+
+
+def test__project_reference_intake__reads_explicit_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOIOS_PROJECT_REFERENCE_DATABASE_ROOT",
+        "~/koios/project-references/database",
+    )
+    monkeypatch.setenv(
+        "KOIOS_PROJECT_REFERENCE_OBJECT_ROOT",
+        "~/koios/project-references/objects",
+    )
+    monkeypatch.setenv(
+        "KOIOS_PROJECT_REFERENCE_DATABASE_NAME",
+        "ksdft2effmass.sqlite3",
+    )
+    monkeypatch.setenv("KOIOS_PROJECT_REFERENCE_MAX_PDF_BYTES", "4096")
+
+    intake = ProjectKoiosAppConfiguration().project_reference_intake
+
+    assert (
+        intake.database_root
+        == Path("~/koios/project-references/database").expanduser()
+    )
+    assert (
+        intake.object_root
+        == Path("~/koios/project-references/objects").expanduser()
+    )
+    assert intake.database_name == "ksdft2effmass.sqlite3"
+    assert intake.max_pdf_bytes == 4096
+
+
+def test__project_reference_intake__requires_both_roots(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "KOIOS_PROJECT_REFERENCE_DATABASE_ROOT",
+        "~/koios/project-references/database",
+    )
+    monkeypatch.delenv("KOIOS_PROJECT_REFERENCE_OBJECT_ROOT", raising=False)
+
+    with pytest.raises(
+        ValueError,
+        match="database and object roots must be set together",
+    ):
+        ProjectKoiosAppConfiguration()
+
+
+@pytest.mark.parametrize(
+    ("database_name", "max_pdf_bytes"),
+    [
+        ("../references.sqlite3", 4096),
+        ("references.db", 4096),
+        ("references.sqlite3", 0),
+        ("references.sqlite3", 100_000_001),
+    ],
+)
+def test__project_reference_intake__rejects_invalid_bounds(
+    database_name: str,
+    max_pdf_bytes: int,
+) -> None:
+    with pytest.raises(ValueError):
+        ProjectReferenceIntakeConfiguration(
+            database_name=database_name,
+            max_pdf_bytes=max_pdf_bytes,
+        )
+
+
+def test__project_reference_intake__rejects_noninteger_environment_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("KOIOS_PROJECT_REFERENCE_MAX_PDF_BYTES", "many")
+
+    with pytest.raises(
+        ValueError,
+        match="KOIOS_PROJECT_REFERENCE_MAX_PDF_BYTES must be an integer",
     ):
         ProjectKoiosAppConfiguration()
 

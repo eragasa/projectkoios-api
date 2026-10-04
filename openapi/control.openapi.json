@@ -3009,6 +3009,138 @@
         "title": "ManuscriptEquationResponse",
         "type": "object"
       },
+      "MissingPdfItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 100,
+            "title": "Authors",
+            "type": "array"
+          },
+          "citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Citekey",
+            "type": "string"
+          },
+          "entry_type": {
+            "maxLength": 64,
+            "minLength": 1,
+            "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$",
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "citekey",
+          "entry_type",
+          "authors"
+        ],
+        "title": "MissingPdfItemResponse",
+        "type": "object"
+      },
+      "MissingPdfListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bound_pdf_count": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Bound Pdf Count",
+            "type": "integer"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/MissingPdfItemResponse"
+            },
+            "maxItems": 10000,
+            "title": "Items",
+            "type": "array"
+          },
+          "max_pdf_bytes": {
+            "maximum": 100000000.0,
+            "minimum": 1.0,
+            "title": "Max Pdf Bytes",
+            "type": "integer"
+          },
+          "media_type": {
+            "const": "application/pdf",
+            "default": "application/pdf",
+            "title": "Media Type",
+            "type": "string"
+          },
+          "missing_pdf_count": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Missing Pdf Count",
+            "type": "integer"
+          },
+          "not_applicable_count": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Not Applicable Count",
+            "type": "integer"
+          },
+          "project_id": {
+            "const": "ksdft2effmass",
+            "default": "ksdft2effmass",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "required_pdf_count": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Required Pdf Count",
+            "type": "integer"
+          },
+          "total_references": {
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Total References",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_references",
+          "required_pdf_count",
+          "bound_pdf_count",
+          "missing_pdf_count",
+          "not_applicable_count",
+          "max_pdf_bytes",
+          "items"
+        ],
+        "title": "MissingPdfListResponse",
+        "type": "object"
+      },
       "OrganizerControlRequest": {
         "additionalProperties": false,
         "properties": {
@@ -3204,6 +3336,23 @@
         "title": "OrganizerStatusResponse",
         "type": "object"
       },
+      "ProjectPdfBindingDisposition": {
+        "enum": [
+          "bound",
+          "already-bound"
+        ],
+        "title": "ProjectPdfBindingDisposition",
+        "type": "string"
+      },
+      "ProjectPdfReceiptDisposition": {
+        "enum": [
+          "received",
+          "source-observation-added",
+          "already-present"
+        ],
+        "title": "ProjectPdfReceiptDisposition",
+        "type": "string"
+      },
       "ProposedEquationAssistanceResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3245,6 +3394,50 @@
           "proposed_latex"
         ],
         "title": "ProposedEquationAssistanceResponse",
+        "type": "object"
+      },
+      "ProvideMissingPdfResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_disposition": {
+            "$ref": "#/components/schemas/ProjectPdfBindingDisposition"
+          },
+          "byte_size": {
+            "maximum": 100000000.0,
+            "minimum": 1.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Citekey",
+            "type": "string"
+          },
+          "document_status": {
+            "const": "received-unreviewed",
+            "default": "received-unreviewed",
+            "title": "Document Status",
+            "type": "string"
+          },
+          "project_id": {
+            "const": "ksdft2effmass",
+            "default": "ksdft2effmass",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_disposition": {
+            "$ref": "#/components/schemas/ProjectPdfReceiptDisposition"
+          }
+        },
+        "required": [
+          "citekey",
+          "byte_size",
+          "receipt_disposition",
+          "binding_disposition"
+        ],
+        "title": "ProvideMissingPdfResponse",
         "type": "object"
       },
       "ProvidedReferenceListResponse": {
@@ -5946,6 +6139,74 @@
         "summary": "Read Status",
         "tags": [
           "organizer"
+        ]
+      }
+    },
+    "/project-reference-intake/ksdft2effmass/missing-pdfs": {
+      "get": {
+        "operationId": "missing_pdfs_project_reference_intake_ksdft2effmass_missing_pdfs_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MissingPdfListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Missing Pdfs",
+        "tags": [
+          "project-reference-intake"
+        ]
+      }
+    },
+    "/project-reference-intake/ksdft2effmass/missing-pdfs/{citekey}/document": {
+      "post": {
+        "operationId": "provide_pdf_project_reference_intake_ksdft2effmass_missing_pdfs__citekey__document_post",
+        "parameters": [
+          {
+            "description": "BibTeX citekey returned by the missing-PDF list.",
+            "in": "path",
+            "name": "citekey",
+            "required": true,
+            "schema": {
+              "description": "BibTeX citekey returned by the missing-PDF list.",
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+              "title": "Citekey",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProvideMissingPdfResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Provide Pdf",
+        "tags": [
+          "project-reference-intake"
         ]
       }
     },

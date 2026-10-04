@@ -19,7 +19,7 @@ The citation-document and retained equation/transcript owner pins are:
 | Ingestion | Runtime owner | `30db4756049b762ec6ea9962d205424a66d699e3` | `dd171a3ea215d70bd0852fa4c50ff6e26291ded5` |
 | Project Koios core | Runtime dependency | `233f36900b9b44c943ecc5e27f2968ad4bee97ad` | `b7c3ffd23086e7ef184c990267d48a56dd87282b` |
 | Project Koios public catalogs | CI data only | `88c37990fd37650b3091b2cb2f605a589ab624f4` | `b102469ba33bc6c677ac93d1186a72b1496f5bc8` |
-| References | Runtime owner | `f1ca7b4aee552af131ff7af7d1408d33dd338c93` | `b37672e36af13014dc25170be725fbf3f909c2d7` |
+| References | Runtime owner | `de04d99a6dc300f2c786b486b29ec140f146b992` | `b677ba27927f46ad01a450c0fba8ff62fa543549` |
 
 Applications separately retains Ingestion commit
 `be60640bec4fe15cc88b24161545eb1027ffbd2e` (tree

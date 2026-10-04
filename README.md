@@ -190,6 +190,17 @@ semantics are not exposed. An unconfigured collection is empty; a missing opaque
 document identity is `404`, while unavailable or invalid owner projections use
 sanitized provider errors.
 
+## ksdft2effmass missing-PDF intake
+
+The CONTROL profile exposes a bounded missing-PDF list and raw PDF receipt route
+for the `ksdft2effmass` reference collection. API composes References-owned
+collection, receipt, and binding operations; it does not parse BibTeX, open
+SQLite directly, or expose document hashes and private paths. The PUBLIC profile
+contains neither route.
+
+Configuration and exact behavior are documented in
+[`docs/project-reference-intake-contract.md`](docs/project-reference-intake-contract.md).
+
 ## Live GitHubTask projection
 
 The control profile exposes `GET /github/tasks`. Configure its explicit repository

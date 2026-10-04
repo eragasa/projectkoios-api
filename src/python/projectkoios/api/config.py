@@ -10,6 +10,7 @@ from pathlib import Path
 from projectkoios.obsidian.config import VaultConfiguration
 
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
+_DATABASE_LEAF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}\.sqlite3$")
 
 
 class DeploymentProfile(StrEnum):
@@ -60,6 +61,30 @@ class TranscriptConfiguration:
     document_root: Path | None = field(
         default_factory=lambda: _configured_transcript_document_root()
     )
+
+
+@dataclass(frozen=True)
+class ProjectReferenceIntakeConfiguration:
+    database_root: Path | None = None
+    database_name: str = "document-reference.sqlite3"
+    object_root: Path | None = None
+    max_pdf_bytes: int = 100_000_000
+
+    def __post_init__(self) -> None:
+        if (self.database_root is None) != (self.object_root is None):
+            raise ValueError(
+                "project reference database and object roots must be set "
+                "together"
+            )
+        if _DATABASE_LEAF.fullmatch(self.database_name) is None:
+            raise ValueError(
+                "project reference database name must be a bounded "
+                ".sqlite3 leaf"
+            )
+        if not 1 <= self.max_pdf_bytes <= 100_000_000:
+            raise ValueError(
+                "project reference PDF cap must be between 1 and 100000000"
+            )
 
 
 @dataclass(frozen=True)
@@ -130,6 +155,9 @@ class ProjectKoiosAppConfiguration:
     transcripts: TranscriptConfiguration = field(
         default_factory=TranscriptConfiguration
     )
+    project_reference_intake: ProjectReferenceIntakeConfiguration = field(
+        default_factory=lambda: _configured_project_reference_intake()
+    )
     organizer: OrganizerConfiguration = field(
         default_factory=OrganizerConfiguration
     )
@@ -176,6 +204,46 @@ def _configured_transcript_document_root() -> Path | None:
     if not document_root:
         raise ValueError("KOIOS_TRANSCRIPT_DOCUMENT_ROOT must not be empty")
     return Path(document_root).expanduser()
+
+
+def _configured_optional_root(variable: str) -> Path | None:
+    raw_path = os.environ.get(variable)
+    if raw_path is None:
+        return None
+    if not raw_path:
+        raise ValueError(f"{variable} must not be empty")
+    return Path(raw_path).expanduser()
+
+
+def _configured_project_reference_intake() -> (
+    ProjectReferenceIntakeConfiguration
+):
+    database_root = _configured_optional_root(
+        "KOIOS_PROJECT_REFERENCE_DATABASE_ROOT"
+    )
+    object_root = _configured_optional_root(
+        "KOIOS_PROJECT_REFERENCE_OBJECT_ROOT"
+    )
+    database_name = os.environ.get(
+        "KOIOS_PROJECT_REFERENCE_DATABASE_NAME",
+        "document-reference.sqlite3",
+    )
+    raw_max_bytes = os.environ.get(
+        "KOIOS_PROJECT_REFERENCE_MAX_PDF_BYTES",
+        "100000000",
+    )
+    try:
+        max_pdf_bytes = int(raw_max_bytes)
+    except ValueError as error:
+        raise ValueError(
+            "KOIOS_PROJECT_REFERENCE_MAX_PDF_BYTES must be an integer"
+        ) from error
+    return ProjectReferenceIntakeConfiguration(
+        database_root=database_root,
+        database_name=database_name,
+        object_root=object_root,
+        max_pdf_bytes=max_pdf_bytes,
+    )
 
 
 def _configured_course_catalog() -> Path | None:
