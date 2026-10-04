@@ -7,9 +7,9 @@ from projectkoios.api.project_reference_intake import (
     ProjectMissingPdf,
     ProjectMissingPdfList,
     ProjectPdfBindingDisposition,
+    ProjectPdfProvisionStatus,
     ProjectPdfReceiptDisposition,
     ProjectProvidedPdf,
-    ProjectReferenceIntakeConflict,
     ProjectReferenceIntakeInvalidPdf,
     ProjectReferenceIntakeMalformed,
     ProjectReferenceIntakeNotFound,
@@ -25,24 +25,47 @@ from projectkoios.references.adapters.filesystem import (
 from projectkoios.references.adapters.sql.sqlite import (
     document_reference_store,
 )
-from projectkoios.references.document_reference import (
+from projectkoios.references.document_reference.bibliography.metadata.errors import (  # noqa: E501
     BibliographyMetadataError,
-    BindingDisposition,
+)
+from projectkoios.references.document_reference.bindings.explicit.action import (  # noqa: E501
     BindPdfToReference,
-    BindPdfToReferenceRequest,
-    DocumentContentConflict,
-    DocumentReferenceStoreError,
-    InvalidPdfUpload,
-    ListMissingPdfReferences,
-    ListMissingPdfReferencesRequest,
-    PdfReceiptDisposition,
-    PdfUploadTooLarge,
-    ReceivePdf,
-    ReceivePdfRequest,
-    ReferenceDocumentBindingConflict,
+)
+from projectkoios.references.document_reference.collections.errors import (
     UnknownCollection,
-    UnknownDocument,
     UnknownReference,
+)
+from projectkoios.references.document_reference.collections.missing.action import (  # noqa: E501
+    ListMissingPdfReferences,
+)
+from projectkoios.references.document_reference.collections.missing.request import (  # noqa: E501
+    ListMissingPdfReferencesRequest,
+)
+from projectkoios.references.document_reference.documents.errors import (
+    DocumentContentConflict,
+    UnknownDocument,
+)
+from projectkoios.references.document_reference.documents.receipt.action import (  # noqa: E501
+    ReceivePdf,
+)
+from projectkoios.references.document_reference.documents.receipt.disposition import (  # noqa: E501
+    PdfReceiptDisposition,
+)
+from projectkoios.references.document_reference.documents.receipt.errors import (  # noqa: E501
+    InvalidPdfUpload,
+    PdfUploadTooLarge,
+)
+from projectkoios.references.document_reference.errors import (
+    DocumentReferenceStoreError,
+)
+from projectkoios.references.document_reference.intake.action import (
+    ProvideReferencePdf,
+)
+from projectkoios.references.document_reference.intake.request import (
+    ProvideReferencePdfRequest,
+)
+from projectkoios.references.document_reference.intake.status import (
+    ReferencePdfProvisionStatus,
 )
 from projectkoios.references.path_safety.preflight import RootStorageClass
 from projectkoios.references.path_safety.root import AuthorizedRoot
@@ -54,7 +77,7 @@ _COLLECTION_ID = "ksdft2effmass"
 class ConfiguredProjectReferenceIntakeOwner:
     """Compose References-owned operations for one local project collection."""
 
-    __slots__ = ("_bind", "_list_missing", "_max_pdf_bytes", "_receive")
+    __slots__ = ("_list_missing", "_max_pdf_bytes", "_provide")
 
     def __init__(
         self,
@@ -92,8 +115,11 @@ class ConfiguredProjectReferenceIntakeOwner:
             raise ProjectReferenceIntakeUnavailable from error
         self._max_pdf_bytes = max_pdf_bytes
         self._list_missing = ListMissingPdfReferences(repository=repository)
-        self._receive = ReceivePdf(objects=objects, repository=repository)
-        self._bind = BindPdfToReference(repository=repository)
+        receive = ReceivePdf(objects=objects, repository=repository)
+        self._provide = ProvideReferencePdf(
+            receive=receive,
+            bind=BindPdfToReference(repository=repository),
+        )
 
     @property
     def max_pdf_bytes(self) -> int:
@@ -139,28 +165,29 @@ class ConfiguredProjectReferenceIntakeOwner:
         declared_byte_size: int,
     ) -> ProjectProvidedPdf:
         try:
-            receipt = self._receive.receive(
-                request=ReceivePdfRequest(
+            provision = self._provide.provide(
+                request=ProvideReferencePdfRequest(
+                    collection_id=_COLLECTION_ID,
+                    citekey=citekey,
                     declared_byte_size=declared_byte_size,
                 ),
                 stream=stream,
             )
-            binding = self._bind.action(
-                request=BindPdfToReferenceRequest(
-                    collection_id=_COLLECTION_ID,
-                    citekey=citekey,
-                    document_sha256=receipt.sha256,
+            binding_disposition = (
+                None
+                if provision.binding is None
+                else ProjectPdfBindingDisposition(
+                    provision.binding.disposition.value
                 )
             )
             return ProjectProvidedPdf(
                 citekey=citekey,
-                byte_size=receipt.byte_size,
+                byte_size=provision.receipt.byte_size,
                 receipt_disposition=self._receipt_disposition(
-                    receipt.disposition
+                    provision.receipt.disposition
                 ),
-                binding_disposition=self._binding_disposition(
-                    binding.disposition
-                ),
+                provision_status=self._provision_status(provision.status),
+                binding_disposition=binding_disposition,
             )
         except PdfUploadTooLarge as error:
             raise ProjectReferenceIntakePdfTooLarge from error
@@ -168,10 +195,8 @@ class ConfiguredProjectReferenceIntakeOwner:
             raise ProjectReferenceIntakeInvalidPdf from error
         except (UnknownCollection, UnknownReference, UnknownDocument) as error:
             raise ProjectReferenceIntakeNotFound from error
-        except ReferenceDocumentBindingConflict as error:
-            raise ProjectReferenceIntakeConflict from error
         except DocumentContentConflict as error:
-            raise ProjectReferenceIntakeConflict from error
+            raise ProjectReferenceIntakeUnavailable from error
         except (DocumentReferenceStoreError, OSError) as error:
             raise ProjectReferenceIntakeUnavailable from error
         except (TypeError, ValueError) as error:
@@ -184,7 +209,7 @@ class ConfiguredProjectReferenceIntakeOwner:
         return ProjectPdfReceiptDisposition(value.value)
 
     @staticmethod
-    def _binding_disposition(
-        value: BindingDisposition,
-    ) -> ProjectPdfBindingDisposition:
-        return ProjectPdfBindingDisposition(value.value)
+    def _provision_status(
+        value: ReferencePdfProvisionStatus,
+    ) -> ProjectPdfProvisionStatus:
+        return ProjectPdfProvisionStatus(value.value)

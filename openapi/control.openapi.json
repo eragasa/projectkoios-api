@@ -4129,6 +4129,58 @@
         "title": "PublicationRecord",
         "type": "object"
       },
+      "ReceivedUnboundPdfResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "binding_status": {
+            "const": "received-unbound",
+            "default": "received-unbound",
+            "title": "Binding Status",
+            "type": "string"
+          },
+          "byte_size": {
+            "maximum": 100000000.0,
+            "minimum": 1.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Citekey",
+            "type": "string"
+          },
+          "detail": {
+            "const": "PDF was received but could not be bound",
+            "default": "PDF was received but could not be bound",
+            "title": "Detail",
+            "type": "string"
+          },
+          "document_status": {
+            "const": "received-unreviewed",
+            "default": "received-unreviewed",
+            "title": "Document Status",
+            "type": "string"
+          },
+          "project_id": {
+            "const": "ksdft2effmass",
+            "default": "ksdft2effmass",
+            "title": "Project Id",
+            "type": "string"
+          },
+          "receipt_disposition": {
+            "$ref": "#/components/schemas/ProjectPdfReceiptDisposition"
+          }
+        },
+        "required": [
+          "citekey",
+          "byte_size",
+          "receipt_disposition"
+        ],
+        "title": "ReceivedUnboundPdfResponse",
+        "type": "object"
+      },
       "SearchRequest": {
         "additionalProperties": false,
         "properties": {
@@ -6192,6 +6244,16 @@
               }
             },
             "description": "Successful Response"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReceivedUnboundPdfResponse"
+                }
+              }
+            },
+            "description": "PDF custody succeeded but one-to-one binding conflicted."
           },
           "422": {
             "content": {

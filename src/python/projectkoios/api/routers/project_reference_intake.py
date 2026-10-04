@@ -4,8 +4,9 @@ import tempfile
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Path, Request, status
+from fastapi.responses import JSONResponse
 from projectkoios.api.project_reference_intake import (
-    ProjectReferenceIntakeConflict,
+    ProjectPdfProvisionStatus,
     ProjectReferenceIntakeInvalidPdf,
     ProjectReferenceIntakeMalformed,
     ProjectReferenceIntakeNotFound,
@@ -18,6 +19,7 @@ from projectkoios.api.project_reference_intake_models import (
     MissingPdfItemResponse,
     MissingPdfListResponse,
     ProvideMissingPdfResponse,
+    ReceivedUnboundPdfResponse,
 )
 from pydantic import ValidationError
 from starlette.concurrency import run_in_threadpool
@@ -74,11 +76,19 @@ def create_project_reference_intake_router(
     @router.post(
         "/missing-pdfs/{citekey}/document",
         response_model=ProvideMissingPdfResponse,
+        responses={
+            status.HTTP_409_CONFLICT: {
+                "model": ReceivedUnboundPdfResponse,
+                "description": (
+                    "PDF custody succeeded but one-to-one binding conflicted."
+                ),
+            }
+        },
     )
     async def provide_pdf(
         citekey: CitekeyPath,
         request: Request,
-    ) -> ProvideMissingPdfResponse:
+    ) -> ProvideMissingPdfResponse | JSONResponse:
         _require_pdf_media_type(request)
         declared_size = _declared_size(
             request,
@@ -107,6 +117,21 @@ def create_project_reference_intake_router(
                     stream=stream,
                     declared_byte_size=observed_size,
                 )
+            if (
+                owner.provision_status
+                is ProjectPdfProvisionStatus.RECEIVED_UNBOUND
+            ):
+                conflict = ReceivedUnboundPdfResponse(
+                    citekey=owner.citekey,
+                    byte_size=owner.byte_size,
+                    receipt_disposition=owner.receipt_disposition,
+                )
+                return JSONResponse(
+                    status_code=status.HTTP_409_CONFLICT,
+                    content=conflict.model_dump(mode="json"),
+                )
+            if owner.binding_disposition is None:
+                raise ProjectReferenceIntakeMalformed
             return ProvideMissingPdfResponse(
                 citekey=owner.citekey,
                 byte_size=owner.byte_size,
@@ -119,8 +144,6 @@ def create_project_reference_intake_router(
             raise _invalid_pdf() from error
         except ProjectReferenceIntakeNotFound as error:
             raise _not_found() from error
-        except ProjectReferenceIntakeConflict as error:
-            raise _conflict() from error
         except (ProjectReferenceIntakeMalformed, ValidationError) as error:
             raise _malformed() from error
         except ProjectReferenceIntakeUnavailable as error:
@@ -176,13 +199,6 @@ def _not_found() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
         detail="project reference was not found",
-    )
-
-
-def _conflict() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_409_CONFLICT,
-        detail="project reference already has a different PDF binding",
     )
 
 

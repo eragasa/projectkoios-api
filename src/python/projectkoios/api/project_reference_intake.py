@@ -13,10 +13,6 @@ class ProjectReferenceIntakeNotFound(ProjectReferenceIntakeError):
     """The project collection or selected reference is absent."""
 
 
-class ProjectReferenceIntakeConflict(ProjectReferenceIntakeError):
-    """The selected reference or document has a conflicting binding."""
-
-
 class ProjectReferenceIntakeInvalidPdf(ProjectReferenceIntakeError):
     """The supplied body is not an acceptable PDF."""
 
@@ -44,6 +40,12 @@ class ProjectPdfBindingDisposition(StrEnum):
     ALREADY_BOUND = "already-bound"
 
 
+class ProjectPdfProvisionStatus(StrEnum):
+    BOUND = "bound"
+    ALREADY_BOUND = "already-bound"
+    RECEIVED_UNBOUND = "received-unbound"
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class ProjectMissingPdf:
     citekey: str
@@ -67,7 +69,21 @@ class ProjectProvidedPdf:
     citekey: str
     byte_size: int
     receipt_disposition: ProjectPdfReceiptDisposition
-    binding_disposition: ProjectPdfBindingDisposition
+    provision_status: ProjectPdfProvisionStatus
+    binding_disposition: ProjectPdfBindingDisposition | None
+
+    def __post_init__(self) -> None:
+        expected = {
+            ProjectPdfProvisionStatus.BOUND: ProjectPdfBindingDisposition.BOUND,
+            ProjectPdfProvisionStatus.ALREADY_BOUND: (
+                ProjectPdfBindingDisposition.ALREADY_BOUND
+            ),
+            ProjectPdfProvisionStatus.RECEIVED_UNBOUND: None,
+        }[self.provision_status]
+        if self.binding_disposition is not expected:
+            raise ValueError(
+                "provision status does not match binding disposition"
+            )
 
 
 class ProjectReferenceIntakeProvider(Protocol):
