@@ -114,15 +114,15 @@ jobs:
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-references
-          ref: f1ca7b4aee552af131ff7af7d1408d33dd338c93
+          ref: de04d99a6dc300f2c786b486b29ec140f146b992
           path: projectkoios-references
           persist-credentials: false
 
       - name: GitHubTask 09a · Verify locked references component
         working-directory: projectkoios-references
         run: |
-          test "$(git rev-parse HEAD)" = "f1ca7b4aee552af131ff7af7d1408d33dd338c93"
-          test "$(git rev-parse HEAD^{tree})" = "b37672e36af13014dc25170be725fbf3f909c2d7"
+          test "$(git rev-parse HEAD)" = "de04d99a6dc300f2c786b486b29ec140f146b992"
+          test "$(git rev-parse HEAD^{tree})" = "b677ba27927f46ad01a450c0fba8ff62fa543549"
 
       - name: GitHubTask 10 · Install locked Python toolchain
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
