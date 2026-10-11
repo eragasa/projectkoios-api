@@ -11,6 +11,11 @@ from projectkoios.api.config import (
     DeploymentProfile,
     ProjectKoiosAppConfiguration,
 )
+from projectkoios.api.course_reference_authority import (
+    CourseReferenceAuthorityHttpActionsCreateActionizer,
+    CourseReferenceAuthorityHttpActionsCreateRequest,
+    CourseReferenceAuthorityHttpActionsCreateResult,
+)
 from projectkoios.api.courses import PublicCourseRepository
 from projectkoios.api.equation_review import (
     EquationReviewOwner,
@@ -31,6 +36,9 @@ from projectkoios.api.routers.citation_review import (
     create_citation_review_router,
 )
 from projectkoios.api.routers.core import create_core_router
+from projectkoios.api.routers.course_reference_authority import (
+    create_course_reference_authority_router,
+)
 from projectkoios.api.routers.courses import create_courses_router
 from projectkoios.api.routers.equation_review import (
     create_equation_review_router,
@@ -77,6 +85,9 @@ class ProjectKoiosApp:
         transcripts: TranscriptProvider | None = None,
         citation_documents: CitationDocumentProvider | None = None,
         project_reference_intake: ProjectReferenceIntakeProvider | None = None,
+        course_reference_authority: (
+            CourseReferenceAuthorityHttpActionsCreateResult | None
+        ) = None,
     ) -> None:
         self.configuration = configuration or ProjectKoiosAppConfiguration()
         self.courses = PublicCourseRepository(
@@ -130,6 +141,33 @@ class ProjectKoiosApp:
         self.app.include_router(create_publications_router(self.publications))
 
         if self.configuration.deployment_profile is DeploymentProfile.CONTROL:
+            authority_actions = course_reference_authority
+            authority_configuration = (
+                self.configuration.course_reference_authority
+            )
+            if authority_actions is None:
+                authority_factory = (
+                    CourseReferenceAuthorityHttpActionsCreateActionizer()
+                )
+                authority_actions = authority_factory.action(
+                    request=CourseReferenceAuthorityHttpActionsCreateRequest(
+                        scope=(
+                            None
+                            if authority_configuration is None
+                            else authority_configuration.scope
+                        ),
+                        configuration=(
+                            None
+                            if authority_configuration is None
+                            else authority_configuration.runtime
+                        ),
+                        actor=(
+                            None
+                            if authority_configuration is None
+                            else authority_configuration.actor
+                        ),
+                    )
+                )
             self._register_control_routes(
                 services,
                 github_tasks,
@@ -138,6 +176,7 @@ class ProjectKoiosApp:
                 transcripts,
                 citation_documents,
                 project_reference_intake_provider,
+                authority_actions,
             )
 
     def _register_control_routes(
@@ -149,6 +188,9 @@ class ProjectKoiosApp:
         transcripts: TranscriptProvider | None,
         citation_documents: CitationDocumentProvider | None,
         project_reference_intake: ProjectReferenceIntakeProvider | None,
+        course_reference_authority: (
+            CourseReferenceAuthorityHttpActionsCreateResult
+        ),
     ) -> None:
         control_services = services or create_services(self.configuration)
         citation_review = self.configuration.citation_review
@@ -228,6 +270,9 @@ class ProjectKoiosApp:
         self.app.include_router(
             create_project_reference_intake_router(project_reference_intake)
         )
+        self.app.include_router(
+            create_course_reference_authority_router(course_reference_authority)
+        )
 
     @classmethod
     def create_app(
@@ -240,6 +285,9 @@ class ProjectKoiosApp:
         transcripts: TranscriptProvider | None = None,
         citation_documents: CitationDocumentProvider | None = None,
         project_reference_intake: ProjectReferenceIntakeProvider | None = None,
+        course_reference_authority: (
+            CourseReferenceAuthorityHttpActionsCreateResult | None
+        ) = None,
     ) -> FastAPI:
         projectkoios_app = cls(
             configuration=configuration,
@@ -250,5 +298,6 @@ class ProjectKoiosApp:
             transcripts=transcripts,
             citation_documents=citation_documents,
             project_reference_intake=project_reference_intake,
+            course_reference_authority=course_reference_authority,
         )
         return projectkoios_app.app

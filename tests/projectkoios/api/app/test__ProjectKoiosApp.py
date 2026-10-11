@@ -1,6 +1,8 @@
 # dev/spike_fastapi_app_boundary/tests/app/test__ProjectKoiosApp.py
 
 from dataclasses import dataclass
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI
@@ -9,6 +11,10 @@ from projectkoios.api.app import ProjectKoiosApp  # noqa: E402
 from projectkoios.api.config import (  # noqa: E402
     DeploymentProfile,
     ProjectKoiosAppConfiguration,
+)
+from projectkoios.api.course_reference_authority import (  # noqa: E402
+    CourseReferenceAuthorityHttpActionsCreateActionizer,
+    CourseReferenceAuthorityHttpActionsCreateRequest,
 )
 
 
@@ -111,6 +117,19 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     assert "/equation-reviews" not in paths
     assert "/transcripts" not in paths
     assert "/project-reference-intake/ksdft2effmass/missing-pdfs" not in paths
+    assert "/courses/{course_id}/references" not in paths
+    assert "/courses/{course_id}/references/{item_id}/decision" not in paths
+    assert (
+        "/courses/{course_id}/references/{item_id}/decision-preview"
+        not in paths
+    )
+    assert (
+        "/courses/{course_id}/references/{item_id}/asset-decision" not in paths
+    )
+    assert (
+        "/courses/{course_id}/references/{item_id}/asset-decision-preview"
+        not in paths
+    )
     denied = TestClient(app).put(
         "/equation-reviews/pizzi2020:eq:001/decision",
         json={
@@ -122,6 +141,54 @@ def test__create_app__public_profile_excludes_control_routes() -> None:
     )
     assert denied.status_code == 404
     assert app.state.deployment_profile == "public"
+
+
+def test__create_app__control_authority_uses_server_actor_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configuration = ProjectKoiosAppConfiguration(
+        deployment_profile=DeploymentProfile.CONTROL
+    )
+    authority_configuration = SimpleNamespace(
+        scope=object(),
+        runtime=object(),
+        actor=object(),
+    )
+    object.__setattr__(
+        configuration,
+        "course_reference_authority",
+        authority_configuration,
+    )
+    unavailable = CourseReferenceAuthorityHttpActionsCreateActionizer().action(
+        request=CourseReferenceAuthorityHttpActionsCreateRequest(
+            scope=None,
+            configuration=None,
+            actor=None,
+        )
+    )
+    trusted_request = object()
+    request_factory = Mock(return_value=trusted_request)
+    action_factory = Mock()
+    action_factory.return_value.action.return_value = unavailable
+    monkeypatch.setattr(
+        "projectkoios.api.app.CourseReferenceAuthorityHttpActionsCreateRequest",
+        request_factory,
+    )
+    monkeypatch.setattr(
+        "projectkoios.api.app.CourseReferenceAuthorityHttpActionsCreateActionizer",
+        action_factory,
+    )
+
+    ProjectKoiosApp.create_app(configuration=configuration)
+
+    request_factory.assert_called_once_with(
+        scope=authority_configuration.scope,
+        configuration=authority_configuration.runtime,
+        actor=authority_configuration.actor,
+    )
+    action_factory.return_value.action.assert_called_once_with(
+        request=trusted_request
+    )
 
 
 def test__create_app__control_profile_includes_control_routes() -> None:
@@ -150,9 +217,25 @@ def test__create_app__control_profile_includes_control_routes() -> None:
         "/project-reference-intake/ksdft2effmass/missing-pdfs/"
         "{citekey}/document"
     ) in paths
+    assert "/courses/{course_id}/references" in paths
+    assert "/courses/{course_id}/references/{item_id}/decision" in paths
+    assert "/courses/{course_id}/references/{item_id}/decision-preview" in paths
+    assert "/courses/{course_id}/references/{item_id}/asset-decision" in paths
+    assert (
+        "/courses/{course_id}/references/{item_id}/asset-decision-preview"
+        in paths
+    )
     unavailable = TestClient(app).get(
         "/project-reference-intake/ksdft2effmass/missing-pdfs"
     )
     assert unavailable.status_code == 503
     assert unavailable.json() == {"detail": "reference owner is unavailable"}
+    authority_unavailable = TestClient(app).get(
+        "/courses/dlsu.phy627m.gs1/references"
+    )
+    assert authority_unavailable.status_code == 503
+    assert authority_unavailable.json() == {
+        "code": "OWNER_UNAVAILABLE",
+        "detail": "reference owner is unavailable",
+    }
     assert app.state.deployment_profile == "control"

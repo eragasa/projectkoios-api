@@ -30,6 +30,11 @@ _EXPECTED_PATHS = {
     "/search",
     "/project-reference-intake/ksdft2effmass/missing-pdfs",
     ("/project-reference-intake/ksdft2effmass/missing-pdfs/{citekey}/document"),
+    "/courses/{course_id}/references",
+    "/courses/{course_id}/references/{item_id}/decision",
+    "/courses/{course_id}/references/{item_id}/decision-preview",
+    "/courses/{course_id}/references/{item_id}/asset-decision",
+    "/courses/{course_id}/references/{item_id}/asset-decision-preview",
     "/github/tasks",
     "/citation-reviews",
     "/citation-reviews/sources/{source_name}",
@@ -65,6 +70,17 @@ def test__combined_openapi__has_exact_integrated_paths_and_methods() -> None:
         {
             "/citation-reviews/{claim_id}/decision": {"put"},
             "/citation-documents/{item_id}/source": {"post"},
+            "/courses/{course_id}/references/{item_id}/decision": {"put"},
+            "/courses/{course_id}/references/{item_id}/decision-preview": {
+                "post"
+            },
+            ("/courses/{course_id}/references/{item_id}/asset-decision"): {
+                "put"
+            },
+            (
+                "/courses/{course_id}/references/{item_id}/"
+                "asset-decision-preview"
+            ): {"post"},
             "/citation-documents/{item_id}/process-private": {"post"},
             "/equation-reviews/{candidate_id}/decision": {"put"},
             "/literature-review/references": {"get", "post"},
@@ -440,6 +456,140 @@ def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
         ] == {"$ref": "#/components/schemas/EquationReviewFailureResponse"}
 
 
+def test__combined_openapi__publishes_course_reference_authority_contract() -> (
+    None
+):
+    schema = combined_openapi_schema()
+    models = schema["components"]["schemas"]
+    queue = schema["paths"]["/courses/{course_id}/references"]["get"]
+    identity = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/decision"
+    ]["put"]
+    identity_preview = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/decision-preview"
+    ]["post"]
+    asset = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/asset-decision"
+    ]["put"]
+    asset_preview = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/asset-decision-preview"
+    ]["post"]
+
+    assert queue["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/CourseReferenceQueueResponse"}
+    assert identity["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/IdentityDecisionRequest"
+    }
+    assert identity_preview["requestBody"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/IdentityDecisionPreviewRequest"}
+    assert identity_preview["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/IdentityDecisionPreviewResponse"}
+    assert asset["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/AssetDecisionRequest"
+    }
+    assert asset_preview["requestBody"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/AssetDecisionPreviewRequest"}
+    assert asset_preview["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/AssetDecisionPreviewResponse"}
+    for request_model in ("IdentityDecisionRequest", "AssetDecisionRequest"):
+        assert "idempotency_key" in models[request_model]["required"]
+        assert "expected_preview_id" in models[request_model]["required"]
+        assert "expected_preview_result_id" in models[request_model]["required"]
+        assert "actor" not in models[request_model]["properties"]
+        assert models[request_model]["properties"]["idempotency_key"] == {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string",
+        }
+    assert "ReviewActorRequest" not in models
+    assert {
+        "request_id",
+        "result_id",
+        "preview_id",
+        "selection_id",
+        "disposition",
+        "target_state_projection_id",
+        "canonical_citekey",
+        "alias_citekeys",
+        "selected_record_match_ids",
+        "expected_current_decision_id",
+        "queue_id",
+        "item_revision_id",
+    } == set(models["IdentityDecisionPreviewResponse"]["required"])
+    assert {
+        "request_id",
+        "result_id",
+        "preview_id",
+        "plan_id",
+        "selection_id",
+        "disposition",
+        "identity_state_projection_id",
+        "competitors",
+        "selected_asset_observation_id",
+        "expected_current_decision_id",
+        "queue_id",
+        "item_revision_id",
+    } == set(models["AssetDecisionPreviewResponse"]["required"])
+    assert models["IdentityDisposition"]["enum"] == [
+        "ACCEPT_EXISTING",
+        "ACCEPT_NEW",
+        "MERGE",
+        "REJECT",
+        "DEFER",
+    ]
+    assert models["AssetDisposition"]["enum"] == [
+        "AUTHORIZE",
+        "REJECT",
+        "DEFER",
+    ]
+    assert set(models["CourseReferenceFailureCode"]["enum"]) == {
+        "COURSE_NOT_FOUND",
+        "ITEM_NOT_FOUND",
+        "EVIDENCE_STALE",
+        "REVISION_STALE",
+        "TARGET_STALE",
+        "CONCURRENT_DECISION",
+        "IDEMPOTENCY_CONFLICT",
+        "INVALID_DISPOSITION",
+        "OWNER_MALFORMED",
+        "OWNER_UNAVAILABLE",
+    }
+    for operation in (
+        queue,
+        identity_preview,
+        asset_preview,
+        identity,
+        asset,
+    ):
+        for code in ("404", "409", "502", "503"):
+            assert operation["responses"][code]["content"]["application/json"][
+                "schema"
+            ] == {"$ref": "#/components/schemas/CourseReferenceFailureResponse"}
+    encoded = json.dumps(
+        {
+            "queue": models["CourseReferenceQueueResponse"],
+            "item": models["CourseReferenceQueueItemResponse"],
+            "asset": models["ReferenceAssetResponse"],
+        },
+        sort_keys=True,
+    )
+    for private_name in (
+        "bibliography_path",
+        "catalog_path",
+        "relative_path",
+        "root_alias",
+        "verbatim_entry",
+        "rendered_bytes",
+    ):
+        assert private_name not in encoded
+
+
 def test__combined_openapi__is_deterministic_and_committed() -> None:
     first = combined_openapi_bytes()
     second = combined_openapi_bytes()
@@ -563,6 +713,14 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
         "git": "https://github.com/eragasa/projectkoios-ingestion.git",
         "rev": "30db4756049b762ec6ea9962d205424a66d699e3",
     }
+    assert sources["projectkoios-courses"] == {
+        "git": "https://github.com/eragasa/projectkoios-courses.git",
+        "rev": "74174dc698a2a7c7d0ee09d80ea39a867d02fe62",
+    }
+    assert sources["projectkoios-references"] == {
+        "git": "https://github.com/eragasa/projectkoios-references.git",
+        "rev": "1a7a0066b0116661c8bb688d494865d6e8797e0f",
+    }
     assert sources["projectkoios-applications"] == {
         "path": "../projectkoios-applications",
         "editable": False,
@@ -580,8 +738,10 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     assert "path: projectkoios-public-catalogs" in workflow
     assert "sparse-checkout: public" in workflow
     assert 'root = Path("../projectkoios-public-catalogs/public")' in workflow
-    assert "3d4719dc73ddd7318802b86c7b33c467dd289f9a" in workflow
-    assert "7fa0a5592e30116a2d801590458ec1391b973916" in workflow
+    assert "74174dc698a2a7c7d0ee09d80ea39a867d02fe62" in workflow
+    assert "83766ad879a26241d5b79a9dbd544f3dd4fdb6a3" in workflow
+    assert "1a7a0066b0116661c8bb688d494865d6e8797e0f" in workflow
+    assert "033a2ba752213d6389c9f458819cc01b036b8bbb" in workflow
     for identity in (
         "781bdb58ce8ce7a4860edc66abaf190b42c91236",
         "de6257c720fa73caff21b393af4a3fb4858fd617",
@@ -591,8 +751,10 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
         "b7c3ffd23086e7ef184c990267d48a56dd87282b",
         "88c37990fd37650b3091b2cb2f605a589ab624f4",
         "b102469ba33bc6c677ac93d1186a72b1496f5bc8",
-        "3d4719dc73ddd7318802b86c7b33c467dd289f9a",
-        "7fa0a5592e30116a2d801590458ec1391b973916",
+        "74174dc698a2a7c7d0ee09d80ea39a867d02fe62",
+        "83766ad879a26241d5b79a9dbd544f3dd4fdb6a3",
+        "1a7a0066b0116661c8bb688d494865d6e8797e0f",
+        "033a2ba752213d6389c9f458819cc01b036b8bbb",
         "be60640bec4fe15cc88b24161545eb1027ffbd2e",
         "d386a1744f79463fd7cd0b3087ee5fc361e0f7d5",
     ):

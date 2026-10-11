@@ -1,11 +1,36 @@
+import hashlib
 from pathlib import Path
 
 import pytest
 from projectkoios.api.config import (
+    CourseReferenceAuthorityActorConfiguration,
     DeploymentProfile,
     ProjectKoiosAppConfiguration,
     ProjectReferenceIntakeConfiguration,
 )
+
+
+def test__course_reference_authority_actor__requires_trusted_provenance() -> (
+    None
+):
+    verification_id = (
+        "actor-verification:sha256:"
+        + hashlib.sha256(b"control-curator").hexdigest()
+    )
+
+    actor = CourseReferenceAuthorityActorConfiguration(
+        actor_id="control-curator",
+        verification_record_id=verification_id,
+        verification_method="authenticated-control-session",
+    )
+
+    assert actor.verification_record_id == verification_id
+    with pytest.raises(ValueError, match="verification_record_id is invalid"):
+        CourseReferenceAuthorityActorConfiguration(
+            actor_id="control-curator",
+            verification_record_id="browser-asserted-identity",
+            verification_method="authenticated-control-session",
+        )
 
 
 def test__deployment_profile__defaults_to_public(
