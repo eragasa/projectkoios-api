@@ -10,6 +10,9 @@ from projectkoios.api.course_reference_authority import (
     CourseReferenceAuthorityFailure,
 )
 from projectkoios.api.course_reference_authority_models import (
+    AssetCompetitorDecisionResponse,
+    AssetDecisionPreviewRequest,
+    AssetDecisionPreviewResponse,
     AssetDecisionRequest,
     CourseReferenceDecisionReceiptResponse,
     CourseReferenceFailureCode,
@@ -17,6 +20,8 @@ from projectkoios.api.course_reference_authority_models import (
     CourseReferenceQueueResponse,
     CourseReferenceScopeResponse,
     CourseReferenceSelectionResponse,
+    IdentityDecisionPreviewRequest,
+    IdentityDecisionPreviewResponse,
     IdentityDecisionRequest,
 )
 from projectkoios.api.routers.course_reference_authority import (
@@ -73,7 +78,6 @@ def _queue() -> CourseReferenceQueueResponse:
             active_authority=None,
             allowed_identity_actions=(),
             allowed_asset_actions=(),
-            asset_plan_id=None,
             item_revision_id=_cid(
                 "course-reference-authority-item-revision", str(index)
             ),
@@ -108,6 +112,12 @@ def _queue() -> CourseReferenceQueueResponse:
 class _Provider:
     projection: CourseReferenceQueueResponse = field(default_factory=_queue)
     failure: CourseReferenceFailureCode | None = None
+    identity_preview_requests: list[
+        tuple[str, str, IdentityDecisionPreviewRequest]
+    ] = field(default_factory=list)
+    asset_preview_requests: list[
+        tuple[str, str, AssetDecisionPreviewRequest]
+    ] = field(default_factory=list)
     identity_requests: list[tuple[str, str, IdentityDecisionRequest]] = field(
         default_factory=list
     )
@@ -119,6 +129,68 @@ class _Provider:
         self._fail()
         assert course_id == "dlsu.phy627m.gs1"
         return self.projection
+
+    def preview_identity(
+        self,
+        course_id: str,
+        item_id: str,
+        request: IdentityDecisionPreviewRequest,
+    ) -> IdentityDecisionPreviewResponse:
+        self._fail()
+        self.identity_preview_requests.append((course_id, item_id, request))
+        return IdentityDecisionPreviewResponse(
+            request_id=_cid("reference-identity-preview-request", "identity"),
+            result_id=_cid("reference-identity-preview-result", "identity"),
+            preview_id=_cid("reference-identity-decision-preview", "identity"),
+            selection_id=item_id,
+            disposition=request.disposition,
+            target_state_projection_id=request.target_state_projection_id,
+            canonical_citekey=request.canonical_citekey,
+            alias_citekeys=request.alias_citekeys,
+            selected_record_match_ids=request.selected_record_match_ids,
+            expected_current_decision_id=request.expected_current_decision_id,
+            queue_id=request.expected_queue_id,
+            item_revision_id=request.expected_item_revision_id,
+        )
+
+    def preview_asset(
+        self,
+        course_id: str,
+        item_id: str,
+        request: AssetDecisionPreviewRequest,
+    ) -> AssetDecisionPreviewResponse:
+        self._fail()
+        self.asset_preview_requests.append((course_id, item_id, request))
+        authorized = tuple(
+            item.asset_observation_id
+            for item in request.competitors
+            if item.disposition.value == "AUTHORIZE"
+        )
+        return AssetDecisionPreviewResponse(
+            request_id=_cid("canonical-asset-preview-request", "asset"),
+            result_id=_cid("canonical-asset-preview-result", "asset"),
+            preview_id=_cid("canonical-asset-decision-preview", "asset"),
+            plan_id=_cid("canonical-asset-evidence-plan", "plan"),
+            selection_id=item_id,
+            disposition=request.disposition,
+            identity_state_projection_id=(
+                request.expected_identity_state_projection_id
+            ),
+            competitors=tuple(
+                AssetCompetitorDecisionResponse(
+                    asset_observation_id=item.asset_observation_id,
+                    disposition=item.disposition,
+                    rationale=item.rationale,
+                )
+                for item in request.competitors
+            ),
+            selected_asset_observation_id=(
+                authorized[0] if len(authorized) == 1 else None
+            ),
+            expected_current_decision_id=request.expected_current_decision_id,
+            queue_id=request.expected_queue_id,
+            item_revision_id=request.expected_item_revision_id,
+        )
 
     def decide_identity(
         self,
@@ -158,7 +230,8 @@ class _Provider:
         return CourseReferenceDecisionReceiptResponse(
             receipt_id=_cid("reference-authority-decision-receipt", dimension),
             result_id=_cid("reference-authority-decision-result", dimension),
-            request_id=_cid(
+            put_request_id=_cid("reference-authority-put-request", dimension),
+            decision_append_request_id=_cid(
                 "append-reference-authority-decision-request", dimension
             ),
             preview_id=_cid("reference-authority-decision-preview", dimension),
@@ -167,9 +240,9 @@ class _Provider:
             disposition=disposition,
             state_projection_id=None,
             current_decision_id=_cid("review-decision", dimension),
+            current_state_projection_id=None,
             refreshed_queue_id=self.projection.queue_id,
             refreshed_item_revision_id=item.item_revision_id,
-            refreshed_item=item,
         )
 
 
@@ -177,14 +250,6 @@ def _client(provider: _Provider) -> TestClient:
     app = FastAPI()
     app.include_router(create_course_reference_authority_router(provider))
     return TestClient(app)
-
-
-def _actor() -> dict[str, str]:
-    return {
-        "actor_id": "control-curator",
-        "verification_record_id": _cid("actor-verification", "curator"),
-        "verification_method": "authenticated-control-session",
-    }
 
 
 def test__router__preserves_complete_ordered_left_projection() -> None:
@@ -208,46 +273,68 @@ def test__router__transports_identity_and_asset_cas_requests() -> None:
     provider = _Provider()
     client = _client(provider)
     item = provider.projection.items[0]
-    common = {
-        "idempotency_key": "test-decision-1",
+    evidence = {
         "expected_queue_id": provider.projection.queue_id,
         "expected_item_revision_id": item.item_revision_id,
         "expected_current_decision_id": None,
+    }
+    identity_consequence = {
+        "disposition": "ACCEPT_NEW",
+        "target_state_projection_id": None,
+        "canonical_citekey": item.selection.display_citekey,
+        "alias_citekeys": [],
+        "selected_record_match_ids": [],
+    }
+    identity_preview = client.post(
+        f"/courses/dlsu.phy627m.gs1/references/{item.selection.selection_id}/decision-preview",
+        json={**evidence, **identity_consequence},
+    )
+    asset_consequence = {
+        "expected_identity_state_projection_id": _cid(
+            "reference-state-projection", "identity"
+        ),
+        "disposition": "AUTHORIZE",
+        "competitors": [
+            {
+                "asset_observation_id": _cid(
+                    "catalog-asset-observation", "asset"
+                ),
+                "disposition": "AUTHORIZE",
+                "rationale": "Select the verified available asset.",
+            }
+        ],
+    }
+    asset_preview = client.post(
+        f"/courses/dlsu.phy627m.gs1/references/{item.selection.selection_id}/asset-decision-preview",
+        json={**evidence, **asset_consequence},
+    )
+    assert identity_preview.status_code == 200
+    assert asset_preview.status_code == 200
+
+    decision_metadata = {
+        "idempotency_key": "test-decision-1",
         "rationale": "Explicit curator review.",
         "decided_at": "2026-10-11T06:00:00Z",
-        "actor": _actor(),
     }
     identity = client.put(
         f"/courses/dlsu.phy627m.gs1/references/{item.selection.selection_id}/decision",
         json={
-            **common,
-            "disposition": "ACCEPT_NEW",
-            "target_state_projection_id": None,
-            "canonical_citekey": item.selection.display_citekey,
-            "alias_citekeys": [],
-            "selected_record_match_ids": [],
+            **evidence,
+            **identity_consequence,
+            **decision_metadata,
+            "expected_preview_id": identity_preview.json()["preview_id"],
+            "expected_preview_result_id": identity_preview.json()["result_id"],
         },
     )
     asset = client.put(
         f"/courses/dlsu.phy627m.gs1/references/{item.selection.selection_id}/asset-decision",
         json={
-            **common,
-            "expected_identity_state_projection_id": _cid(
-                "reference-state-projection", "identity"
-            ),
-            "expected_asset_plan_id": _cid(
-                "canonical-asset-evidence-plan", "plan"
-            ),
-            "disposition": "AUTHORIZE",
-            "competitors": [
-                {
-                    "asset_observation_id": _cid(
-                        "catalog-asset-observation", "asset"
-                    ),
-                    "disposition": "AUTHORIZE",
-                    "rationale": "Select the verified available asset.",
-                }
-            ],
+            **evidence,
+            **asset_consequence,
+            **decision_metadata,
+            "expected_preview_id": asset_preview.json()["preview_id"],
+            "expected_preview_result_id": asset_preview.json()["result_id"],
+            "expected_asset_plan_id": asset_preview.json()["plan_id"],
         },
     )
 
@@ -255,6 +342,12 @@ def test__router__transports_identity_and_asset_cas_requests() -> None:
     assert identity.json()["disposition"] == "ACCEPT_NEW"
     assert asset.status_code == 200
     assert asset.json()["disposition"] == "AUTHORIZE"
+    assert provider.identity_preview_requests[0][2].canonical_citekey == (
+        item.selection.display_citekey
+    )
+    assert provider.asset_preview_requests[0][2].competitors == (
+        provider.asset_requests[0][2].competitors
+    )
     assert provider.identity_requests[0][2].expected_queue_id == (
         provider.projection.queue_id
     )

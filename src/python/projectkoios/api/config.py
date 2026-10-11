@@ -11,12 +11,13 @@ from projectkoios.courses.reference_resolution import (
     CourseReferenceResolutionScope,
 )
 from projectkoios.obsidian.config import VaultConfiguration
-from projectkoios.references.course_reference_authority_runtime import (
+from projectkoios.references.courses.runtime import (
     CourseReferenceAuthorityRuntimeConfiguration,
 )
 
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _DATABASE_LEAF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}\.sqlite3$")
+_CONTENT_ID = re.compile(r"^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$")
 
 
 class DeploymentProfile(StrEnum):
@@ -115,9 +116,38 @@ class CourseConfiguration:
 
 
 @dataclass(frozen=True)
+class CourseReferenceAuthorityActorConfiguration:
+    actor_id: str
+    verification_record_id: str
+    verification_method: str
+
+    def __post_init__(self) -> None:
+        for field_name in ("actor_id", "verification_method"):
+            value = getattr(self, field_name)
+            if (
+                type(value) is not str
+                or not value
+                or len(value) > 4096
+                or any(ord(character) < 32 for character in value)
+            ):
+                raise ValueError(
+                    f"course reference authority {field_name} is invalid"
+                )
+        if (
+            type(self.verification_record_id) is not str
+            or len(self.verification_record_id) > 512
+            or _CONTENT_ID.fullmatch(self.verification_record_id) is None
+        ):
+            raise ValueError(
+                "course reference authority verification_record_id is invalid"
+            )
+
+
+@dataclass(frozen=True)
 class CourseReferenceAuthorityConfiguration:
     scope: CourseReferenceResolutionScope
     runtime: CourseReferenceAuthorityRuntimeConfiguration
+    actor: CourseReferenceAuthorityActorConfiguration
 
     def __post_init__(self) -> None:
         if self.scope.course_id != self.runtime.course_id:

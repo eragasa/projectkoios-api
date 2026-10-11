@@ -32,7 +32,9 @@ _EXPECTED_PATHS = {
     ("/project-reference-intake/ksdft2effmass/missing-pdfs/{citekey}/document"),
     "/courses/{course_id}/references",
     "/courses/{course_id}/references/{item_id}/decision",
+    "/courses/{course_id}/references/{item_id}/decision-preview",
     "/courses/{course_id}/references/{item_id}/asset-decision",
+    "/courses/{course_id}/references/{item_id}/asset-decision-preview",
     "/github/tasks",
     "/citation-reviews",
     "/citation-reviews/sources/{source_name}",
@@ -69,9 +71,16 @@ def test__combined_openapi__has_exact_integrated_paths_and_methods() -> None:
             "/citation-reviews/{claim_id}/decision": {"put"},
             "/citation-documents/{item_id}/source": {"post"},
             "/courses/{course_id}/references/{item_id}/decision": {"put"},
+            "/courses/{course_id}/references/{item_id}/decision-preview": {
+                "post"
+            },
             ("/courses/{course_id}/references/{item_id}/asset-decision"): {
                 "put"
             },
+            (
+                "/courses/{course_id}/references/{item_id}/"
+                "asset-decision-preview"
+            ): {"post"},
             "/citation-documents/{item_id}/process-private": {"post"},
             "/equation-reviews/{candidate_id}/decision": {"put"},
             "/literature-review/references": {"get", "post"},
@@ -456,9 +465,15 @@ def test__combined_openapi__publishes_course_reference_authority_contract() -> (
     identity = schema["paths"][
         "/courses/{course_id}/references/{item_id}/decision"
     ]["put"]
+    identity_preview = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/decision-preview"
+    ]["post"]
     asset = schema["paths"][
         "/courses/{course_id}/references/{item_id}/asset-decision"
     ]["put"]
+    asset_preview = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/asset-decision-preview"
+    ]["post"]
 
     assert queue["responses"]["200"]["content"]["application/json"][
         "schema"
@@ -466,17 +481,61 @@ def test__combined_openapi__publishes_course_reference_authority_contract() -> (
     assert identity["requestBody"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/IdentityDecisionRequest"
     }
+    assert identity_preview["requestBody"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/IdentityDecisionPreviewRequest"}
+    assert identity_preview["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/IdentityDecisionPreviewResponse"}
     assert asset["requestBody"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/AssetDecisionRequest"
     }
+    assert asset_preview["requestBody"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/AssetDecisionPreviewRequest"}
+    assert asset_preview["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/AssetDecisionPreviewResponse"}
     for request_model in ("IdentityDecisionRequest", "AssetDecisionRequest"):
         assert "idempotency_key" in models[request_model]["required"]
+        assert "expected_preview_id" in models[request_model]["required"]
+        assert "expected_preview_result_id" in models[request_model]["required"]
+        assert "actor" not in models[request_model]["properties"]
         assert models[request_model]["properties"]["idempotency_key"] == {
             "maxLength": 1024,
             "minLength": 1,
             "title": "Idempotency Key",
             "type": "string",
         }
+    assert "ReviewActorRequest" not in models
+    assert {
+        "request_id",
+        "result_id",
+        "preview_id",
+        "selection_id",
+        "disposition",
+        "target_state_projection_id",
+        "canonical_citekey",
+        "alias_citekeys",
+        "selected_record_match_ids",
+        "expected_current_decision_id",
+        "queue_id",
+        "item_revision_id",
+    } == set(models["IdentityDecisionPreviewResponse"]["required"])
+    assert {
+        "request_id",
+        "result_id",
+        "preview_id",
+        "plan_id",
+        "selection_id",
+        "disposition",
+        "identity_state_projection_id",
+        "competitors",
+        "selected_asset_observation_id",
+        "expected_current_decision_id",
+        "queue_id",
+        "item_revision_id",
+    } == set(models["AssetDecisionPreviewResponse"]["required"])
     assert models["IdentityDisposition"]["enum"] == [
         "ACCEPT_EXISTING",
         "ACCEPT_NEW",
@@ -501,7 +560,13 @@ def test__combined_openapi__publishes_course_reference_authority_contract() -> (
         "OWNER_MALFORMED",
         "OWNER_UNAVAILABLE",
     }
-    for operation in (queue, identity, asset):
+    for operation in (
+        queue,
+        identity_preview,
+        asset_preview,
+        identity,
+        asset,
+    ):
         for code in ("404", "409", "502", "503"):
             assert operation["responses"][code]["content"]["application/json"][
                 "schema"

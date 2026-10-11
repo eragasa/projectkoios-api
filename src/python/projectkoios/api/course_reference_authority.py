@@ -1,10 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
+from projectkoios.api.config import CourseReferenceAuthorityActorConfiguration
 from projectkoios.api.course_reference_authority_models import (
     ActiveReferenceAuthorityResponse,
+    AssetCompetitorDecisionRequest,
+    AssetCompetitorDecisionResponse,
+    AssetDecisionPreviewRequest,
+    AssetDecisionPreviewResponse,
     AssetDecisionRequest,
     AssetDisposition,
     CourseReferenceDecisionReceiptResponse,
@@ -14,6 +19,8 @@ from projectkoios.api.course_reference_authority_models import (
     CourseReferenceScopeResponse,
     CourseReferenceSelectionResponse,
     CurrentDecisionHeadResponse,
+    IdentityDecisionPreviewRequest,
+    IdentityDecisionPreviewResponse,
     IdentityDecisionRequest,
     IdentityDisposition,
     IngestionArtifactLinkResponse,
@@ -26,32 +33,42 @@ from projectkoios.api.course_reference_authority_models import (
 from projectkoios.courses.reference_resolution import (
     CourseReferenceResolutionScope,
 )
-from projectkoios.references.course_reference_authority import (
+from projectkoios.references.courses.authority import (
     COURSE_REFERENCE_AUTHORITY_CONTRACT_ID,
     ActiveReferenceAuthority,
     CanonicalAssetCompetitorDisposition,
-    CanonicalAssetDecision,
-    CanonicalAssetEvidencePlan,
+    CanonicalAssetDecisionPreviewActionizer,
+    CanonicalAssetDecisionPreviewRequest,
+    CanonicalAssetDecisionPreviewResult,
     CourseDisplayCitekeyStatus,
     CourseReferenceAuthorityFailureReason,
     CourseReferenceAuthorityQueue,
     CourseReferenceAuthorityQueueItem,
-    CourseReferenceAuthorityService,
+    CourseReferenceAuthorityQueueLoadActionizer,
+    CourseReferenceAuthorityQueueLoadRequest,
     CourseReferenceAuthorityServiceError,
     CourseReferenceResolutionScopeEvidence,
     CourseReferenceRole,
     CourseReferenceSelectionEvidence,
     CourseReferenceSelectionOrigin,
     CurrentReviewDecisionHead,
+    PutCanonicalAssetDecisionActionizer,
+    PutCanonicalAssetDecisionRequest,
+    PutReferenceIdentityDecisionActionizer,
+    PutReferenceIdentityDecisionRequest,
     ReferenceAssetAuthorityEvidence,
-    ReferenceAuthorityDecisionReceipt,
-    ReferenceIdentityDecision,
+    ReferenceAuthorityDecisionPutResult,
+    ReferenceIdentityDecisionPreviewActionizer,
+    ReferenceIdentityDecisionPreviewRequest,
+    ReferenceIdentityDecisionPreviewResult,
 )
-from projectkoios.references.course_reference_authority_runtime import (
+from projectkoios.references.courses.runtime import (
     CourseReferenceAuthorityRuntimeConfiguration,
-    open_course_reference_authority_service,
+    FilesystemCourseReferenceAuthorityRuntime,
 )
 from projectkoios.references.review import (
+    CanonicalAssetDecision,
+    ReferenceIdentityDecision,
     ReviewActorKind,
     ReviewActorProvenance,
     ReviewAuthorityScope,
@@ -67,8 +84,30 @@ class CourseReferenceAuthorityFailure(RuntimeError):
         super().__init__(code.value)
 
 
+class CourseReferenceAuthorityRuntime(Protocol):
+    queue: CourseReferenceAuthorityQueueLoadActionizer
+    identity_preview: ReferenceIdentityDecisionPreviewActionizer
+    asset_preview: CanonicalAssetDecisionPreviewActionizer
+    identity_put: PutReferenceIdentityDecisionActionizer
+    asset_put: PutCanonicalAssetDecisionActionizer
+
+
 class CourseReferenceAuthorityProvider(Protocol):
     def queue(self, course_id: str) -> CourseReferenceQueueResponse: ...
+
+    def preview_identity(
+        self,
+        course_id: str,
+        item_id: str,
+        request: IdentityDecisionPreviewRequest,
+    ) -> IdentityDecisionPreviewResponse: ...
+
+    def preview_asset(
+        self,
+        course_id: str,
+        item_id: str,
+        request: AssetDecisionPreviewRequest,
+    ) -> AssetDecisionPreviewResponse: ...
 
     def decide_identity(
         self,
@@ -88,6 +127,28 @@ class CourseReferenceAuthorityProvider(Protocol):
 class UnavailableCourseReferenceAuthorityProvider:
     def queue(self, course_id: str) -> CourseReferenceQueueResponse:
         del course_id
+        raise CourseReferenceAuthorityFailure(
+            CourseReferenceFailureCode.OWNER_UNAVAILABLE
+        )
+
+    def preview_identity(
+        self,
+        course_id: str,
+        item_id: str,
+        request: IdentityDecisionPreviewRequest,
+    ) -> IdentityDecisionPreviewResponse:
+        del course_id, item_id, request
+        raise CourseReferenceAuthorityFailure(
+            CourseReferenceFailureCode.OWNER_UNAVAILABLE
+        )
+
+    def preview_asset(
+        self,
+        course_id: str,
+        item_id: str,
+        request: AssetDecisionPreviewRequest,
+    ) -> AssetDecisionPreviewResponse:
+        del course_id, item_id, request
         raise CourseReferenceAuthorityFailure(
             CourseReferenceFailureCode.OWNER_UNAVAILABLE
         )
@@ -120,18 +181,105 @@ class ReferencesCourseReferenceAuthorityProvider:
     """Compose one Courses scope with the sole References service façade."""
 
     scope: CourseReferenceResolutionScope
-    service: CourseReferenceAuthorityService
+    runtime: CourseReferenceAuthorityRuntime
+    actor: CourseReferenceAuthorityActorConfiguration
 
     def queue(self, course_id: str) -> CourseReferenceQueueResponse:
         self._require_course(course_id)
         try:
             owner_scope, selections = self._owner_scope()
             return _queue_response(
-                self.service.queue(scope=owner_scope, selections=selections),
+                self.runtime.queue.action(
+                    request=CourseReferenceAuthorityQueueLoadRequest(
+                        scope=owner_scope,
+                        selections=selections,
+                    )
+                ),
                 course_scope=self.scope,
             )
         except CourseReferenceAuthorityServiceError as error:
             raise _owner_failure(error) from error
+        except (TypeError, ValueError, ValidationError) as error:
+            raise CourseReferenceAuthorityFailure(
+                CourseReferenceFailureCode.OWNER_MALFORMED
+            ) from error
+        except (OSError, RuntimeError) as error:
+            raise CourseReferenceAuthorityFailure(
+                CourseReferenceFailureCode.OWNER_UNAVAILABLE
+            ) from error
+
+    def preview_identity(
+        self,
+        course_id: str,
+        item_id: str,
+        request: IdentityDecisionPreviewRequest,
+    ) -> IdentityDecisionPreviewResponse:
+        self._require_course(course_id)
+        try:
+            owner_scope, selections = self._owner_scope()
+            preview = self.runtime.identity_preview.action(
+                request=_identity_preview_request(
+                    scope=owner_scope,
+                    selections=selections,
+                    selection_id=item_id,
+                    request=request,
+                )
+            )
+            _require_expected_projection(
+                queue_id=preview.queue_id,
+                item_revision_id=preview.item_revision_id,
+                expected_queue_id=request.expected_queue_id,
+                expected_item_revision_id=request.expected_item_revision_id,
+            )
+            return _identity_preview_response(preview)
+        except CourseReferenceAuthorityServiceError as error:
+            raise _owner_failure(error) from error
+        except CourseReferenceAuthorityFailure:
+            raise
+        except (TypeError, ValueError, ValidationError) as error:
+            raise CourseReferenceAuthorityFailure(
+                CourseReferenceFailureCode.OWNER_MALFORMED
+            ) from error
+        except (OSError, RuntimeError) as error:
+            raise CourseReferenceAuthorityFailure(
+                CourseReferenceFailureCode.OWNER_UNAVAILABLE
+            ) from error
+
+    def preview_asset(
+        self,
+        course_id: str,
+        item_id: str,
+        request: AssetDecisionPreviewRequest,
+    ) -> AssetDecisionPreviewResponse:
+        self._require_course(course_id)
+        try:
+            owner_scope, selections = self._owner_scope()
+            preview = self.runtime.asset_preview.action(
+                request=_asset_preview_request(
+                    scope=owner_scope,
+                    selections=selections,
+                    selection_id=item_id,
+                    request=request,
+                )
+            )
+            _require_expected_projection(
+                queue_id=preview.queue_id,
+                item_revision_id=preview.item_revision_id,
+                expected_queue_id=request.expected_queue_id,
+                expected_item_revision_id=request.expected_item_revision_id,
+            )
+            if (
+                preview.identity_state_projection_id
+                != request.expected_identity_state_projection_id
+            ):
+                raise CourseReferenceAuthorityFailure(
+                    CourseReferenceFailureCode.REVISION_STALE
+                )
+            return _asset_preview_response(preview)
+        except CourseReferenceAuthorityServiceError as error:
+            raise _owner_failure(error) from error
+        except CourseReferenceAuthorityFailure:
+            raise
         except (TypeError, ValueError, ValidationError) as error:
             raise CourseReferenceAuthorityFailure(
                 CourseReferenceFailureCode.OWNER_MALFORMED
@@ -150,29 +298,36 @@ class ReferencesCourseReferenceAuthorityProvider:
         self._require_course(course_id)
         try:
             owner_scope, selections = self._owner_scope()
-            receipt = self.service.put_identity_decision(
-                scope=owner_scope,
-                selections=selections,
-                selection_id=item_id,
-                disposition=ReferenceIdentityDecision[request.disposition.name],
-                target_state_projection_id=request.target_state_projection_id,
-                canonical_citekey=request.canonical_citekey,
-                alias_citekeys=request.alias_citekeys,
-                selected_record_match_ids=request.selected_record_match_ids,
-                expected_current_decision_id=(
-                    request.expected_current_decision_id
-                ),
-                expected_queue_id=request.expected_queue_id,
-                expected_item_revision_id=(request.expected_item_revision_id),
-                actor=_actor(
-                    request,
-                    scope=ReviewAuthorityScope.REFERENCE_IDENTITY_CURATOR,
-                ),
-                rationale=request.rationale,
-                decided_at=request.decided_at,
-                idempotency_key=request.idempotency_key,
+            result = self.runtime.identity_put.action(
+                request=PutReferenceIdentityDecisionRequest(
+                    preview_request=_identity_preview_request(
+                        scope=owner_scope,
+                        selections=selections,
+                        selection_id=item_id,
+                        request=request,
+                    ),
+                    expected_preview_id=request.expected_preview_id,
+                    expected_preview_result_id=(
+                        request.expected_preview_result_id
+                    ),
+                    expected_queue_id=request.expected_queue_id,
+                    expected_item_revision_id=(
+                        request.expected_item_revision_id
+                    ),
+                    actor=_actor(
+                        self.actor,
+                        scope=(ReviewAuthorityScope.REFERENCE_IDENTITY_CURATOR),
+                    ),
+                    rationale=request.rationale,
+                    decided_at=request.decided_at,
+                    idempotency_key=request.idempotency_key,
+                )
             )
-            return _receipt_response(receipt, course_scope=self.scope)
+            return _put_response(
+                result,
+                dimension="reference-identity",
+                disposition=request.disposition.value,
+            )
         except CourseReferenceAuthorityServiceError as error:
             raise _owner_failure(error) from error
         except CourseReferenceAuthorityFailure:
@@ -195,39 +350,40 @@ class ReferencesCourseReferenceAuthorityProvider:
         self._require_course(course_id)
         try:
             owner_scope, selections = self._owner_scope()
-            receipt = self.service.put_asset_decision(
-                scope=owner_scope,
-                selections=selections,
-                selection_id=item_id,
-                disposition=CanonicalAssetDecision[request.disposition.name],
-                competitor_dispositions=tuple(
-                    CanonicalAssetCompetitorDisposition(
-                        asset_observation_id=item.asset_observation_id,
-                        disposition=CanonicalAssetDecision[
-                            item.disposition.name
-                        ],
-                        rationale=item.rationale,
-                    )
-                    for item in request.competitors
-                ),
-                expected_current_decision_id=(
-                    request.expected_current_decision_id
-                ),
-                expected_queue_id=request.expected_queue_id,
-                expected_item_revision_id=(request.expected_item_revision_id),
-                expected_identity_state_projection_id=(
-                    request.expected_identity_state_projection_id
-                ),
-                expected_plan_id=request.expected_asset_plan_id,
-                actor=_actor(
-                    request,
-                    scope=ReviewAuthorityScope.CANONICAL_ASSET_CURATOR,
-                ),
-                rationale=request.rationale,
-                decided_at=request.decided_at,
-                idempotency_key=request.idempotency_key,
+            result = self.runtime.asset_put.action(
+                request=PutCanonicalAssetDecisionRequest(
+                    preview_request=_asset_preview_request(
+                        scope=owner_scope,
+                        selections=selections,
+                        selection_id=item_id,
+                        request=request,
+                    ),
+                    expected_preview_id=request.expected_preview_id,
+                    expected_preview_result_id=(
+                        request.expected_preview_result_id
+                    ),
+                    expected_queue_id=request.expected_queue_id,
+                    expected_item_revision_id=(
+                        request.expected_item_revision_id
+                    ),
+                    expected_identity_state_projection_id=(
+                        request.expected_identity_state_projection_id
+                    ),
+                    expected_plan_id=request.expected_asset_plan_id,
+                    actor=_actor(
+                        self.actor,
+                        scope=ReviewAuthorityScope.CANONICAL_ASSET_CURATOR,
+                    ),
+                    rationale=request.rationale,
+                    decided_at=request.decided_at,
+                    idempotency_key=request.idempotency_key,
+                )
             )
-            return _receipt_response(receipt, course_scope=self.scope)
+            return _put_response(
+                result,
+                dimension="canonical-asset",
+                disposition=request.disposition.value,
+            )
         except CourseReferenceAuthorityServiceError as error:
             raise _owner_failure(error) from error
         except CourseReferenceAuthorityFailure:
@@ -291,6 +447,7 @@ def open_references_course_reference_authority_provider(
     *,
     scope: CourseReferenceResolutionScope,
     configuration: CourseReferenceAuthorityRuntimeConfiguration,
+    actor: CourseReferenceAuthorityActorConfiguration,
 ) -> ReferencesCourseReferenceAuthorityProvider:
     """Compose typed Courses scope with the References runtime façade."""
     if scope.course_id != configuration.course_id:
@@ -299,24 +456,137 @@ def open_references_course_reference_authority_provider(
         )
     return ReferencesCourseReferenceAuthorityProvider(
         scope=scope,
-        service=open_course_reference_authority_service(
+        runtime=FilesystemCourseReferenceAuthorityRuntime(
             configuration=configuration
         ),
+        actor=actor,
     )
 
 
 def _actor(
-    request: IdentityDecisionRequest | AssetDecisionRequest,
+    actor: CourseReferenceAuthorityActorConfiguration,
     *,
     scope: ReviewAuthorityScope,
 ) -> ReviewActorProvenance:
     return ReviewActorProvenance(
-        actor_id=request.actor.actor_id,
+        actor_id=actor.actor_id,
         actor_kind=ReviewActorKind.PERSON,
         authority_scope=scope,
         authority_domain="projectkoios-references",
-        verification_record_id=request.actor.verification_record_id,
-        verification_method=request.actor.verification_method,
+        verification_record_id=actor.verification_record_id,
+        verification_method=actor.verification_method,
+    )
+
+
+def _competitor_dispositions(
+    competitors: tuple[AssetCompetitorDecisionRequest, ...],
+) -> tuple[CanonicalAssetCompetitorDisposition, ...]:
+    return tuple(
+        CanonicalAssetCompetitorDisposition(
+            asset_observation_id=item.asset_observation_id,
+            disposition=CanonicalAssetDecision[item.disposition.name],
+            rationale=item.rationale,
+        )
+        for item in competitors
+    )
+
+
+def _require_expected_projection(
+    *,
+    queue_id: str,
+    item_revision_id: str,
+    expected_queue_id: str,
+    expected_item_revision_id: str,
+) -> None:
+    if queue_id != expected_queue_id:
+        raise CourseReferenceAuthorityFailure(
+            CourseReferenceFailureCode.EVIDENCE_STALE
+        )
+    if item_revision_id != expected_item_revision_id:
+        raise CourseReferenceAuthorityFailure(
+            CourseReferenceFailureCode.REVISION_STALE
+        )
+
+
+def _identity_preview_request(
+    *,
+    scope: CourseReferenceResolutionScopeEvidence,
+    selections: tuple[CourseReferenceSelectionEvidence, ...],
+    selection_id: str,
+    request: IdentityDecisionPreviewRequest | IdentityDecisionRequest,
+) -> ReferenceIdentityDecisionPreviewRequest:
+    return ReferenceIdentityDecisionPreviewRequest(
+        scope=scope,
+        selections=selections,
+        selection_id=selection_id,
+        disposition=ReferenceIdentityDecision[request.disposition.name],
+        target_state_projection_id=request.target_state_projection_id,
+        canonical_citekey=request.canonical_citekey,
+        alias_citekeys=request.alias_citekeys,
+        selected_record_match_ids=request.selected_record_match_ids,
+        expected_current_decision_id=request.expected_current_decision_id,
+    )
+
+
+def _asset_preview_request(
+    *,
+    scope: CourseReferenceResolutionScopeEvidence,
+    selections: tuple[CourseReferenceSelectionEvidence, ...],
+    selection_id: str,
+    request: AssetDecisionPreviewRequest | AssetDecisionRequest,
+) -> CanonicalAssetDecisionPreviewRequest:
+    return CanonicalAssetDecisionPreviewRequest(
+        scope=scope,
+        selections=selections,
+        selection_id=selection_id,
+        disposition=CanonicalAssetDecision[request.disposition.name],
+        competitor_dispositions=_competitor_dispositions(request.competitors),
+        expected_current_decision_id=request.expected_current_decision_id,
+    )
+
+
+def _identity_preview_response(
+    preview: ReferenceIdentityDecisionPreviewResult,
+) -> IdentityDecisionPreviewResponse:
+    return IdentityDecisionPreviewResponse(
+        request_id=preview.request_id,
+        result_id=preview.result_id,
+        preview_id=preview.preview_id,
+        selection_id=preview.selection_id,
+        disposition=IdentityDisposition[preview.disposition.name],
+        target_state_projection_id=preview.target_state_projection_id,
+        canonical_citekey=preview.canonical_citekey,
+        alias_citekeys=preview.alias_citekeys,
+        selected_record_match_ids=preview.selected_record_match_ids,
+        expected_current_decision_id=preview.expected_current_decision_id,
+        queue_id=preview.queue_id,
+        item_revision_id=preview.item_revision_id,
+    )
+
+
+def _asset_preview_response(
+    preview: CanonicalAssetDecisionPreviewResult,
+) -> AssetDecisionPreviewResponse:
+    return AssetDecisionPreviewResponse(
+        request_id=preview.request_id,
+        result_id=preview.result_id,
+        preview_id=preview.preview_id,
+        plan_id=preview.plan_id,
+        selection_id=preview.selection_id,
+        disposition=AssetDisposition[preview.disposition.name],
+        identity_state_projection_id=(preview.identity_state_projection_id),
+        competitors=tuple(
+            AssetCompetitorDecisionResponse(
+                asset_observation_id=competitor.asset_observation_id,
+                disposition=AssetDisposition[competitor.disposition.name],
+                rationale=competitor.rationale,
+            )
+            for competitor in preview.competitor_dispositions
+        ),
+        selected_asset_observation_id=preview.selected_asset_observation_id,
+        expected_current_decision_id=preview.expected_current_decision_id,
+        queue_id=preview.queue_id,
+        item_revision_id=preview.item_revision_id,
     )
 
 
@@ -365,7 +635,6 @@ def _queue_response(
 ) -> CourseReferenceQueueResponse:
     items = tuple(
         _item_response(
-            queue,
             course_scope=course_scope,
             item=item,
         )
@@ -397,23 +666,12 @@ def _queue_response(
 
 
 def _item_response(
-    queue: CourseReferenceAuthorityQueue,
     *,
     course_scope: CourseReferenceResolutionScope,
     item: CourseReferenceAuthorityQueueItem,
 ) -> CourseReferenceQueueItemResponse:
     candidate = item.candidate
     rendered = item.rendered_entry
-    plan_id = None
-    if item.active_authority is not None:
-        plan_id = CanonicalAssetEvidencePlan(
-            queue=queue,
-            selection_id=item.selection.selection_id,
-            identity_state_projection_id=(
-                item.active_authority.state_projection_id
-            ),
-            assets=item.assets,
-        ).plan_id
     return CourseReferenceQueueItemResponse(
         selection=CourseReferenceSelectionResponse(
             scope_id=item.selection.scope_id,
@@ -516,7 +774,6 @@ def _item_response(
         allowed_asset_actions=tuple(
             AssetDisposition[value.name] for value in item.allowed_asset_actions
         ),
-        asset_plan_id=plan_id,
         item_revision_id=item.item_revision_id,
     )
 
@@ -582,33 +839,24 @@ def _active_authority(
     )
 
 
-def _receipt_response(
-    receipt: ReferenceAuthorityDecisionReceipt,
+def _put_response(
+    result: ReferenceAuthorityDecisionPutResult,
     *,
-    course_scope: CourseReferenceResolutionScope,
+    dimension: Literal["reference-identity", "canonical-asset"],
+    disposition: str,
 ) -> CourseReferenceDecisionReceiptResponse:
-    queue_response = _queue_response(
-        receipt.refreshed_queue,
-        course_scope=course_scope,
-    )
-    refreshed_item = next(
-        item
-        for item in queue_response.items
-        if item.selection.selection_id
-        == receipt.refreshed_item.selection.selection_id
-    )
-    decision = receipt.decision_result.decision
     return CourseReferenceDecisionReceiptResponse(
-        receipt_id=receipt.receipt_id,
-        result_id=receipt.decision_result.result_id,
-        request_id=receipt.decision_result.request_id,
-        preview_id=receipt.preview_id,
-        decision_id=decision.decision_id,
-        dimension=decision.dimension.value,
-        disposition=decision.decision.upper().replace("-", "_"),
-        state_projection_id=receipt.current_state_projection_id,
-        current_decision_id=receipt.current_decision_id,
-        refreshed_queue_id=receipt.refreshed_queue_id,
-        refreshed_item_revision_id=receipt.refreshed_item_revision_id,
-        refreshed_item=refreshed_item,
+        receipt_id=result.receipt_id,
+        result_id=result.result_id,
+        put_request_id=result.put_request_id,
+        decision_append_request_id=result.decision_append_request_id,
+        preview_id=result.preview_id,
+        decision_id=result.decision_id,
+        dimension=dimension,
+        disposition=disposition,
+        state_projection_id=result.state_projection_id,
+        current_decision_id=result.current_decision_id,
+        current_state_projection_id=result.current_state_projection_id,
+        refreshed_queue_id=result.refreshed_queue_id,
+        refreshed_item_revision_id=result.refreshed_item_revision_id,
     )

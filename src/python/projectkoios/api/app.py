@@ -153,6 +153,7 @@ class ProjectKoiosApp:
                     open_references_course_reference_authority_provider(
                         scope=authority_configuration.scope,
                         configuration=authority_configuration.runtime,
+                        actor=authority_configuration.actor,
                     )
                 )
             self._register_control_routes(

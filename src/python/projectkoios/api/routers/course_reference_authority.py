@@ -9,11 +9,15 @@ from projectkoios.api.course_reference_authority import (
     CourseReferenceAuthorityProvider,
 )
 from projectkoios.api.course_reference_authority_models import (
+    AssetDecisionPreviewRequest,
+    AssetDecisionPreviewResponse,
     AssetDecisionRequest,
     CourseReferenceDecisionReceiptResponse,
     CourseReferenceFailureCode,
     CourseReferenceFailureResponse,
     CourseReferenceQueueResponse,
+    IdentityDecisionPreviewRequest,
+    IdentityDecisionPreviewResponse,
     IdentityDecisionRequest,
 )
 
@@ -72,6 +76,44 @@ def create_course_reference_authority_router(
     ) -> CourseReferenceQueueResponse | Response:
         try:
             return provider.queue(str(course_id))
+        except CourseReferenceAuthorityFailure as error:
+            return _failure(error.code)
+
+    @router.post(
+        "/courses/{course_id}/references/{item_id}/decision-preview",
+        response_model=IdentityDecisionPreviewResponse,
+        responses=_FAILURE_RESPONSES,
+    )
+    def preview_identity(
+        course_id: CourseIdPath,
+        item_id: ItemIdPath,
+        request: IdentityDecisionPreviewRequest,
+    ) -> IdentityDecisionPreviewResponse | Response:
+        try:
+            return provider.preview_identity(
+                str(course_id),
+                str(item_id),
+                request,
+            )
+        except CourseReferenceAuthorityFailure as error:
+            return _failure(error.code)
+
+    @router.post(
+        "/courses/{course_id}/references/{item_id}/asset-decision-preview",
+        response_model=AssetDecisionPreviewResponse,
+        responses=_FAILURE_RESPONSES,
+    )
+    def preview_asset(
+        course_id: CourseIdPath,
+        item_id: ItemIdPath,
+        request: AssetDecisionPreviewRequest,
+    ) -> AssetDecisionPreviewResponse | Response:
+        try:
+            return provider.preview_asset(
+                str(course_id),
+                str(item_id),
+                request,
+            )
         except CourseReferenceAuthorityFailure as error:
             return _failure(error.code)
 

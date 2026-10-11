@@ -290,7 +290,6 @@ class CourseReferenceQueueItemResponse(StrictModel):
         max_length=5
     )
     allowed_asset_actions: tuple[AssetDisposition, ...] = Field(max_length=3)
-    asset_plan_id: ContentId | None
     item_revision_id: ContentId
 
 
@@ -323,16 +322,38 @@ class CourseReferenceQueueResponse(StrictModel):
         return self
 
 
-class ReviewActorRequest(RequestModel):
-    actor_id: str = Field(min_length=1, max_length=4096)
-    verification_record_id: ContentId
-    verification_method: str = Field(min_length=1, max_length=4096)
+class IdentityDecisionPreviewRequest(RequestModel):
+    expected_queue_id: ContentId
+    expected_item_revision_id: ContentId
+    disposition: IdentityDisposition
+    target_state_projection_id: ContentId | None = None
+    canonical_citekey: Citekey | None = None
+    alias_citekeys: tuple[Citekey, ...] = Field(max_length=256)
+    selected_record_match_ids: tuple[ContentId, ...] = Field(max_length=10_000)
+    expected_current_decision_id: ContentId | None = None
+
+
+class IdentityDecisionPreviewResponse(StrictModel):
+    request_id: ContentId
+    result_id: ContentId
+    preview_id: ContentId
+    selection_id: ContentId
+    disposition: IdentityDisposition
+    target_state_projection_id: ContentId | None
+    canonical_citekey: Citekey | None
+    alias_citekeys: tuple[Citekey, ...]
+    selected_record_match_ids: tuple[ContentId, ...]
+    expected_current_decision_id: ContentId | None
+    queue_id: ContentId
+    item_revision_id: ContentId
 
 
 class IdentityDecisionRequest(RequestModel):
     idempotency_key: str = Field(min_length=1, max_length=1024)
     expected_queue_id: ContentId
     expected_item_revision_id: ContentId
+    expected_preview_id: ContentId
+    expected_preview_result_id: ContentId
     expected_current_decision_id: ContentId | None = None
     disposition: IdentityDisposition
     target_state_projection_id: ContentId | None = None
@@ -341,7 +362,6 @@ class IdentityDecisionRequest(RequestModel):
     selected_record_match_ids: tuple[ContentId, ...] = Field(max_length=10_000)
     rationale: BoundedText
     decided_at: UtcTimestamp
-    actor: ReviewActorRequest
 
 
 class AssetCompetitorDecisionRequest(RequestModel):
@@ -350,10 +370,44 @@ class AssetCompetitorDecisionRequest(RequestModel):
     rationale: BoundedText
 
 
+class AssetCompetitorDecisionResponse(StrictModel):
+    asset_observation_id: ContentId
+    disposition: AssetDisposition
+    rationale: BoundedText
+
+
+class AssetDecisionPreviewRequest(RequestModel):
+    expected_queue_id: ContentId
+    expected_item_revision_id: ContentId
+    expected_identity_state_projection_id: ContentId
+    disposition: AssetDisposition
+    competitors: tuple[AssetCompetitorDecisionRequest, ...] = Field(
+        max_length=10_000
+    )
+    expected_current_decision_id: ContentId | None = None
+
+
+class AssetDecisionPreviewResponse(StrictModel):
+    request_id: ContentId
+    result_id: ContentId
+    preview_id: ContentId
+    plan_id: ContentId
+    selection_id: ContentId
+    disposition: AssetDisposition
+    identity_state_projection_id: ContentId
+    competitors: tuple[AssetCompetitorDecisionResponse, ...]
+    selected_asset_observation_id: ContentId | None
+    expected_current_decision_id: ContentId | None
+    queue_id: ContentId
+    item_revision_id: ContentId
+
+
 class AssetDecisionRequest(RequestModel):
     idempotency_key: str = Field(min_length=1, max_length=1024)
     expected_queue_id: ContentId
     expected_item_revision_id: ContentId
+    expected_preview_id: ContentId
+    expected_preview_result_id: ContentId
     expected_identity_state_projection_id: ContentId
     expected_asset_plan_id: ContentId
     expected_current_decision_id: ContentId | None = None
@@ -363,19 +417,19 @@ class AssetDecisionRequest(RequestModel):
     )
     rationale: BoundedText
     decided_at: UtcTimestamp
-    actor: ReviewActorRequest
 
 
 class CourseReferenceDecisionReceiptResponse(StrictModel):
     receipt_id: ContentId
     result_id: ContentId
-    request_id: ContentId
+    put_request_id: ContentId
+    decision_append_request_id: ContentId
     preview_id: ContentId
     decision_id: ContentId
     dimension: Literal["reference-identity", "canonical-asset"]
     disposition: str = Field(min_length=1, max_length=64)
     state_projection_id: ContentId | None
     current_decision_id: ContentId
+    current_state_projection_id: ContentId | None
     refreshed_queue_id: ContentId
     refreshed_item_revision_id: ContentId
-    refreshed_item: CourseReferenceQueueItemResponse

@@ -7,7 +7,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
-from projectkoios.api.config import CourseReferenceAuthorityConfiguration
+from projectkoios.api.config import (
+    CourseReferenceAuthorityActorConfiguration,
+    CourseReferenceAuthorityConfiguration,
+)
 from projectkoios.api.course_reference_authority import (
     CourseReferenceAuthorityFailure,
     ReferencesCourseReferenceAuthorityProvider,
@@ -15,12 +18,13 @@ from projectkoios.api.course_reference_authority import (
 )
 from projectkoios.api.course_reference_authority_models import (
     AssetCompetitorDecisionRequest,
+    AssetDecisionPreviewRequest,
     AssetDecisionRequest,
     AssetDisposition,
     CourseReferenceFailureCode,
+    IdentityDecisionPreviewRequest,
     IdentityDecisionRequest,
     IdentityDisposition,
-    ReviewActorRequest,
 )
 from projectkoios.courses.reference_resolution import (
     CourseReferenceDisplayCitekeyStatus,
@@ -38,14 +42,21 @@ from projectkoios.references.candidate_bibliography import (
     CandidateBibliographySourceDeclaration,
 )
 from projectkoios.references.catalog import ReferenceCatalog
-from projectkoios.references.course_reference_authority import (
+from projectkoios.references.courses.authority import (
+    CanonicalAssetDecisionPreviewActionizer,
     CourseReferenceAuthorityOwnerEvidence,
+    CourseReferenceAuthorityQueueLoadActionizer,
     CourseReferenceAuthorityService,
+    PutCanonicalAssetDecisionActionizer,
+    PutReferenceIdentityDecisionActionizer,
     ReferenceAssetAuthorityEvidence,
+    ReferenceAssetAuthorityEvidenceActionizer,
+    ReferenceAssetAuthorityEvidenceRequest,
+    ReferenceIdentityDecisionPreviewActionizer,
     RenderedEntryCandidateBinding,
     RuntimeAssetAvailability,
 )
-from projectkoios.references.course_reference_authority_runtime import (
+from projectkoios.references.courses.runtime import (
     CourseReferenceAuthorityBibliographySource,
     CourseReferenceAuthorityRuntimeConfiguration,
 )
@@ -101,6 +112,27 @@ class _OwnerProvider:
             record_discrepancies=(),
             assets=self.assets,
         )
+
+
+@dataclass(frozen=True)
+class _Runtime:
+    queue: CourseReferenceAuthorityQueueLoadActionizer
+    identity_preview: ReferenceIdentityDecisionPreviewActionizer
+    asset_preview: CanonicalAssetDecisionPreviewActionizer
+    identity_put: PutReferenceIdentityDecisionActionizer
+    asset_put: PutCanonicalAssetDecisionActionizer
+
+
+def _runtime(service: CourseReferenceAuthorityService) -> _Runtime:
+    return _Runtime(
+        queue=CourseReferenceAuthorityQueueLoadActionizer(service=service),
+        identity_preview=ReferenceIdentityDecisionPreviewActionizer(
+            service=service
+        ),
+        asset_preview=CanonicalAssetDecisionPreviewActionizer(service=service),
+        identity_put=PutReferenceIdentityDecisionActionizer(service=service),
+        asset_put=PutCanonicalAssetDecisionActionizer(service=service),
+    )
 
 
 def _provider(
@@ -199,15 +231,19 @@ def _provider(
     )
     service = CourseReferenceAuthorityService(catalog=catalog, provider=owner)
     return (
-        ReferencesCourseReferenceAuthorityProvider(scope, service),
+        ReferencesCourseReferenceAuthorityProvider(
+            scope,
+            _runtime(service),
+            _actor(),
+        ),
         catalog,
         owner,
         candidate,
     )
 
 
-def _actor() -> ReviewActorRequest:
-    return ReviewActorRequest(
+def _actor() -> CourseReferenceAuthorityActorConfiguration:
+    return CourseReferenceAuthorityActorConfiguration(
         actor_id="control-curator",
         verification_record_id=_cid("actor-verification", "curator"),
         verification_method="authenticated-control-session",
@@ -226,10 +262,26 @@ def test__provider__separates_identity_and_asset_cas_and_rereads_receipts(
         IdentityDisposition.REJECT,
         IdentityDisposition.DEFER,
     )
+    identity_preview = provider.preview_identity(
+        "dlsu.phy627m.gs1",
+        item.selection.selection_id,
+        IdentityDecisionPreviewRequest(
+            expected_queue_id=queue.queue_id,
+            expected_item_revision_id=item.item_revision_id,
+            disposition=IdentityDisposition.ACCEPT_NEW,
+            target_state_projection_id=None,
+            canonical_citekey=candidate.proposed_citekey,
+            alias_citekeys=(),
+            selected_record_match_ids=(),
+        ),
+    )
+    assert identity_preview.canonical_citekey == candidate.proposed_citekey
     identity_request = IdentityDecisionRequest(
         idempotency_key="identity-sequence-1",
         expected_queue_id=queue.queue_id,
         expected_item_revision_id=item.item_revision_id,
+        expected_preview_id=identity_preview.preview_id,
+        expected_preview_result_id=identity_preview.result_id,
         disposition=IdentityDisposition.ACCEPT_NEW,
         target_state_projection_id=None,
         canonical_citekey=candidate.proposed_citekey,
@@ -237,7 +289,37 @@ def test__provider__separates_identity_and_asset_cas_and_rereads_receipts(
         selected_record_match_ids=(),
         rationale="Accept only the exact bibliographic identity.",
         decided_at="2026-10-11T06:00:00Z",
-        actor=_actor(),
+    )
+    with pytest.raises(CourseReferenceAuthorityFailure) as result_mismatch:
+        provider.decide_identity(
+            "dlsu.phy627m.gs1",
+            item.selection.selection_id,
+            identity_request.model_copy(
+                update={
+                    "idempotency_key": "identity-preview-result-mismatch",
+                    "expected_preview_result_id": _cid(
+                        "reference-identity-preview-result", "other"
+                    ),
+                }
+            ),
+        )
+    assert (
+        result_mismatch.value.code is CourseReferenceFailureCode.EVIDENCE_STALE
+    )
+    with pytest.raises(CourseReferenceAuthorityFailure) as edited_preview:
+        provider.decide_identity(
+            "dlsu.phy627m.gs1",
+            item.selection.selection_id,
+            identity_request.model_copy(
+                update={
+                    "idempotency_key": "identity-edited-after-preview",
+                    "disposition": IdentityDisposition.REJECT,
+                    "canonical_citekey": None,
+                }
+            ),
+        )
+    assert (
+        edited_preview.value.code is CourseReferenceFailureCode.EVIDENCE_STALE
     )
     identity = provider.decide_identity(
         "dlsu.phy627m.gs1",
@@ -276,8 +358,7 @@ def test__provider__separates_identity_and_asset_cas_and_rereads_receipts(
     assert identity.dimension == "reference-identity"
     assert identity.disposition == "ACCEPT_NEW"
     assert identity.state_projection_id is not None
-    assert identity.refreshed_item.active_authority is not None
-    assert identity.refreshed_item.active_authority.source_asset_id is None
+    assert identity.state_projection_id == identity.current_state_projection_id
 
     raw_asset = SourceAssetRecord(
         candidate_id=candidate.candidate_id,
@@ -293,39 +374,58 @@ def test__provider__separates_identity_and_asset_cas_and_rereads_receipts(
     )
     catalog.record_source_asset(raw_asset)
     owner.assets = (
-        ReferenceAssetAuthorityEvidence.from_asset(
-            raw_asset,
-            runtime_availability=RuntimeAssetAvailability.AVAILABLE,
-            runtime_evidence_id=_cid("runtime-asset-evidence", "available"),
-        ),
+        ReferenceAssetAuthorityEvidenceActionizer()
+        .action(
+            request=ReferenceAssetAuthorityEvidenceRequest(
+                asset=raw_asset,
+                runtime_availability=RuntimeAssetAvailability.AVAILABLE,
+                runtime_evidence_id=_cid("runtime-asset-evidence", "available"),
+            )
+        )
+        .evidence,
     )
     asset_queue = provider.queue("dlsu.phy627m.gs1")
     asset_item = asset_queue.items[0]
-    assert asset_item.asset_plan_id is not None
     assert asset_item.active_authority is not None
     assert asset_item.allowed_asset_actions[0] is AssetDisposition.AUTHORIZE
 
+    asset_competitors = (
+        AssetCompetitorDecisionRequest(
+            asset_observation_id=asset_item.assets[0].asset_observation_id,
+            disposition=AssetDisposition.AUTHORIZE,
+            rationale="Select this exact available source asset.",
+        ),
+    )
+    asset_preview = provider.preview_asset(
+        "dlsu.phy627m.gs1",
+        asset_item.selection.selection_id,
+        AssetDecisionPreviewRequest(
+            expected_queue_id=asset_queue.queue_id,
+            expected_item_revision_id=asset_item.item_revision_id,
+            expected_identity_state_projection_id=(
+                asset_item.active_authority.state_projection_id
+            ),
+            disposition=AssetDisposition.AUTHORIZE,
+            competitors=asset_competitors,
+        ),
+    )
+    assert asset_preview.selected_asset_observation_id == (
+        asset_item.assets[0].asset_observation_id
+    )
     asset_request = AssetDecisionRequest(
         idempotency_key="asset-sequence-1",
         expected_queue_id=asset_queue.queue_id,
         expected_item_revision_id=asset_item.item_revision_id,
+        expected_preview_id=asset_preview.preview_id,
+        expected_preview_result_id=asset_preview.result_id,
         expected_identity_state_projection_id=(
             asset_item.active_authority.state_projection_id
         ),
-        expected_asset_plan_id=asset_item.asset_plan_id,
+        expected_asset_plan_id=asset_preview.plan_id,
         disposition=AssetDisposition.AUTHORIZE,
-        competitors=(
-            AssetCompetitorDecisionRequest(
-                asset_observation_id=(
-                    asset_item.assets[0].asset_observation_id
-                ),
-                disposition=AssetDisposition.AUTHORIZE,
-                rationale="Select this exact available source asset.",
-            ),
-        ),
+        competitors=asset_competitors,
         rationale="Authorize bytes separately from work identity.",
         decided_at="2026-10-11T06:01:00Z",
-        actor=_actor(),
     )
     asset = provider.decide_asset(
         "dlsu.phy627m.gs1",
@@ -350,8 +450,10 @@ def test__provider__separates_identity_and_asset_cas_and_rereads_receipts(
     assert stale_asset.value.code is CourseReferenceFailureCode.REVISION_STALE
     assert asset.dimension == "canonical-asset"
     assert asset.disposition == "AUTHORIZE"
-    assert asset.refreshed_item.active_authority is not None
-    assert asset.refreshed_item.active_authority.source_asset_id is not None
+    assert asset.state_projection_id == asset.current_state_projection_id
+    refreshed = provider.queue("dlsu.phy627m.gs1").items[0]
+    assert refreshed.active_authority is not None
+    assert refreshed.active_authority.source_asset_id is not None
     assert catalog.counts()["human_review_decisions"] == 2
 
 
@@ -416,10 +518,12 @@ def test__optional_private_exact_fourteen_api_projection(
                 for item in declaration["sources"]
             ),
         ),
+        actor=_actor(),
     )
     provider = open_references_course_reference_authority_provider(
         scope=composition.scope,
         configuration=composition.runtime,
+        actor=composition.actor,
     )
     projection = provider.queue(scope.course_id)
 
@@ -455,6 +559,18 @@ def test__provider__maps_owner_atomic_asset_race_to_concurrent_decision(
     provider, catalog, owner, candidate = _provider(tmp_path)
     queue = provider.queue("dlsu.phy627m.gs1")
     item = queue.items[0]
+    preview = provider.preview_identity(
+        "dlsu.phy627m.gs1",
+        item.selection.selection_id,
+        IdentityDecisionPreviewRequest(
+            expected_queue_id=queue.queue_id,
+            expected_item_revision_id=item.item_revision_id,
+            disposition=IdentityDisposition.ACCEPT_NEW,
+            canonical_citekey=candidate.proposed_citekey,
+            alias_citekeys=(),
+            selected_record_match_ids=(),
+        ),
+    )
     catalog.import_candidates(owner.candidates, owner.observations)
     raw_asset = SourceAssetRecord(
         candidate_id=candidate.candidate_id,
@@ -478,6 +594,8 @@ def test__provider__maps_owner_atomic_asset_race_to_concurrent_decision(
                 idempotency_key="identity-race-1",
                 expected_queue_id=queue.queue_id,
                 expected_item_revision_id=item.item_revision_id,
+                expected_preview_id=preview.preview_id,
+                expected_preview_result_id=preview.result_id,
                 disposition=IdentityDisposition.ACCEPT_NEW,
                 target_state_projection_id=None,
                 canonical_citekey=candidate.proposed_citekey,
@@ -485,7 +603,6 @@ def test__provider__maps_owner_atomic_asset_race_to_concurrent_decision(
                 selected_record_match_ids=(),
                 rationale="This request used an obsolete queue.",
                 decided_at="2026-10-11T06:00:00Z",
-                actor=_actor(),
             ),
         )
 
