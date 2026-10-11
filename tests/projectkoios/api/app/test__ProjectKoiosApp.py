@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI
@@ -12,7 +13,8 @@ from projectkoios.api.config import (  # noqa: E402
     ProjectKoiosAppConfiguration,
 )
 from projectkoios.api.course_reference_authority import (  # noqa: E402
-    UnavailableCourseReferenceAuthorityProvider,
+    CourseReferenceAuthorityHttpActionsCreateActionizer,
+    CourseReferenceAuthorityHttpActionsCreateRequest,
 )
 
 
@@ -157,30 +159,36 @@ def test__create_app__control_authority_uses_server_actor_configuration(
         "course_reference_authority",
         authority_configuration,
     )
-    captured: dict[str, object] = {}
-
-    def open_provider(
-        *, scope: object, configuration: object, actor: object
-    ) -> UnavailableCourseReferenceAuthorityProvider:
-        captured.update(
-            scope=scope,
-            configuration=configuration,
-            actor=actor,
+    unavailable = CourseReferenceAuthorityHttpActionsCreateActionizer().action(
+        request=CourseReferenceAuthorityHttpActionsCreateRequest(
+            scope=None,
+            configuration=None,
+            actor=None,
         )
-        return UnavailableCourseReferenceAuthorityProvider()
-
+    )
+    trusted_request = object()
+    request_factory = Mock(return_value=trusted_request)
+    action_factory = Mock()
+    action_factory.return_value.action.return_value = unavailable
     monkeypatch.setattr(
-        "projectkoios.api.app.open_references_course_reference_authority_provider",
-        open_provider,
+        "projectkoios.api.app.CourseReferenceAuthorityHttpActionsCreateRequest",
+        request_factory,
+    )
+    monkeypatch.setattr(
+        "projectkoios.api.app.CourseReferenceAuthorityHttpActionsCreateActionizer",
+        action_factory,
     )
 
     ProjectKoiosApp.create_app(configuration=configuration)
 
-    assert captured == {
-        "scope": authority_configuration.scope,
-        "configuration": authority_configuration.runtime,
-        "actor": authority_configuration.actor,
-    }
+    request_factory.assert_called_once_with(
+        scope=authority_configuration.scope,
+        configuration=authority_configuration.runtime,
+        actor=authority_configuration.actor,
+    )
+    action_factory.return_value.action.assert_called_once_with(
+        request=trusted_request
+    )
 
 
 def test__create_app__control_profile_includes_control_routes() -> None:

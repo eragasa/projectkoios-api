@@ -58,6 +58,7 @@ select = ["E", "F", "I", "UP", "B"]
 mypy_path = ["src/python", "../projectkoios/src/python", "../projectkoios-agent/src/python", "../projectkoios-courses/src/python", "../projectkoios-references/src/python", "../projectkoios-search/src/python", "../projectkoios-obsidian/src/python"]
 namespace_packages = true
 explicit_package_bases = true
+plugins = ["tools.course_reference_architecture_mypy"]
 strict = true
 
 [[tool.mypy.overrides]]

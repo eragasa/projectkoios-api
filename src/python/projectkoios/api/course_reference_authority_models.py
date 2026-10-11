@@ -39,11 +39,11 @@ _CONTROL_CHARACTER = re.compile(r"[\x00-\x1f\x7f]")
 
 
 class StrictModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
+    model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
 
 class RequestModel(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
     @field_validator("idempotency_key", check_fields=False)
     @classmethod

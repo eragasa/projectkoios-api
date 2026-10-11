@@ -11,7 +11,7 @@ from projectkoios.courses.reference_resolution import (
     CourseReferenceResolutionScope,
 )
 from projectkoios.obsidian.config import VaultConfiguration
-from projectkoios.references.courses.runtime import (
+from projectkoios.references.courses.runtime.configuration import (
     CourseReferenceAuthorityRuntimeConfiguration,
 )
 
@@ -115,7 +115,7 @@ class CourseConfiguration:
     )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CourseReferenceAuthorityActorConfiguration:
     actor_id: str
     verification_record_id: str
@@ -143,7 +143,7 @@ class CourseReferenceAuthorityActorConfiguration:
             )
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CourseReferenceAuthorityConfiguration:
     scope: CourseReferenceResolutionScope
     runtime: CourseReferenceAuthorityRuntimeConfiguration

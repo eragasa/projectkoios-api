@@ -5,8 +5,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Path, Response, status
 from fastapi.responses import JSONResponse
 from projectkoios.api.course_reference_authority import (
+    CanonicalAssetPreviewHttpRequest,
+    CanonicalAssetPutHttpRequest,
     CourseReferenceAuthorityFailure,
-    CourseReferenceAuthorityProvider,
+    CourseReferenceAuthorityHttpActionsCreateResult,
+    CourseReferenceQueueHttpRequest,
+    ReferenceIdentityPreviewHttpRequest,
+    ReferenceIdentityPutHttpRequest,
 )
 from projectkoios.api.course_reference_authority_models import (
     AssetDecisionPreviewRequest,
@@ -62,7 +67,7 @@ _FAILURE_RESPONSES: dict[int | str, dict[str, Any]] = {
 
 
 def create_course_reference_authority_router(
-    provider: CourseReferenceAuthorityProvider,
+    actions: CourseReferenceAuthorityHttpActionsCreateResult,
 ) -> APIRouter:
     router = APIRouter(tags=["course-reference-authority"])
 
@@ -75,7 +80,15 @@ def create_course_reference_authority_router(
         course_id: CourseIdPath,
     ) -> CourseReferenceQueueResponse | Response:
         try:
-            return provider.queue(str(course_id))
+            result = actions.queue.action(
+                request=CourseReferenceQueueHttpRequest(
+                    course_id=str(course_id)
+                )
+            )
+            return Response(
+                content=result.body_json,
+                media_type="application/json",
+            )
         except CourseReferenceAuthorityFailure as error:
             return _failure(error.code)
 
@@ -90,10 +103,16 @@ def create_course_reference_authority_router(
         request: IdentityDecisionPreviewRequest,
     ) -> IdentityDecisionPreviewResponse | Response:
         try:
-            return provider.preview_identity(
-                str(course_id),
-                str(item_id),
-                request,
+            result = actions.identity_preview.action(
+                request=ReferenceIdentityPreviewHttpRequest(
+                    course_id=str(course_id),
+                    item_id=str(item_id),
+                    body=request,
+                )
+            )
+            return Response(
+                content=result.body_json,
+                media_type="application/json",
             )
         except CourseReferenceAuthorityFailure as error:
             return _failure(error.code)
@@ -109,10 +128,16 @@ def create_course_reference_authority_router(
         request: AssetDecisionPreviewRequest,
     ) -> AssetDecisionPreviewResponse | Response:
         try:
-            return provider.preview_asset(
-                str(course_id),
-                str(item_id),
-                request,
+            result = actions.asset_preview.action(
+                request=CanonicalAssetPreviewHttpRequest(
+                    course_id=str(course_id),
+                    item_id=str(item_id),
+                    body=request,
+                )
+            )
+            return Response(
+                content=result.body_json,
+                media_type="application/json",
             )
         except CourseReferenceAuthorityFailure as error:
             return _failure(error.code)
@@ -128,10 +153,16 @@ def create_course_reference_authority_router(
         request: IdentityDecisionRequest,
     ) -> CourseReferenceDecisionReceiptResponse | Response:
         try:
-            return provider.decide_identity(
-                str(course_id),
-                str(item_id),
-                request,
+            result = actions.identity_put.action(
+                request=ReferenceIdentityPutHttpRequest(
+                    course_id=str(course_id),
+                    item_id=str(item_id),
+                    body=request,
+                )
+            )
+            return Response(
+                content=result.body_json,
+                media_type="application/json",
             )
         except CourseReferenceAuthorityFailure as error:
             return _failure(error.code)
@@ -147,10 +178,16 @@ def create_course_reference_authority_router(
         request: AssetDecisionRequest,
     ) -> CourseReferenceDecisionReceiptResponse | Response:
         try:
-            return provider.decide_asset(
-                str(course_id),
-                str(item_id),
-                request,
+            result = actions.asset_put.action(
+                request=CanonicalAssetPutHttpRequest(
+                    course_id=str(course_id),
+                    item_id=str(item_id),
+                    body=request,
+                )
+            )
+            return Response(
+                content=result.body_json,
+                media_type="application/json",
             )
         except CourseReferenceAuthorityFailure as error:
             return _failure(error.code)

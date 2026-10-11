@@ -1,28 +1,33 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import dataclass, field
+from typing import Any, Literal, cast
+from unittest.mock import Mock
 
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from projectkoios.api.course_reference_authority import (
+    CanonicalAssetPreviewHttpResult,
+    CanonicalAssetPutHttpResult,
     CourseReferenceAuthorityFailure,
+    CourseReferenceAuthorityHttpActionsCreateResult,
+    CourseReferenceQueueHttpResult,
+    ReferenceIdentityPreviewHttpResult,
+    ReferenceIdentityPutHttpResult,
 )
 from projectkoios.api.course_reference_authority_models import (
     AssetCompetitorDecisionResponse,
-    AssetDecisionPreviewRequest,
     AssetDecisionPreviewResponse,
-    AssetDecisionRequest,
+    AssetDisposition,
     CourseReferenceDecisionReceiptResponse,
     CourseReferenceFailureCode,
     CourseReferenceQueueItemResponse,
     CourseReferenceQueueResponse,
     CourseReferenceScopeResponse,
     CourseReferenceSelectionResponse,
-    IdentityDecisionPreviewRequest,
     IdentityDecisionPreviewResponse,
-    IdentityDecisionRequest,
+    IdentityDisposition,
 )
 from projectkoios.api.routers.course_reference_authority import (
     create_course_reference_authority_router,
@@ -108,154 +113,153 @@ def _queue() -> CourseReferenceQueueResponse:
     )
 
 
-@dataclass
-class _Provider:
-    projection: CourseReferenceQueueResponse = field(default_factory=_queue)
-    failure: CourseReferenceFailureCode | None = None
-    identity_preview_requests: list[
-        tuple[str, str, IdentityDecisionPreviewRequest]
-    ] = field(default_factory=list)
-    asset_preview_requests: list[
-        tuple[str, str, AssetDecisionPreviewRequest]
-    ] = field(default_factory=list)
-    identity_requests: list[tuple[str, str, IdentityDecisionRequest]] = field(
-        default_factory=list
+def _receipt(
+    projection: CourseReferenceQueueResponse,
+    *,
+    item_id: str,
+    dimension: Literal["reference-identity", "canonical-asset"],
+    disposition: str,
+) -> CourseReferenceDecisionReceiptResponse:
+    item = next(
+        value
+        for value in projection.items
+        if value.selection.selection_id == item_id
     )
-    asset_requests: list[tuple[str, str, AssetDecisionRequest]] = field(
-        default_factory=list
+    return CourseReferenceDecisionReceiptResponse(
+        receipt_id=_cid("reference-authority-decision-receipt", dimension),
+        result_id=_cid("reference-authority-decision-result", dimension),
+        put_request_id=_cid("reference-authority-put-request", dimension),
+        decision_append_request_id=_cid(
+            "append-reference-authority-decision-request", dimension
+        ),
+        preview_id=_cid("reference-authority-decision-preview", dimension),
+        decision_id=_cid("review-decision", dimension),
+        dimension=dimension,
+        disposition=disposition,
+        state_projection_id=None,
+        current_decision_id=_cid("review-decision", dimension),
+        current_state_projection_id=None,
+        refreshed_queue_id=projection.queue_id,
+        refreshed_item_revision_id=item.item_revision_id,
     )
 
-    def queue(self, course_id: str) -> CourseReferenceQueueResponse:
-        self._fail()
-        assert course_id == "dlsu.phy627m.gs1"
-        return self.projection
 
-    def preview_identity(
-        self,
-        course_id: str,
-        item_id: str,
-        request: IdentityDecisionPreviewRequest,
-    ) -> IdentityDecisionPreviewResponse:
-        self._fail()
-        self.identity_preview_requests.append((course_id, item_id, request))
-        return IdentityDecisionPreviewResponse(
-            request_id=_cid("reference-identity-preview-request", "identity"),
-            result_id=_cid("reference-identity-preview-result", "identity"),
-            preview_id=_cid("reference-identity-decision-preview", "identity"),
-            selection_id=item_id,
-            disposition=request.disposition,
-            target_state_projection_id=request.target_state_projection_id,
-            canonical_citekey=request.canonical_citekey,
-            alias_citekeys=request.alias_citekeys,
-            selected_record_match_ids=request.selected_record_match_ids,
-            expected_current_decision_id=request.expected_current_decision_id,
-            queue_id=request.expected_queue_id,
-            item_revision_id=request.expected_item_revision_id,
+def _actions(
+    failure: CourseReferenceFailureCode | None = None,
+) -> CourseReferenceAuthorityHttpActionsCreateResult:
+    projection = _queue()
+    item = projection.items[0]
+    queue = Mock()
+    identity_preview = Mock()
+    asset_preview = Mock()
+    identity_put = Mock()
+    asset_put = Mock()
+    if failure is not None:
+        error = CourseReferenceAuthorityFailure(failure)
+        for actionizer in (
+            queue,
+            identity_preview,
+            asset_preview,
+            identity_put,
+            asset_put,
+        ):
+            actionizer.action.side_effect = error
+    else:
+        queue.action.return_value = CourseReferenceQueueHttpResult(
+            body_json=projection.model_dump_json()
         )
-
-    def preview_asset(
-        self,
-        course_id: str,
-        item_id: str,
-        request: AssetDecisionPreviewRequest,
-    ) -> AssetDecisionPreviewResponse:
-        self._fail()
-        self.asset_preview_requests.append((course_id, item_id, request))
-        authorized = tuple(
-            item.asset_observation_id
-            for item in request.competitors
-            if item.disposition.value == "AUTHORIZE"
+        identity_preview.action.return_value = (
+            ReferenceIdentityPreviewHttpResult(
+                body_json=IdentityDecisionPreviewResponse(
+                    request_id=_cid(
+                        "reference-identity-preview-request", "identity"
+                    ),
+                    result_id=_cid(
+                        "reference-identity-preview-result", "identity"
+                    ),
+                    preview_id=_cid(
+                        "reference-identity-decision-preview", "identity"
+                    ),
+                    selection_id=item.selection.selection_id,
+                    disposition=IdentityDisposition.ACCEPT_NEW,
+                    target_state_projection_id=None,
+                    canonical_citekey=item.selection.display_citekey,
+                    alias_citekeys=(),
+                    selected_record_match_ids=(),
+                    expected_current_decision_id=None,
+                    queue_id=projection.queue_id,
+                    item_revision_id=item.item_revision_id,
+                ).model_dump_json()
+            )
         )
-        return AssetDecisionPreviewResponse(
-            request_id=_cid("canonical-asset-preview-request", "asset"),
-            result_id=_cid("canonical-asset-preview-result", "asset"),
-            preview_id=_cid("canonical-asset-decision-preview", "asset"),
-            plan_id=_cid("canonical-asset-evidence-plan", "plan"),
-            selection_id=item_id,
-            disposition=request.disposition,
-            identity_state_projection_id=(
-                request.expected_identity_state_projection_id
-            ),
-            competitors=tuple(
-                AssetCompetitorDecisionResponse(
-                    asset_observation_id=item.asset_observation_id,
-                    disposition=item.disposition,
-                    rationale=item.rationale,
-                )
-                for item in request.competitors
-            ),
-            selected_asset_observation_id=(
-                authorized[0] if len(authorized) == 1 else None
-            ),
-            expected_current_decision_id=request.expected_current_decision_id,
-            queue_id=request.expected_queue_id,
-            item_revision_id=request.expected_item_revision_id,
+        asset_preview.action.return_value = CanonicalAssetPreviewHttpResult(
+            body_json=AssetDecisionPreviewResponse(
+                request_id=_cid("canonical-asset-preview-request", "asset"),
+                result_id=_cid("canonical-asset-preview-result", "asset"),
+                preview_id=_cid("canonical-asset-decision-preview", "asset"),
+                plan_id=_cid("canonical-asset-evidence-plan", "plan"),
+                selection_id=item.selection.selection_id,
+                disposition=AssetDisposition.AUTHORIZE,
+                identity_state_projection_id=_cid(
+                    "reference-state-projection", "identity"
+                ),
+                competitors=(
+                    AssetCompetitorDecisionResponse(
+                        asset_observation_id=_cid(
+                            "catalog-asset-observation", "asset"
+                        ),
+                        disposition=AssetDisposition.AUTHORIZE,
+                        rationale="Select the verified available asset.",
+                    ),
+                ),
+                selected_asset_observation_id=_cid(
+                    "catalog-asset-observation", "asset"
+                ),
+                expected_current_decision_id=None,
+                queue_id=projection.queue_id,
+                item_revision_id=item.item_revision_id,
+            ).model_dump_json()
         )
-
-    def decide_identity(
-        self,
-        course_id: str,
-        item_id: str,
-        request: IdentityDecisionRequest,
-    ) -> CourseReferenceDecisionReceiptResponse:
-        self._fail()
-        self.identity_requests.append((course_id, item_id, request))
-        return self._receipt(item_id, "reference-identity", "ACCEPT_NEW")
-
-    def decide_asset(
-        self,
-        course_id: str,
-        item_id: str,
-        request: AssetDecisionRequest,
-    ) -> CourseReferenceDecisionReceiptResponse:
-        self._fail()
-        self.asset_requests.append((course_id, item_id, request))
-        return self._receipt(item_id, "canonical-asset", "AUTHORIZE")
-
-    def _fail(self) -> None:
-        if self.failure is not None:
-            raise CourseReferenceAuthorityFailure(self.failure)
-
-    def _receipt(
-        self,
-        item_id: str,
-        dimension: str,
-        disposition: str,
-    ) -> CourseReferenceDecisionReceiptResponse:
-        item = next(
-            value
-            for value in self.projection.items
-            if value.selection.selection_id == item_id
+        identity_put.action.return_value = ReferenceIdentityPutHttpResult(
+            body_json=_receipt(
+                projection,
+                item_id=item.selection.selection_id,
+                dimension="reference-identity",
+                disposition="ACCEPT_NEW",
+            ).model_dump_json()
         )
-        return CourseReferenceDecisionReceiptResponse(
-            receipt_id=_cid("reference-authority-decision-receipt", dimension),
-            result_id=_cid("reference-authority-decision-result", dimension),
-            put_request_id=_cid("reference-authority-put-request", dimension),
-            decision_append_request_id=_cid(
-                "append-reference-authority-decision-request", dimension
-            ),
-            preview_id=_cid("reference-authority-decision-preview", dimension),
-            decision_id=_cid("review-decision", dimension),
-            dimension=dimension,
-            disposition=disposition,
-            state_projection_id=None,
-            current_decision_id=_cid("review-decision", dimension),
-            current_state_projection_id=None,
-            refreshed_queue_id=self.projection.queue_id,
-            refreshed_item_revision_id=item.item_revision_id,
+        asset_put.action.return_value = CanonicalAssetPutHttpResult(
+            body_json=_receipt(
+                projection,
+                item_id=item.selection.selection_id,
+                dimension="canonical-asset",
+                disposition="AUTHORIZE",
+            ).model_dump_json()
         )
+    return CourseReferenceAuthorityHttpActionsCreateResult(
+        queue=queue,
+        identity_preview=identity_preview,
+        asset_preview=asset_preview,
+        identity_put=identity_put,
+        asset_put=asset_put,
+    )
 
 
-def _client(provider: _Provider) -> TestClient:
+def _client(
+    actions: CourseReferenceAuthorityHttpActionsCreateResult,
+) -> TestClient:
     app = FastAPI()
-    app.include_router(create_course_reference_authority_router(provider))
+    app.include_router(create_course_reference_authority_router(actions))
     return TestClient(app)
 
 
 def test__router__preserves_complete_ordered_left_projection() -> None:
-    response = _client(_Provider()).get("/courses/dlsu.phy627m.gs1/references")
+    actions = _actions()
+    expected_body = cast(Mock, actions.queue).action.return_value.body_json
+    response = _client(actions).get("/courses/dlsu.phy627m.gs1/references")
 
     assert response.status_code == 200
+    assert response.content == expected_body.encode("utf-8")
     payload = response.json()
     assert payload["control_class"] == "CONTROL"
     assert payload["scope"]["total"] == 2
@@ -270,15 +274,16 @@ def test__router__preserves_complete_ordered_left_projection() -> None:
 
 
 def test__router__transports_identity_and_asset_cas_requests() -> None:
-    provider = _Provider()
-    client = _client(provider)
-    item = provider.projection.items[0]
+    actions = _actions()
+    client = _client(actions)
+    projection = _queue()
+    item = projection.items[0]
     evidence = {
-        "expected_queue_id": provider.projection.queue_id,
+        "expected_queue_id": projection.queue_id,
         "expected_item_revision_id": item.item_revision_id,
         "expected_current_decision_id": None,
     }
-    identity_consequence = {
+    identity_consequence: dict[str, Any] = {
         "disposition": "ACCEPT_NEW",
         "target_state_projection_id": None,
         "canonical_citekey": item.selection.display_citekey,
@@ -342,18 +347,26 @@ def test__router__transports_identity_and_asset_cas_requests() -> None:
     assert identity.json()["disposition"] == "ACCEPT_NEW"
     assert asset.status_code == 200
     assert asset.json()["disposition"] == "AUTHORIZE"
-    assert provider.identity_preview_requests[0][2].canonical_citekey == (
+    identity_preview_request = cast(
+        Mock, actions.identity_preview
+    ).action.call_args.kwargs["request"]
+    asset_preview_request = cast(
+        Mock, actions.asset_preview
+    ).action.call_args.kwargs["request"]
+    identity_request = cast(Mock, actions.identity_put).action.call_args.kwargs[
+        "request"
+    ]
+    asset_request = cast(Mock, actions.asset_put).action.call_args.kwargs[
+        "request"
+    ]
+    assert identity_preview_request.body.canonical_citekey == (
         item.selection.display_citekey
     )
-    assert provider.asset_preview_requests[0][2].competitors == (
-        provider.asset_requests[0][2].competitors
+    assert asset_preview_request.body.competitors == (
+        asset_request.body.competitors
     )
-    assert provider.identity_requests[0][2].expected_queue_id == (
-        provider.projection.queue_id
-    )
-    assert provider.asset_requests[0][2].competitors[0].disposition.value == (
-        "AUTHORIZE"
-    )
+    assert identity_request.body.expected_queue_id == projection.queue_id
+    assert asset_request.body.competitors[0].disposition.value == "AUTHORIZE"
 
 
 @pytest.mark.parametrize(
@@ -375,7 +388,7 @@ def test__router__maps_typed_failures_without_owner_detail(
     code: CourseReferenceFailureCode,
     status_code: int,
 ) -> None:
-    response = _client(_Provider(failure=code)).get(
+    response = _client(_actions(failure=code)).get(
         "/courses/dlsu.phy627m.gs1/references"
     )
 

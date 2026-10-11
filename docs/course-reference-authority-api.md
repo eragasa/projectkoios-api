@@ -18,8 +18,11 @@ receipts. API only translates the two owner contracts into bounded HTTP models.
 It does not read a course manuscript, bibliography, catalog, source asset, or
 legacy store and does not derive allowed actions or acceptance. The application
 composition root accepts a typed Courses scope plus a typed References runtime
-configuration and opens the References façade only for CONTROL; those runtime
-paths never enter an HTTP model or the OpenAPI contract.
+configuration and composes five References-owned single-action transport
+adapters only for CONTROL. API passes trusted scope and actor evidence into
+those adapters, validates their immutable `body_json` results against its
+Pydantic route models, and returns those payloads without traversing an owner
+object graph. Runtime paths never enter an HTTP model or the OpenAPI contract.
 
 The queue is a complete ordered left projection. An unresolved owner locator or
 candidate remains present with a typed resolution and no mutation actions.
@@ -56,13 +59,23 @@ are never parsed or returned. Queue and receipt responses omit catalog paths,
 source paths, root aliases, asset filenames, bibliography bytes, and private
 record bytes.
 
+## Architecture enforcement
+
+Ordinary strict mypy CI loads the repository-local
+`tools.course_reference_architecture_mypy` plugin and checks this source/test
+slice. It rejects private or nested classes, cross-module private imports,
+mutable passive data, class/static factories, multi-action class roles,
+operational methods on data, non-single-action Actionizers, central registries,
+and non-empty package initializers. Pytest exercises both accepted and rejected
+diagnostics, but the mypy invocation is the authoritative gate.
+
 ## Local dependency provenance
 
 This implementation was developed and validated against unpublished local owner
 commits:
 
-- Courses: `b082b724a160be0373ba725613cfdef4084a53f9`
-- References: `9d351cd72982668530bb7ce18cd62a5e3ec88b8a`
+- Courses: `74174dc698a2a7c7d0ee09d80ea39a867d02fe62`
+- References: `1a7a0066b0116661c8bb688d494865d6e8797e0f`
 
 `pyproject.toml` uses the repository-layout sibling paths so local validation can
 use those exact clean worktrees. No hosted-CI checkout or remote Git pin is added

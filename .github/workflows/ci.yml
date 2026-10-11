@@ -157,15 +157,21 @@ jobs:
 
       - name: GitHubTask 13 · Check formatting
         working-directory: projectkoios-api
-        run: .venv/bin/python -m ruff format --check src/python tests
+        run: .venv/bin/python -m ruff format --check src/python tests tools
 
       - name: GitHubTask 14 · Lint
         working-directory: projectkoios-api
-        run: .venv/bin/python -m ruff check src/python tests
+        run: .venv/bin/python -m ruff check src/python tests tools
 
       - name: GitHubTask 15 · Type-check API source
         working-directory: projectkoios-api
-        run: .venv/bin/python -m mypy --strict src/python/projectkoios/api
+        run: |
+          .venv/bin/python -m mypy --strict \
+            src/python/projectkoios/api \
+            tools/course_reference_architecture_mypy.py \
+            tests/projectkoios/api/test__CourseReferenceArchitecture.py \
+            tests/projectkoios/api/test__CourseReferenceAuthorityHttpActions.py \
+            tests/projectkoios/api/routers/test__create_course_reference_authority_router.py
 
       - name: GitHubTask 16 · Check generated OpenAPI
         working-directory: projectkoios-api
