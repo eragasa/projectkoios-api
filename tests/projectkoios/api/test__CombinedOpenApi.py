@@ -30,6 +30,9 @@ _EXPECTED_PATHS = {
     "/search",
     "/project-reference-intake/ksdft2effmass/missing-pdfs",
     ("/project-reference-intake/ksdft2effmass/missing-pdfs/{citekey}/document"),
+    "/courses/{course_id}/references",
+    "/courses/{course_id}/references/{item_id}/decision",
+    "/courses/{course_id}/references/{item_id}/asset-decision",
     "/github/tasks",
     "/citation-reviews",
     "/citation-reviews/sources/{source_name}",
@@ -65,6 +68,10 @@ def test__combined_openapi__has_exact_integrated_paths_and_methods() -> None:
         {
             "/citation-reviews/{claim_id}/decision": {"put"},
             "/citation-documents/{item_id}/source": {"post"},
+            "/courses/{course_id}/references/{item_id}/decision": {"put"},
+            ("/courses/{course_id}/references/{item_id}/asset-decision"): {
+                "put"
+            },
             "/citation-documents/{item_id}/process-private": {"post"},
             "/equation-reviews/{candidate_id}/decision": {"put"},
             "/literature-review/references": {"get", "post"},
@@ -438,6 +445,84 @@ def test__combined_openapi__publishes_safe_equation_review_boundary() -> None:
         assert decision["responses"][code]["content"]["application/json"][
             "schema"
         ] == {"$ref": "#/components/schemas/EquationReviewFailureResponse"}
+
+
+def test__combined_openapi__publishes_course_reference_authority_contract() -> (
+    None
+):
+    schema = combined_openapi_schema()
+    models = schema["components"]["schemas"]
+    queue = schema["paths"]["/courses/{course_id}/references"]["get"]
+    identity = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/decision"
+    ]["put"]
+    asset = schema["paths"][
+        "/courses/{course_id}/references/{item_id}/asset-decision"
+    ]["put"]
+
+    assert queue["responses"]["200"]["content"]["application/json"][
+        "schema"
+    ] == {"$ref": "#/components/schemas/CourseReferenceQueueResponse"}
+    assert identity["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/IdentityDecisionRequest"
+    }
+    assert asset["requestBody"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/AssetDecisionRequest"
+    }
+    for request_model in ("IdentityDecisionRequest", "AssetDecisionRequest"):
+        assert "idempotency_key" in models[request_model]["required"]
+        assert models[request_model]["properties"]["idempotency_key"] == {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string",
+        }
+    assert models["IdentityDisposition"]["enum"] == [
+        "ACCEPT_EXISTING",
+        "ACCEPT_NEW",
+        "MERGE",
+        "REJECT",
+        "DEFER",
+    ]
+    assert models["AssetDisposition"]["enum"] == [
+        "AUTHORIZE",
+        "REJECT",
+        "DEFER",
+    ]
+    assert set(models["CourseReferenceFailureCode"]["enum"]) == {
+        "COURSE_NOT_FOUND",
+        "ITEM_NOT_FOUND",
+        "EVIDENCE_STALE",
+        "REVISION_STALE",
+        "TARGET_STALE",
+        "CONCURRENT_DECISION",
+        "IDEMPOTENCY_CONFLICT",
+        "INVALID_DISPOSITION",
+        "OWNER_MALFORMED",
+        "OWNER_UNAVAILABLE",
+    }
+    for operation in (queue, identity, asset):
+        for code in ("404", "409", "502", "503"):
+            assert operation["responses"][code]["content"]["application/json"][
+                "schema"
+            ] == {"$ref": "#/components/schemas/CourseReferenceFailureResponse"}
+    encoded = json.dumps(
+        {
+            "queue": models["CourseReferenceQueueResponse"],
+            "item": models["CourseReferenceQueueItemResponse"],
+            "asset": models["ReferenceAssetResponse"],
+        },
+        sort_keys=True,
+    )
+    for private_name in (
+        "bibliography_path",
+        "catalog_path",
+        "relative_path",
+        "root_alias",
+        "verbatim_entry",
+        "rendered_bytes",
+    ):
+        assert private_name not in encoded
 
 
 def test__combined_openapi__is_deterministic_and_committed() -> None:

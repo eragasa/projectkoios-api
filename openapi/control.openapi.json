@@ -1,6 +1,112 @@
 {
   "components": {
     "schemas": {
+      "ActiveReferenceAuthorityResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "active_citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Active Citekey",
+            "type": "string"
+          },
+          "alias_citekeys": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Alias Citekeys",
+            "type": "array"
+          },
+          "authority_binding_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Authority Binding Id"
+          },
+          "bibliographic_work_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Bibliographic Work Id",
+            "type": "string"
+          },
+          "candidate_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "canonical_asset_decision_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Asset Decision Id"
+          },
+          "identity_decision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Identity Decision Id",
+            "type": "string"
+          },
+          "source_asset_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Asset Id"
+          },
+          "state_projection_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "State Projection Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "state_projection_id",
+          "bibliographic_work_id",
+          "active_citekey",
+          "alias_citekeys",
+          "identity_decision_id",
+          "source_asset_id",
+          "canonical_asset_decision_id",
+          "authority_binding_id"
+        ],
+        "title": "ActiveReferenceAuthorityResponse",
+        "type": "object"
+      },
       "ApiErrorResponse": {
         "additionalProperties": false,
         "description": "Stable HTTP error envelope exposed by API-owned routes.",
@@ -17,6 +123,135 @@
         ],
         "title": "ApiErrorResponse",
         "type": "object"
+      },
+      "AssetCompetitorDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_observation_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Asset Observation Id",
+            "type": "string"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/AssetDisposition"
+          },
+          "rationale": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "asset_observation_id",
+          "disposition",
+          "rationale"
+        ],
+        "title": "AssetCompetitorDecisionRequest",
+        "type": "object"
+      },
+      "AssetDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/ReviewActorRequest"
+          },
+          "competitors": {
+            "items": {
+              "$ref": "#/components/schemas/AssetCompetitorDecisionRequest"
+            },
+            "maxItems": 10000,
+            "title": "Competitors",
+            "type": "array"
+          },
+          "decided_at": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/AssetDisposition"
+          },
+          "expected_asset_plan_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Expected Asset Plan Id",
+            "type": "string"
+          },
+          "expected_current_decision_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Current Decision Id"
+          },
+          "expected_identity_state_projection_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Expected Identity State Projection Id",
+            "type": "string"
+          },
+          "expected_item_revision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Expected Item Revision Id",
+            "type": "string"
+          },
+          "expected_queue_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Expected Queue Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "expected_queue_id",
+          "expected_item_revision_id",
+          "expected_identity_state_projection_id",
+          "expected_asset_plan_id",
+          "disposition",
+          "competitors",
+          "rationale",
+          "decided_at",
+          "actor"
+        ],
+        "title": "AssetDecisionRequest",
+        "type": "object"
+      },
+      "AssetDisposition": {
+        "enum": [
+          "AUTHORIZE",
+          "REJECT",
+          "DEFER"
+        ],
+        "title": "AssetDisposition",
+        "type": "string"
       },
       "Body_provide_reference_literature_review_references_post": {
         "properties": {
@@ -1505,6 +1740,678 @@
         "title": "CourseMaterialsStatus",
         "type": "string"
       },
+      "CourseReferenceDecisionReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "current_decision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Current Decision Id",
+            "type": "string"
+          },
+          "decision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "dimension": {
+            "enum": [
+              "reference-identity",
+              "canonical-asset"
+            ],
+            "title": "Dimension",
+            "type": "string"
+          },
+          "disposition": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Disposition",
+            "type": "string"
+          },
+          "preview_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Preview Id",
+            "type": "string"
+          },
+          "receipt_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Receipt Id",
+            "type": "string"
+          },
+          "refreshed_item": {
+            "$ref": "#/components/schemas/CourseReferenceQueueItemResponse"
+          },
+          "refreshed_item_revision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Refreshed Item Revision Id",
+            "type": "string"
+          },
+          "refreshed_queue_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Refreshed Queue Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Result Id",
+            "type": "string"
+          },
+          "state_projection_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State Projection Id"
+          }
+        },
+        "required": [
+          "receipt_id",
+          "result_id",
+          "request_id",
+          "preview_id",
+          "decision_id",
+          "dimension",
+          "disposition",
+          "state_projection_id",
+          "current_decision_id",
+          "refreshed_queue_id",
+          "refreshed_item_revision_id",
+          "refreshed_item"
+        ],
+        "title": "CourseReferenceDecisionReceiptResponse",
+        "type": "object"
+      },
+      "CourseReferenceFailureCode": {
+        "enum": [
+          "COURSE_NOT_FOUND",
+          "ITEM_NOT_FOUND",
+          "EVIDENCE_STALE",
+          "REVISION_STALE",
+          "TARGET_STALE",
+          "CONCURRENT_DECISION",
+          "IDEMPOTENCY_CONFLICT",
+          "INVALID_DISPOSITION",
+          "OWNER_MALFORMED",
+          "OWNER_UNAVAILABLE"
+        ],
+        "title": "CourseReferenceFailureCode",
+        "type": "string"
+      },
+      "CourseReferenceFailureResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/CourseReferenceFailureCode"
+          },
+          "detail": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Detail",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "detail"
+        ],
+        "title": "CourseReferenceFailureResponse",
+        "type": "object"
+      },
+      "CourseReferenceQueueItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "active_authority": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ActiveReferenceAuthorityResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "allowed_asset_actions": {
+            "items": {
+              "$ref": "#/components/schemas/AssetDisposition"
+            },
+            "maxItems": 3,
+            "title": "Allowed Asset Actions",
+            "type": "array"
+          },
+          "allowed_identity_actions": {
+            "items": {
+              "$ref": "#/components/schemas/IdentityDisposition"
+            },
+            "maxItems": 5,
+            "title": "Allowed Identity Actions",
+            "type": "array"
+          },
+          "asset_plan_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Plan Id"
+          },
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceAssetResponse"
+            },
+            "maxItems": 10000,
+            "title": "Assets",
+            "type": "array"
+          },
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceCandidateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_asset_decision": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CurrentDecisionHeadResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "current_identity_decisions": {
+            "items": {
+              "$ref": "#/components/schemas/CurrentDecisionHeadResponse"
+            },
+            "maxItems": 32,
+            "title": "Current Identity Decisions",
+            "type": "array"
+          },
+          "item_revision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Item Revision Id",
+            "type": "string"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/ObservedCandidateEntryResponse"
+            },
+            "maxItems": 256,
+            "title": "Observations",
+            "type": "array"
+          },
+          "record_matches": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceRecordMatchResponse"
+            },
+            "maxItems": 10000,
+            "title": "Record Matches",
+            "type": "array"
+          },
+          "rendered_entry": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RenderedCandidateEntryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "resolution": {
+            "enum": [
+              "ready",
+              "rendered-locator-unavailable",
+              "display-guard-mismatch",
+              "candidate-unavailable",
+              "candidate-ambiguous",
+              "candidate-display-guard-mismatch",
+              "owner-evidence-malformed"
+            ],
+            "title": "Resolution",
+            "type": "string"
+          },
+          "selection": {
+            "$ref": "#/components/schemas/CourseReferenceSelectionResponse"
+          }
+        },
+        "required": [
+          "selection",
+          "resolution",
+          "candidate",
+          "observations",
+          "rendered_entry",
+          "record_matches",
+          "assets",
+          "current_identity_decisions",
+          "current_asset_decision",
+          "active_authority",
+          "allowed_identity_actions",
+          "allowed_asset_actions",
+          "asset_plan_id",
+          "item_revision_id"
+        ],
+        "title": "CourseReferenceQueueItemResponse",
+        "type": "object"
+      },
+      "CourseReferenceQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "active_authorities": {
+            "items": {
+              "$ref": "#/components/schemas/ActiveReferenceAuthorityResponse"
+            },
+            "maxItems": 10000,
+            "title": "Active Authorities",
+            "type": "array"
+          },
+          "contract_id": {
+            "const": "projectkoios.references.course-reference-authority@0.1.0",
+            "default": "projectkoios.references.course-reference-authority@0.1.0",
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "control_class": {
+            "const": "CONTROL",
+            "default": "CONTROL",
+            "title": "Control Class",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CourseReferenceQueueItemResponse"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "queue_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Queue Id",
+            "type": "string"
+          },
+          "render_result_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Render Result Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "review_projection_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Review Projection Id",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/CourseReferenceScopeResponse"
+          },
+          "source_export_result_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Source Export Result Id",
+            "type": "string"
+          },
+          "state_projection_ids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "State Projection Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "queue_id",
+          "request_id",
+          "scope",
+          "items",
+          "active_authorities",
+          "source_export_result_id",
+          "render_result_id",
+          "review_projection_id",
+          "state_projection_ids"
+        ],
+        "title": "CourseReferenceQueueResponse",
+        "type": "object"
+      },
+      "CourseReferenceScopeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "course_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Course Id",
+            "type": "string"
+          },
+          "course_title": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Course Title",
+            "type": "string"
+          },
+          "inventory_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Inventory Id",
+            "type": "string"
+          },
+          "manifest_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "manifest_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Manifest Sha256",
+            "type": "string"
+          },
+          "ordered_selection_ids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Ordered Selection Ids",
+            "type": "array"
+          },
+          "scope_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Scope Id",
+            "type": "string"
+          },
+          "total": {
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "scope_id",
+          "course_id",
+          "course_title",
+          "manifest_id",
+          "manifest_sha256",
+          "inventory_id",
+          "total",
+          "ordered_selection_ids"
+        ],
+        "title": "CourseReferenceScopeResponse",
+        "type": "object"
+      },
+      "CourseReferenceSelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "course_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Course Id",
+            "type": "string"
+          },
+          "display_citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Display Citekey",
+            "type": "string"
+          },
+          "display_citekey_status": {
+            "enum": [
+              "observed",
+              "proposed-noncanonical"
+            ],
+            "title": "Display Citekey Status",
+            "type": "string"
+          },
+          "inventory_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Inventory Id",
+            "type": "string"
+          },
+          "locator_binding_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Locator Binding Id",
+            "type": "string"
+          },
+          "manifest_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "next_selection_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Selection Id"
+          },
+          "ordinal": {
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "origin": {
+            "enum": [
+              "preserved-manuscript",
+              "directed-reference-scope"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "previous_selection_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Selection Id"
+          },
+          "reference_locator": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Reference Locator",
+            "type": "string"
+          },
+          "role": {
+            "const": "manuscript-bibliography",
+            "title": "Role",
+            "type": "string"
+          },
+          "scope_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Scope Id",
+            "type": "string"
+          },
+          "selection_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Selection Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope_id",
+          "selection_id",
+          "locator_binding_id",
+          "course_id",
+          "manifest_id",
+          "inventory_id",
+          "ordinal",
+          "origin",
+          "role",
+          "display_citekey",
+          "display_citekey_status",
+          "reference_locator",
+          "previous_selection_id",
+          "next_selection_id"
+        ],
+        "title": "CourseReferenceSelectionResponse",
+        "type": "object"
+      },
+      "CurrentDecisionHeadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "actor_verification_record_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Actor Verification Record Id",
+            "type": "string"
+          },
+          "authority_scope": {
+            "enum": [
+              "reference-identity-curator",
+              "canonical-asset-curator"
+            ],
+            "title": "Authority Scope",
+            "type": "string"
+          },
+          "context_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Context Id",
+            "type": "string"
+          },
+          "decided_at": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "decision": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Decision",
+            "type": "string"
+          },
+          "decision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "dimension": {
+            "enum": [
+              "reference-identity",
+              "canonical-asset"
+            ],
+            "title": "Dimension",
+            "type": "string"
+          },
+          "subject_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Subject Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision_id",
+          "subject_id",
+          "context_id",
+          "dimension",
+          "decision",
+          "actor_id",
+          "authority_scope",
+          "actor_verification_record_id",
+          "decided_at"
+        ],
+        "title": "CurrentDecisionHeadResponse",
+        "type": "object"
+      },
       "DeterministicEquationEvidenceResponse": {
         "additionalProperties": false,
         "properties": {
@@ -2647,6 +3554,184 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "IdentityDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "$ref": "#/components/schemas/ReviewActorRequest"
+          },
+          "alias_citekeys": {
+            "items": {
+              "maxLength": 200,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Alias Citekeys",
+            "type": "array"
+          },
+          "canonical_citekey": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "minLength": 1,
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Canonical Citekey"
+          },
+          "decided_at": {
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "disposition": {
+            "$ref": "#/components/schemas/IdentityDisposition"
+          },
+          "expected_current_decision_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Current Decision Id"
+          },
+          "expected_item_revision_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Expected Item Revision Id",
+            "type": "string"
+          },
+          "expected_queue_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Expected Queue Id",
+            "type": "string"
+          },
+          "idempotency_key": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Idempotency Key",
+            "type": "string"
+          },
+          "rationale": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Rationale",
+            "type": "string"
+          },
+          "selected_record_match_ids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Selected Record Match Ids",
+            "type": "array"
+          },
+          "target_state_projection_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target State Projection Id"
+          }
+        },
+        "required": [
+          "idempotency_key",
+          "expected_queue_id",
+          "expected_item_revision_id",
+          "disposition",
+          "alias_citekeys",
+          "selected_record_match_ids",
+          "rationale",
+          "decided_at",
+          "actor"
+        ],
+        "title": "IdentityDecisionRequest",
+        "type": "object"
+      },
+      "IdentityDisposition": {
+        "enum": [
+          "ACCEPT_EXISTING",
+          "ACCEPT_NEW",
+          "MERGE",
+          "REJECT",
+          "DEFER"
+        ],
+        "title": "IdentityDisposition",
+        "type": "string"
+      },
+      "IngestionArtifactLinkResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifact_verification_result_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Artifact Verification Result Id",
+            "type": "string"
+          },
+          "asset_observation_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Asset Observation Id",
+            "type": "string"
+          },
+          "document_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Document Id",
+            "type": "string"
+          },
+          "link_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Link Id",
+            "type": "string"
+          },
+          "source_id": {
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "link_id",
+          "asset_observation_id",
+          "source_id",
+          "document_id",
+          "artifact_verification_result_id"
+        ],
+        "title": "IngestionArtifactLinkResponse",
+        "type": "object"
+      },
       "LiteratureClaimProgressResponse": {
         "additionalProperties": false,
         "properties": {
@@ -3139,6 +4224,81 @@
           "items"
         ],
         "title": "MissingPdfListResponse",
+        "type": "object"
+      },
+      "ObservedCandidateEntryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asserted_source_revision": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asserted Source Revision"
+          },
+          "bibliography_byte_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Bibliography Byte Size",
+            "type": "integer"
+          },
+          "bibliography_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Bibliography Sha256",
+            "type": "string"
+          },
+          "entry_byte_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Entry Byte Size",
+            "type": "integer"
+          },
+          "entry_index": {
+            "minimum": 0.0,
+            "title": "Entry Index",
+            "type": "integer"
+          },
+          "entry_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Entry Sha256",
+            "type": "string"
+          },
+          "observation_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Observation Id",
+            "type": "string"
+          },
+          "observed_citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Observed Citekey",
+            "type": "string"
+          },
+          "source_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "observation_id",
+          "source_id",
+          "bibliography_sha256",
+          "bibliography_byte_size",
+          "entry_index",
+          "observed_citekey",
+          "entry_sha256",
+          "entry_byte_size"
+        ],
+        "title": "ObservedCandidateEntryResponse",
         "type": "object"
       },
       "OrganizerControlRequest": {
@@ -4179,6 +5339,422 @@
           "receipt_disposition"
         ],
         "title": "ReceivedUnboundPdfResponse",
+        "type": "object"
+      },
+      "ReferenceAssetResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_observation_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Asset Observation Id",
+            "type": "string"
+          },
+          "asset_status": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Asset Status",
+            "type": "string"
+          },
+          "byte_size": {
+            "maximum": 4000000000.0,
+            "minimum": 0.0,
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "candidate_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "document_binding_ids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Document Binding Ids",
+            "type": "array"
+          },
+          "ingestion_artifact_links": {
+            "items": {
+              "$ref": "#/components/schemas/IngestionArtifactLinkResponse"
+            },
+            "maxItems": 10000,
+            "title": "Ingestion Artifact Links",
+            "type": "array"
+          },
+          "ingestion_evidence_ids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Ingestion Evidence Ids",
+            "type": "array"
+          },
+          "rights_status": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Rights Status",
+            "type": "string"
+          },
+          "runtime_availability": {
+            "enum": [
+              "available",
+              "unavailable",
+              "unknown"
+            ],
+            "title": "Runtime Availability",
+            "type": "string"
+          },
+          "runtime_evidence_id": {
+            "anyOf": [
+              {
+                "maxLength": 512,
+                "minLength": 73,
+                "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runtime Evidence Id"
+          },
+          "sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "asset_observation_id",
+          "sha256",
+          "byte_size",
+          "rights_status",
+          "asset_status",
+          "runtime_availability",
+          "runtime_evidence_id",
+          "document_binding_ids",
+          "ingestion_evidence_ids",
+          "ingestion_artifact_links"
+        ],
+        "title": "ReferenceAssetResponse",
+        "type": "object"
+      },
+      "ReferenceCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authors": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Authors",
+            "type": "array"
+          },
+          "candidate_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Candidate Id",
+            "type": "string"
+          },
+          "citekey_status": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Citekey Status",
+            "type": "string"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi"
+          },
+          "entry_type": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "eprint": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eprint"
+          },
+          "identity_status": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Identity Status",
+            "type": "string"
+          },
+          "isbn": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Isbn"
+          },
+          "proposed_citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Proposed Citekey",
+            "type": "string"
+          },
+          "source_observation_ids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Source Observation Ids",
+            "type": "array"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "year": {
+            "anyOf": [
+              {
+                "maxLength": 4096,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Year"
+          }
+        },
+        "required": [
+          "candidate_id",
+          "proposed_citekey",
+          "entry_type",
+          "authors",
+          "identity_status",
+          "citekey_status",
+          "source_observation_ids"
+        ],
+        "title": "ReferenceCandidateResponse",
+        "type": "object"
+      },
+      "ReferenceRecordMatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "authority_status": {
+            "const": "non-authoritative-discrepancy-observation",
+            "title": "Authority Status",
+            "type": "string"
+          },
+          "bibtex_byte_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Bibtex Byte Size",
+            "type": "integer"
+          },
+          "bibtex_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Bibtex Sha256",
+            "type": "string"
+          },
+          "citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Citekey",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "exact-observed-key-and-bytes",
+              "exact-rendered-key-and-bytes",
+              "same-key-different-bytes",
+              "same-observed-bytes-different-key",
+              "same-rendered-bytes-different-key"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "record_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "record_id",
+          "citekey",
+          "bibtex_sha256",
+          "bibtex_byte_size",
+          "authority_status",
+          "kind"
+        ],
+        "title": "ReferenceRecordMatchResponse",
+        "type": "object"
+      },
+      "RenderedCandidateEntryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "citekey": {
+            "maxLength": 200,
+            "minLength": 1,
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9._:+-]{0,199}$",
+            "title": "Citekey",
+            "type": "string"
+          },
+          "entry_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Entry Id",
+            "type": "string"
+          },
+          "entry_type": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Entry Type",
+            "type": "string"
+          },
+          "normalized_fields": {
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 256,
+            "title": "Normalized Fields",
+            "type": "array"
+          },
+          "rendered_byte_size": {
+            "exclusiveMinimum": 0.0,
+            "title": "Rendered Byte Size",
+            "type": "integer"
+          },
+          "rendered_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Rendered Sha256",
+            "type": "string"
+          },
+          "source_observation_ids": {
+            "items": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Source Observation Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "entry_id",
+          "citekey",
+          "entry_type",
+          "normalized_fields",
+          "source_observation_ids",
+          "rendered_sha256",
+          "rendered_byte_size"
+        ],
+        "title": "RenderedCandidateEntryResponse",
+        "type": "object"
+      },
+      "ReviewActorRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor_id": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Actor Id",
+            "type": "string"
+          },
+          "verification_method": {
+            "maxLength": 4096,
+            "minLength": 1,
+            "title": "Verification Method",
+            "type": "string"
+          },
+          "verification_record_id": {
+            "maxLength": 512,
+            "minLength": 73,
+            "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+            "title": "Verification Record Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "actor_id",
+          "verification_record_id",
+          "verification_method"
+        ],
+        "title": "ReviewActorRequest",
         "type": "object"
       },
       "SearchRequest": {
@@ -5647,6 +7223,305 @@
         "summary": "Decide",
         "tags": [
           "citation reviews"
+        ]
+      }
+    },
+    "/courses/{course_id}/references": {
+      "get": {
+        "operationId": "queue_courses__course_id__references_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "course_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$",
+              "title": "Course Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The course or exact Courses-owned item is absent."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The requested evidence, revision, target, disposition, or append position is stale or invalid."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The owner returned malformed authority evidence."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The owner authority service is unavailable."
+          }
+        },
+        "summary": "Queue",
+        "tags": [
+          "course-reference-authority"
+        ]
+      }
+    },
+    "/courses/{course_id}/references/{item_id}/asset-decision": {
+      "put": {
+        "operationId": "decide_asset_courses__course_id__references__item_id__asset_decision_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "course_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$",
+              "title": "Course Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AssetDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceDecisionReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The course or exact Courses-owned item is absent."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The requested evidence, revision, target, disposition, or append position is stale or invalid."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The owner returned malformed authority evidence."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The owner authority service is unavailable."
+          }
+        },
+        "summary": "Decide Asset",
+        "tags": [
+          "course-reference-authority"
+        ]
+      }
+    },
+    "/courses/{course_id}/references/{item_id}/decision": {
+      "put": {
+        "operationId": "decide_identity_courses__course_id__references__item_id__decision_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "course_id",
+            "required": true,
+            "schema": {
+              "maxLength": 255,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,254}$",
+              "title": "Course Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "maxLength": 512,
+              "minLength": 73,
+              "pattern": "^[a-z][a-z0-9.-]*:sha256:[0-9a-f]{64}$",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityDecisionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceDecisionReceiptResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The course or exact Courses-owned item is absent."
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The requested evidence, revision, target, disposition, or append position is stale or invalid."
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The owner returned malformed authority evidence."
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CourseReferenceFailureResponse"
+                }
+              }
+            },
+            "description": "The owner authority service is unavailable."
+          }
+        },
+        "summary": "Decide Identity",
+        "tags": [
+          "course-reference-authority"
         ]
       }
     },

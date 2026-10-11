@@ -7,7 +7,13 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from pathlib import Path
 
+from projectkoios.courses.reference_resolution import (
+    CourseReferenceResolutionScope,
+)
 from projectkoios.obsidian.config import VaultConfiguration
+from projectkoios.references.course_reference_authority_runtime import (
+    CourseReferenceAuthorityRuntimeConfiguration,
+)
 
 _RUN_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$")
 _DATABASE_LEAF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,199}\.sqlite3$")
@@ -109,6 +115,18 @@ class CourseConfiguration:
 
 
 @dataclass(frozen=True)
+class CourseReferenceAuthorityConfiguration:
+    scope: CourseReferenceResolutionScope
+    runtime: CourseReferenceAuthorityRuntimeConfiguration
+
+    def __post_init__(self) -> None:
+        if self.scope.course_id != self.runtime.course_id:
+            raise ValueError(
+                "course reference scope and runtime course identities differ"
+            )
+
+
+@dataclass(frozen=True)
 class PublicationConfiguration:
     catalog_path: Path | None = field(
         default_factory=lambda: _configured_publication_catalog()
@@ -162,6 +180,9 @@ class ProjectKoiosAppConfiguration:
         default_factory=OrganizerConfiguration
     )
     courses: CourseConfiguration = field(default_factory=CourseConfiguration)
+    course_reference_authority: CourseReferenceAuthorityConfiguration | None = (
+        None
+    )
     publications: PublicationConfiguration = field(
         default_factory=PublicationConfiguration
     )
