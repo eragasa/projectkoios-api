@@ -69,15 +69,13 @@ operational methods on data, non-single-action Actionizers, central registries,
 and non-empty package initializers. Pytest exercises both accepted and rejected
 diagnostics, but the mypy invocation is the authoritative gate.
 
-## Local dependency provenance
+## Immutable dependency provenance
 
-This implementation was developed and validated against unpublished local owner
-commits:
+This implementation is pinned to the reviewed, published owner commits:
 
 - Courses: `74174dc698a2a7c7d0ee09d80ea39a867d02fe62`
 - References: `1a7a0066b0116661c8bb688d494865d6e8797e0f`
 
-`pyproject.toml` uses the repository-layout sibling paths so local validation can
-use those exact clean worktrees. No hosted-CI checkout or remote Git pin is added
-until those commits are published and fetchable. Publishing the owner commits
-is a prerequisite for enabling a non-broken hosted-CI pin.
+Both commits are remotely fetchable ancestors of their merged owner branches.
+`pyproject.toml`, `uv.lock`, and hosted CI use those exact immutable revisions;
+CI also verifies their exact source trees before synchronization.

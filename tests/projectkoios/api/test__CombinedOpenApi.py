@@ -713,6 +713,14 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
         "git": "https://github.com/eragasa/projectkoios-ingestion.git",
         "rev": "30db4756049b762ec6ea9962d205424a66d699e3",
     }
+    assert sources["projectkoios-courses"] == {
+        "git": "https://github.com/eragasa/projectkoios-courses.git",
+        "rev": "74174dc698a2a7c7d0ee09d80ea39a867d02fe62",
+    }
+    assert sources["projectkoios-references"] == {
+        "git": "https://github.com/eragasa/projectkoios-references.git",
+        "rev": "1a7a0066b0116661c8bb688d494865d6e8797e0f",
+    }
     assert sources["projectkoios-applications"] == {
         "path": "../projectkoios-applications",
         "editable": False,
@@ -730,8 +738,10 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
     assert "path: projectkoios-public-catalogs" in workflow
     assert "sparse-checkout: public" in workflow
     assert 'root = Path("../projectkoios-public-catalogs/public")' in workflow
-    assert "3d4719dc73ddd7318802b86c7b33c467dd289f9a" in workflow
-    assert "7fa0a5592e30116a2d801590458ec1391b973916" in workflow
+    assert "74174dc698a2a7c7d0ee09d80ea39a867d02fe62" in workflow
+    assert "83766ad879a26241d5b79a9dbd544f3dd4fdb6a3" in workflow
+    assert "1a7a0066b0116661c8bb688d494865d6e8797e0f" in workflow
+    assert "033a2ba752213d6389c9f458819cc01b036b8bbb" in workflow
     for identity in (
         "781bdb58ce8ce7a4860edc66abaf190b42c91236",
         "de6257c720fa73caff21b393af4a3fb4858fd617",
@@ -741,8 +751,10 @@ def test__pdf_corpus_owners__have_narrow_locked_dependency_seam() -> None:
         "b7c3ffd23086e7ef184c990267d48a56dd87282b",
         "88c37990fd37650b3091b2cb2f605a589ab624f4",
         "b102469ba33bc6c677ac93d1186a72b1496f5bc8",
-        "3d4719dc73ddd7318802b86c7b33c467dd289f9a",
-        "7fa0a5592e30116a2d801590458ec1391b973916",
+        "74174dc698a2a7c7d0ee09d80ea39a867d02fe62",
+        "83766ad879a26241d5b79a9dbd544f3dd4fdb6a3",
+        "1a7a0066b0116661c8bb688d494865d6e8797e0f",
+        "033a2ba752213d6389c9f458819cc01b036b8bbb",
         "be60640bec4fe15cc88b24161545eb1027ffbd2e",
         "d386a1744f79463fd7cd0b3087ee5fc361e0f7d5",
     ):

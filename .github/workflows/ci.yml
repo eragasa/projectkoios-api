@@ -110,19 +110,33 @@ jobs:
           path: projectkoios-obsidian
           persist-credentials: false
 
-      - name: GitHubTask 09 · Check out locked references component
+      - name: GitHubTask 09 · Check out locked Courses owner
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          repository: eragasa/projectkoios-courses
+          ref: 74174dc698a2a7c7d0ee09d80ea39a867d02fe62
+          path: projectkoios-courses
+          persist-credentials: false
+
+      - name: GitHubTask 09a · Verify locked Courses owner
+        working-directory: projectkoios-courses
+        run: |
+          test "$(git rev-parse HEAD)" = "74174dc698a2a7c7d0ee09d80ea39a867d02fe62"
+          test "$(git rev-parse HEAD^{tree})" = "83766ad879a26241d5b79a9dbd544f3dd4fdb6a3"
+
+      - name: GitHubTask 09b · Check out locked References owner
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: eragasa/projectkoios-references
-          ref: 3d4719dc73ddd7318802b86c7b33c467dd289f9a
+          ref: 1a7a0066b0116661c8bb688d494865d6e8797e0f
           path: projectkoios-references
           persist-credentials: false
 
-      - name: GitHubTask 09a · Verify locked references component
+      - name: GitHubTask 09c · Verify locked References owner
         working-directory: projectkoios-references
         run: |
-          test "$(git rev-parse HEAD)" = "3d4719dc73ddd7318802b86c7b33c467dd289f9a"
-          test "$(git rev-parse HEAD^{tree})" = "7fa0a5592e30116a2d801590458ec1391b973916"
+          test "$(git rev-parse HEAD)" = "1a7a0066b0116661c8bb688d494865d6e8797e0f"
+          test "$(git rev-parse HEAD^{tree})" = "033a2ba752213d6389c9f458819cc01b036b8bbb"
 
       - name: GitHubTask 10 · Install locked Python toolchain
         uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0

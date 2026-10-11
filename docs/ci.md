@@ -7,11 +7,11 @@ record.
 
 The intended sequence checks out the API candidate and exact reviewed revisions
 of Applications, runtime Ingestion, Project Koios core, organizer, Search,
-Obsidian, and References; synchronizes `uv.lock`; validates the product-owned
-public catalogs; checks formatting and Ruff; runs strict mypy; verifies
+Obsidian, Courses, and References; synchronizes `uv.lock`; validates the
+product-owned public catalogs; checks formatting and Ruff; runs strict mypy; verifies
 deterministic OpenAPI; and runs the full API test suite.
 
-The citation-document and retained equation/transcript owner pins are:
+The reviewed runtime and data pins are:
 
 | Source | Checkout role | Exact commit | Exact tree |
 |---|---|---|---|
@@ -19,7 +19,8 @@ The citation-document and retained equation/transcript owner pins are:
 | Ingestion | Runtime owner | `30db4756049b762ec6ea9962d205424a66d699e3` | `dd171a3ea215d70bd0852fa4c50ff6e26291ded5` |
 | Project Koios core | Runtime dependency | `233f36900b9b44c943ecc5e27f2968ad4bee97ad` | `b7c3ffd23086e7ef184c990267d48a56dd87282b` |
 | Project Koios public catalogs | CI data only | `88c37990fd37650b3091b2cb2f605a589ab624f4` | `b102469ba33bc6c677ac93d1186a72b1496f5bc8` |
-| References | Runtime owner | `3d4719dc73ddd7318802b86c7b33c467dd289f9a` | `7fa0a5592e30116a2d801590458ec1391b973916` |
+| Courses | Scope/order owner | `74174dc698a2a7c7d0ee09d80ea39a867d02fe62` | `83766ad879a26241d5b79a9dbd544f3dd4fdb6a3` |
+| References | Authority owner | `1a7a0066b0116661c8bb688d494865d6e8797e0f` | `033a2ba752213d6389c9f458819cc01b036b8bbb` |
 
 Applications separately retains Ingestion commit
 `be60640bec4fe15cc88b24161545eb1027ffbd2e` (tree
@@ -48,9 +49,10 @@ Actions behavior.
 The selected Applications `[pdf-corpus]` capability and API development extra
 resolve without a simulations or Physkit package record. Dependency sources are
 not inherited from sibling packages, so the API maps core and runtime Ingestion
-to their exact compatible Git revisions while CI checks out References and
-Applications at the exact reviewed sources. Updating any revision remains a
-reviewed compatibility change.
+to their exact compatible Git revisions. Courses and References are likewise
+mapped to immutable Git revisions and checked out for exact source/type
+verification; Applications remains checked out at its reviewed source. Updating
+any revision remains a reviewed compatibility change.
 
 These tasks produce technical verification only. They do not authorize a commit,
 push, pull request, merge, deployment, publication, release, or architecture
